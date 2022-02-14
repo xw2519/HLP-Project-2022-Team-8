@@ -1,0 +1,71 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DefineConstants>TRACE</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DefineConstants>TRACE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Common definitions --> 
+    <Compile Include="Common\EEExtensions.fs" /> 
+    <Compile Include="Common\ElectronAPI.fs" /> 
+    <Compile Include="Common\CommonTypes.fs" /> 
+    <Compile Include="Common\DrawHelpers.fs" />
+    <Compile Include="Common\Helpers.fs" />
+    <Compile Include="Common\TimeHelpers.fs" />
+    <Compile Include="Common\WidthInferer.fs" />
+    <!-- simulator -->
+    <Compile Include="Simulator\SimulatorTypes.fs" />
+    <Compile Include="Simulator\NumberHelpers.fs" />
+    <Compile Include="Simulator\SynchronousUtils.fs" />
+    <Compile Include="Simulator\CanvasStateAnalyser.fs" />
+    <Compile Include="Simulator\SimulationGraphAnalyser.fs" />
+    <Compile Include="Simulator\Builder.fs" />
+    <Compile Include="Simulator\FastCreate.fs" />
+    <Compile Include="Simulator\FastReduce.fs" />
+    <Compile Include="Simulator\FastRun.fs" />
+    <Compile Include="Simulator\Verilog.fs" />
+    <Compile Include="Simulator\Runner.fs" />
+    <Compile Include="Simulator\DependencyMerger.fs" />
+    <Compile Include="Simulator\Simulator.fs" />
+    
+    <!-- JS and File interface -->
+    <Compile Include="Interface\Version.fs" />
+    <Compile Include="Interface\JSHelpers.fs" />
+    <Compile Include="Interface\Extractor.fs" />
+    <Compile Include="Interface\FilesIO.fs" />
+    <None Include="scss\main.scss" />
+
+    <!-- Draw2D diagram -->
+    <Compile Include="DrawBlock\Symbol.fs" />
+    <Compile Include="DrawBlock\BusWire.fs" />
+    <Compile Include="DrawBlock\Sheet.fs" />
+    
+    <!-- UI -->
+    <Compile Include="UI/ModelType.fs" />
+    <Compile Include="UI/Style.fs" />
+    <Compile Include="UI\Notifications.fs" />
+    <Compile Include="UI/PopupView.fs" />
+    <Compile Include="UI/MemoryEditorView.fs" />
+    <Compile Include="UI\CustomCompPorts.fs" />
+    <Compile Include="UI/FileMenuView.fs" />
+    <Compile Include="UI/SimulationView.fs" />
+    <Compile Include="UI/CatalogueView.fs" />
+    <Compile Include="UI/SelectedComponentView.fs" />
+    <Compile Include="UI\WaveSimHelpers.fs" />
+    <Compile Include="UI/WaveformSimulationView.fs" />
+    <Compile Include="UI\MainView.fs" />
+    <Compile Include="UI\Update.fs" />
+    <Compile Include="Renderer.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="6.0.1" />
+  </ItemGroup>
+  <!-- Dependencies -->
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

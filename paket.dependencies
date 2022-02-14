@@ -1,0 +1,56 @@
+ 
+
+framework: auto-detect
+source https://api.nuget.org/v3/index.json
+
+group Electron
+	source https://api.nuget.org/v3/index.json
+	nuget Fable.Browser.Css
+	nuget Fable.Electron 
+	nuget Fable.Elmish 
+	nuget Fable.Elmish.Debugger
+	nuget Fable.Elmish.HMR 
+	nuget Fable.Elmish.React 
+	nuget Fable.Import.Node
+	nuget Fable.Browser.Dom
+	nuget Fable.SimpleJson
+	nuget Fable.Promise 
+	nuget Fable.React  
+	nuget FSharp.Core  redirects:force
+	nuget Fulma
+	nuget Fulma.Extensions.Wikiki.Tooltip
+
+group Testing
+	source https://api.nuget.org/v3/index.json
+
+	nuget Expecto 
+	nuget Expecto.BenchmarkDotNet
+	nuget Expecto.FsCheck 
+	nuget Expecto.TestResults 
+	nuget Foq 
+	nuget FSharp.Core redirects:force
+	nuget FSharp.Data 
+    nuget Logary 
+	nuget Microsoft.NETCore.Platforms
+
+
+
+group FakeBuild
+	source https://api.nuget.org/v3/index.json
+
+	storage: none
+	nuget FSharp.Core ~> 6.0.1 redirects:force
+    nuget Fake.Core.Target 
+	nuget Fake.Core.ReleaseNotes 
+	nuget Fake.DotNet.AssemblyInfoFile 
+	nuget Fake.DotNet.Cli 
+    nuget Fake.DotNet.MSBuild 
+	nuget Fake.DotNet.Paket 
+	nuget Fake.IO.FileSystem 
+	nuget Fake.Tools.Git 
+    nuget Fake.JavaScript.Npm 
+	nuget FSharp.Json 
+	nuget dotnet-fake
+	nuget dotnet-fable
+
+	
