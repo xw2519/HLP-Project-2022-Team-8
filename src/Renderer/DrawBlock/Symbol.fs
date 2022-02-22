@@ -34,11 +34,6 @@ type Model = {
     Symbols: Map<ComponentId, Symbol>
     CopiedSymbols: Map<ComponentId, Symbol>
     Ports: Map<string, Port>                            // string since it's for both input and output ports
-
-    InputPortsConnected:  Set<InputPortId>              // we can use a set since we only care if an input port 
-                                                        // is connected or not (if so it is included) in the set 
-
-    OutputPortsConnected: Map<OutputPortId, int>        // map of output port id to number of wires connected to that port
     }
 
 //----------------------------Message Type-----------------------------------//
@@ -447,7 +442,7 @@ let compSymbol (symbol:Symbol) (comp:Component) (colour:string) (showInputPorts:
     |> List.append (createBiColorPolygon points colour olColour opacity strokeWidth)
 
 let init () = 
-    { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty ; InputPortsConnected= Set.empty ; OutputPortsConnected = Map.empty}, Cmd.none
+    { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty }, Cmd.none
 
 //----------------------------View Function for Symbols----------------------------//
 type private RenderSymbolProps =
@@ -512,10 +507,7 @@ let getCmpBoundingBox (model: Model) (compid: ComponentId ): BoundingBox =
 
 
 //--------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS-------------------------------
-// Helpers
-let getSymbolPos (symbolModel: Model) compId =
-    let symbol = Map.find compId symbolModel.Symbols
-    symbol.Pos
+
 
 /// This is quite slow, because it gets the whole maps.
 /// It is used in getInputPortLocation for a single port!!
@@ -536,8 +528,8 @@ let getOutputPortsPositionMap (model: Model) (symbols: Symbol list)  = //These f
     |> Map.ofList
 
 ///Returns the port object associated with a given portId
-let getPort (symModel: Model) (portId: string) =
-    symModel.Ports[portId]
+let getPort (model: Model) (portId: string) =
+    model.Ports[portId]
 
 ///Returns all the port locations of the given components   
 let getPortLocations (symbolModel: Model) (sIds: ComponentId list) = 
