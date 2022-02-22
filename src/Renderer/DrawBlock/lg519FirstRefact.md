@@ -1,6 +1,6 @@
 TODO: 
 - rename and do obvious refactoring. 
-- Use Cmp X and Y rather than Sym Pos
+- Use Cmp X and Y rather than Sym Pos. Beware that Cmp X and Cmp Y are ints but Sym.Pos.X and Sym.Pos.Y are floats.
 - Remove Sym Id and use Cmp Id instead
 
 
