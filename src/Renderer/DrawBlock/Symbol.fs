@@ -162,7 +162,7 @@ let portDecName (comp: Component) =
    // EXTENSION: Extra Components made that are not currently in Issie. Can be extended later by using this code as it is .
 
 /// Genererates a list of ports:
-let portLists numOfPorts hostID portType =
+let generatePortList numOfPorts compId portType =
     if numOfPorts < 1 
     then []
     else
@@ -172,7 +172,7 @@ let portLists numOfPorts hostID portType =
                 Id = JSHelpers.uuid ()
                 PortNumber = Some x
                 PortType = portType
-                HostId = hostID
+                HostId = compId
             }])
 
 
@@ -180,23 +180,25 @@ let portLists numOfPorts hostID portType =
 
 let customToLength (lst : (string * int) list) =
     let labelList = List.map (fst >> String.length) lst
-    if List.isEmpty labelList then 0 //if a component has no inputs or outputs list max will fail
+
+    // If a component has no inputs or outputs list max will fail
+    if List.isEmpty labelList then 0 
     else List.max labelList
 
-// helper function to initialise each type of component
+// Initialise each component type
 let makeComp (pos: XYPos) (compType: ComponentType) (compId: string) (compLabel: string) : Component =
 
-    //Rounds an integer to any given number. The first parameter is the number to round to, the second parameter is the input number that will be rounded
-    let roundToNth (n : int) (x : int) = x + abs((x % n) - n)
+    // Rounds an integer to any given number. 
+    let roundToNth (precision : int) (x : int) = x + abs((x % precision) - precision)
 
-    // function that helps avoid dublicate code by initialising parameters that are the same for all component types and takes as argument the others
+    // function that helps avoid duplicate code by initialising parameters that are the same for all component types and takes as argument the others
     let makeComponent (n, nout, h, w) label : Component =  
         {
             Id = compId 
             Type = compType 
             Label = label 
-            InputPorts = portLists n compId PortType.Input 
-            OutputPorts  = portLists nout compId PortType.Output 
+            InputPorts = generatePortList n compId PortType.Input 
+            OutputPorts  = generatePortList nout compId PortType.Output 
             X  = int (pos.X - float w / 2.0) 
             Y = int (pos.Y - float h / 2.0) 
             H = h 
