@@ -807,9 +807,9 @@ let addSymbol (model: Model) pos compType lbl =
     { model with Symbols = newSymModel; Ports = newPorts }, newSym.Id
 
 // Helper function to change the number of bits expected in a port of each component type
-let changeNumberOfBitsf (symModel:Model) (compId:ComponentId) (newBits : int) =
+let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (newBits : int) =
     
-    let symbol = Map.find compId symModel.Symbols
+    let symbol = Map.find cmpId model.Symbols
     let newcompotype = 
         match symbol.Compo.Type with
         | Input _ -> Input newBits
@@ -829,7 +829,7 @@ let changeNumberOfBitsf (symModel:Model) (compId:ComponentId) (newBits : int) =
     {symbol with Compo = newcompo}
 
 // Helper function to change the number of bits expected in the LSB port of BusSelection and BusCompare
-let changeLsbf (symModel:Model) (compId:ComponentId) (newLsb:int64) =
+let updateLSB (symModel:Model) (compId:ComponentId) (newLsb:int64) =
     let symbol = Map.find compId symModel.Symbols
     let newcompotype = 
         match symbol.Compo.Type with
@@ -840,7 +840,7 @@ let changeLsbf (symModel:Model) (compId:ComponentId) (newLsb:int64) =
     let newcompo = {symbol.Compo with Type = newcompotype}
     {symbol with Compo = newcompo}
 
-let changeConstantf (symModel:Model) (compId:ComponentId) (constantVal:int64) (constantText: string) =
+let updateConstant (symModel:Model) (compId:ComponentId) (constantVal:int64) (constantText: string) =
     let symbol = Map.find compId symModel.Symbols
     let newcompotype = 
         match symbol.Compo.Type with
@@ -850,6 +850,10 @@ let changeConstantf (symModel:Model) (compId:ComponentId) (constantVal:int64) (c
     printfn "Changing symbol to: %A" newcompotype
     {symbol with Compo = newcompo}
     
+
+//---------------------------------- UPDATE FUNCTION -------------------------------//
+
+
 /// update function which displays symbols
 let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
     match msg with
@@ -935,19 +939,19 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         { model with Symbols = newSymbols }, Cmd.none 
     
     | ChangeNumberOfBits (compId, newBits) ->
-        let newsymbol = changeNumberOfBitsf model compId newBits
+        let newsymbol = updateCmpNumOfBits model compId newBits
         let symbolswithoutone = model.Symbols.Remove compId
         let newSymbolsWithChangedSymbol = symbolswithoutone.Add (compId, newsymbol)
         { model with Symbols = newSymbolsWithChangedSymbol }, Cmd.none
     
     | ChangeLsb (compId, newLsb) -> 
-        let newsymbol = changeLsbf model compId newLsb
+        let newsymbol = updateLSB model compId newLsb
         let symbolswithoutone = model.Symbols.Remove compId
         let newSymbolsWithChangedSymbol = symbolswithoutone.Add (compId, newsymbol)
         { model with Symbols = newSymbolsWithChangedSymbol }, Cmd.none
 
     | ChangeConstant (compId, newVal, newText) -> 
-        let newsymbol = changeConstantf model compId newVal newText
+        let newsymbol = updateConstant model compId newVal newText
         let symbolswithoutone = model.Symbols.Remove compId
         let newSymbolsWithChangedSymbol = symbolswithoutone.Add (compId, newsymbol)
         { model with Symbols = newSymbolsWithChangedSymbol }, Cmd.none
@@ -1027,7 +1031,10 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         
         { model with Symbols = newSymbols }, Cmd.none
         
-// ----------------------interface to Issie----------------------------- //
+
+
+// -------------------------------INTERFACE TO ISSIE --------------------------------- //
+
 let extractComponent (symModel: Model) (sId:ComponentId) : Component = 
     symModel.Symbols[sId].Compo
 

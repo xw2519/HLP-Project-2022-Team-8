@@ -69,6 +69,11 @@ TODO: remove getBoundingBoxofSymbol and only use getOneBoundingBox
 **getCopiedSymbols**
 - ok
 
+**getCompList**
+- change later if you have time. Only used in genCmpIndex to return the number associated 
+with each component. Create new datastracture (Map) in model that contains type of each component and how many
+times it is displayed in the current model
+
 **filterString**
 - removed. Equivalent to String.ToUpper
 
@@ -83,4 +88,26 @@ TODO: remove getBoundingBoxofSymbol and only use getOneBoundingBox
 
 **generateLabel**
 - renamed to genCmpLabel
+
+**pasteSymbols**
+- ok. TODO: Discuss this funtion with team
+
+**getEquivalentCopiedPorts**
+- ok. TODO: Discuss this funtion with team
+
+**changeNumberOfBitsf**
+- renamed to updateCmpNumOfBits
   
+**changeLsbf**
+- renamed to updateLSB
+
+**changeConstantf**
+- renamed to updateConstant
+
+
+# UPDATE FUNCTION
+**update**
+- ok
+
+# INTERFACE TO ISSIE
+- ok
