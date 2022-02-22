@@ -33,7 +33,9 @@ type Symbol =
 type Model = {
     Symbols: Map<ComponentId, Symbol>
     CopiedSymbols: Map<ComponentId, Symbol>
-    Ports: Map<string, Port>                            // string since it's for both input and output ports
+    Ports: Map<string, Port> 
+    
+                               // string since it's for both input and output ports
     }
 
 //----------------------------Message Type-----------------------------------//
@@ -532,50 +534,43 @@ let getPort (model: Model) (portId: string) =
     model.Ports[portId]
 
 ///Returns all the port locations of the given components   
-let getPortLocations (symbolModel: Model) (sIds: ComponentId list) = 
-    let getSymbols = 
-        symbolModel.Symbols 
-        |> Map.filter (fun sId sym  -> List.contains sId sIds)
+let getCmpsPortLocations (model: Model) (symIds: ComponentId list) = 
+    let syms = 
+        model.Symbols 
+        |> Map.filter (fun sId sym  -> List.contains sId symIds)
         |> Map.toList
         |> List.map snd
         
-    let getInputPortMap = getInputPortsPositionMap symbolModel getSymbols
-    let getOutputPortMap = getOutputPortsPositionMap symbolModel getSymbols
+    let getInputPortMap = getInputPortsPositionMap model syms
+    let getOutputPortMap = getOutputPortsPositionMap model syms
        
     getInputPortMap , getOutputPortMap
 
 ///Returns the location of an input portId  
-let getInputPortLocation (model:Model) (portId: InputPortId)  = 
+let getInputPortLocation (model:Model) (inPortId: InputPortId)  = 
     let allSymbols =
         model.Symbols
         |> Map.toList
         |> List.map snd
         
     getInputPortsPositionMap model allSymbols 
-    |> Map.find (portId)
+    |> Map.find (inPortId)
     
 
 //Returns the location of an output portId
-let getOutputPortLocation (model:Model) (portId : OutputPortId) =
+let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
     let allSymbols =
         model.Symbols
         |> Map.toList
         |> List.map snd
         
     getOutputPortsPositionMap model allSymbols 
-    |> Map.find (portId)     
+    |> Map.find (outPortId)     
 
-///Returns the location of a given portId
-let getOnePortLocation (symModel: Model) (portId : string) (pType: PortType)=
-        match pType with
-        | PortType.Input ->
-            getInputPortLocation symModel (InputPortId portId)
-        | PortType.Output ->
-            getOutputPortLocation symModel (OutputPortId portId)   
             
 /// Returns the location of a given portId, with better efficiency
 /// This is still slow, the ports should be looked up from a map of ports
-let getOnePortLocationNew (symModel: Model) (portId : string) (pType: PortType) : XYPos=
+let getPortLocation (symModel: Model) (portId : string) (pType: PortType) : XYPos=
     symModel.Symbols
     |> Map.pick (fun key sym -> 
         let comp = sym.Compo
@@ -587,10 +582,15 @@ let getOnePortLocationNew (symModel: Model) (portId : string) (pType: PortType) 
 
 
 /// Returns the locations of a given input portId and output portId
-let getTwoPortLocations (symModel: Model) (inPortId: InputPortId ) (outPortId: OutputPortId) =
+let getPortLocations (symModel: Model) (inPortId: InputPortId ) (outPortId: OutputPortId) =
     match inPortId, outPortId with
     | InputPortId inputId, OutputPortId outputId ->
-        (getOnePortLocationNew symModel inputId PortType.Input, getOnePortLocationNew symModel outputId PortType.Output)
+        (getPortLocation symModel inputId PortType.Input, getPortLocation symModel outputId PortType.Output)
+
+
+
+//----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
+
 
 /// Interface function to get componentIds of the copied symbols
 let getCopiedSymbols (symModel: Model) : (ComponentId list) =
@@ -598,22 +598,6 @@ let getCopiedSymbols (symModel: Model) : (ComponentId list) =
     |> Map.toList
     |> List.map fst
 
-/// Function to filter out terminal non-letter characters.
-/// Modified to capitalise labels
-let filterString (string: string) = 
-    string.ToUpper()
-    |> Seq.rev
-    |> Seq.skipWhile System.Char.IsDigit
-    |> Seq.rev
-    |> Seq.map System.Char.ToString
-    |> String.concat ""
-   
-///Returns the number of the component label (i.e. the number 1 from IN1 or ADDER16.1)
-let regex (str : string) = 
-    let index = Regex.Match(str, @"\d+$")
-    match index with
-    | null -> 0
-    | _ -> int index.Value
 
 let getCompList compType listSymbols =
     match compType with 
@@ -714,30 +698,38 @@ let getCompList compType listSymbols =
             listSymbols
             |> List.filter (fun sym -> sym.Compo.Type = compType)
 
-let getIndex listSymbols compType =
+///Genertates the number of the component label (i.e. the number 1 from IN1 or XOR1)
+let genCmpIndex modelSyms compType =
+    
+    let getCmpIndex (str : string) = 
+        let index = Regex.Match(str, @"\d+$")
+        match index with
+        | null -> 0
+        | _ -> int index.Value
+
     let symbolList = 
-        getCompList compType listSymbols
+        getCompList compType modelSyms
 
     match compType with
     | MergeWires | SplitWire _ -> ""
     | _ ->
         if List.isEmpty symbolList then 1 
         else symbolList
-            |> List.map (fun sym -> regex sym.Compo.Label)
+            |> List.map (fun sym -> getCmpIndex sym.Compo.Label)
             |> List.max
             |> (+) 1
         |> string
 
-///Generates the number to be put in the title of symbols  
-let labelGenNumber (model: Model) (compType: ComponentType) (label : string) = 
-    let listSymbols = List.map snd (Map.toList model.Symbols) 
-    match compType with
-    | IOLabel -> label
-    | _ -> filterString label + (getIndex listSymbols compType)
 
 ///Generates the label for a component type
-let generateLabel (model: Model) (compType: ComponentType) : string =
-    labelGenNumber model compType (prefix compType)
+let genCmpLabel (model: Model) (compType: ComponentType) : string =
+
+    let label = prefix compType
+    let modelSyms = List.map snd (Map.toList model.Symbols) 
+    match compType with
+    | IOLabel -> label
+    | _ -> label.ToUpper() + (genCmpIndex modelSyms compType)
+
 
 /// Interface function to paste symbols. Is a function instead of a message because we want an output
 /// Currently drag-and-drop
@@ -750,7 +742,7 @@ let pasteSymbols (symModel: Model) (mPos: XYPos) : (Model * ComponentId list) =
         let pastedSymbol =
             { oldSymbol with
                 Id = ComponentId newId
-                Compo = makeComp newPos oldSymbol.Compo.Type newId (labelGenNumber { symModel with Symbols = currSymbolModel.Symbols } oldSymbol.Compo.Type oldSymbol.Compo.Label) // TODO: Change label later
+                Compo = makeComp newPos oldSymbol.Compo.Type newId (genCmpLabel { symModel with Symbols = currSymbolModel.Symbols } oldSymbol.Compo.Type ) // TODO: Change label later
                 Pos = newPos
                 ShowInputPorts = false
                 ShowOutputPorts = false }

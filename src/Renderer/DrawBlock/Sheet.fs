@@ -159,7 +159,7 @@ type Model = {
     
     /// Given a compType, return a label
     member this.GenerateLabel (compType: ComponentType) : string =
-        Symbol.generateLabel this.Wire.Symbol compType
+        Symbol.genCmpLabel this.Wire.Symbol compType
     
     /// Given a compId, return the corresponding component
     member this.GetComponentById (compId: ComponentId) =
@@ -415,7 +415,7 @@ let mouseOnPort portList (pos: XYPos) (margin: float) =
 
 /// Returns the ports of all model.NearbyComponents
 let findNearbyPorts (model: Model) =
-    let inputPortsMap, outputPortsMap = Symbol.getPortLocations model.Wire.Symbol model.NearbyComponents
+    let inputPortsMap, outputPortsMap = Symbol.getCmpsPortLocations model.Wire.Symbol model.NearbyComponents
     
     (inputPortsMap, outputPortsMap) ||> (fun x y -> (Map.toList x), (Map.toList y))
 
@@ -791,7 +791,7 @@ let mMoveUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
     match model.Action with
     | DragAndDrop -> moveSymbols model mMsg
     | InitialisedCreateComponent (compType, lbl) ->
-        let labelTest = if lbl = "" then Symbol.generateLabel model.Wire.Symbol compType else lbl
+        let labelTest = if lbl = "" then Symbol.genCmpLabel model.Wire.Symbol compType else lbl
         let newSymbolModel, newCompId = Symbol.addSymbol model.Wire.Symbol mMsg.Pos compType labelTest
 
         { model with Wire = { model.Wire with Symbol = newSymbolModel }
