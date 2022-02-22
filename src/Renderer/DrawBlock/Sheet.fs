@@ -293,7 +293,7 @@ let boxUnion (box:BoundingBox) (box':BoundingBox) =
     }
 
 let symbolToBB (symbol:Symbol.Symbol) =
-    let co = symbol.Compo 
+    let co = symbol.Component 
     {X= float co.X; Y=float co.Y; W=float (co.W); H=float (co.H)}
     
 
