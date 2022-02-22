@@ -140,7 +140,8 @@ let gateDecoderType (comp:Component) =
     | _ -> ""
 
 // Input and Output names of the ports depending on their ComponentType
-let portDecName (comp:Component) = //(input port names, output port names)
+// (input port names, output port names)
+let portDecName (comp:Component) = 
     match comp.Type with
     | Decode4 -> (["Sel";"Data"],["0"; "1";"2"; "3"])
     | NbitsAdder _ -> (["Cin";"A";"B"],["Sum "; "Cout"])
@@ -471,7 +472,7 @@ let private renderSymbol =
     FunctionComponent.Of(
         fun (props : RenderSymbolProps) ->
             let symbol = props.Symbol
-            let ({X=fX; Y=fY}:XYPos) = symbol.Pos
+            let ({X=fX; Y=fY}:XYPos) = {X=float(symbol.Component.X); Y=float(symbol.Component.Y)}
             g ([ Style [ Transform(sprintf "translate(%fpx, %fpx)" fX fY) ] ]) (compSymbol props.Symbol props.Symbol.Component symbol.Colour symbol.ShowInputPorts symbol.ShowOutputPorts symbol.Opacity)
             
         , "Symbol"
