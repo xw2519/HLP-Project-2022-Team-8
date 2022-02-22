@@ -500,15 +500,15 @@ let view (model : Model) (dispatch : Msg -> unit) =
 
 //------------------------GET BOUNDING BOXES FUNCS--------------------------------used by sheet.
 // Function that returns the bounding box of a symbol. It is defined by the height and the width as well as the x,y position of the symbol
-let getBoundingBoxofSymbol (sym:Symbol): BoundingBox =
-    {X = float(sym.Pos.X) ; Y = float(sym.Pos.Y) ; H = float(sym.Compo.H) ; W = float(sym.Compo.W)}
+let getSymBoundingBox (sym:Symbol): BoundingBox =
+    {X = float(sym.Compo.X) ; Y = float(sym.Compo.Y) ; H = float(sym.Compo.H) ; W = float(sym.Compo.W)}
 
-let getBoundingBoxes (symModel: Model): Map<ComponentId, BoundingBox> =
-    Map.map (fun sId (sym:Symbol) -> (getBoundingBoxofSymbol sym)) symModel.Symbols
+let getModelBoundingBoxes (model: Model): Map<ComponentId, BoundingBox> =
+    Map.map (fun symId sym -> (getSymBoundingBox sym)) model.Symbols
     
-let getOneBoundingBox (symModel: Model) (compid: ComponentId ): BoundingBox =
-    let symb = Map.find compid symModel.Symbols
-    getBoundingBoxofSymbol symb
+let getCmpBoundingBox (model: Model) (compid: ComponentId ): BoundingBox =
+    let sym = Map.find compid model.Symbols
+    getSymBoundingBox sym
 
 
 //--------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS-------------------------------
