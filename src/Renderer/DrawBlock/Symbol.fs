@@ -277,7 +277,7 @@ let addToPortModel (model: Model) (sym: Symbol) =
 //-----------------------------------------GET PORT POSITION---------------------------------------------------
 // Function that calculates the positions of the ports 
 
-let getPortPos (comp: Component) (port: Port) : XYPos = 
+let getPortPos (symbol: Symbol) (port: Port) : XYPos = 
     /// hack so that bounding box of splitwire, mergewires can be smaller height relative to ports
     // This is where we modify port rotations
     let inline getPortPosEdgeGap (compType: ComponentType) =
@@ -286,44 +286,45 @@ let getPortPos (comp: Component) (port: Port) : XYPos =
         | _ -> 1.0
     
     // Testing purposes
-    let stransform = Rotation.Zero
+    // let stransform = Rotation.OneEighty
 
     if port.PortType = (PortType.Input) then
-        let ports = comp.InputPorts 
+        let ports = symbol.Component.InputPorts 
         
         let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
-        let gapBetweenPorts = getPortPosEdgeGap comp.Type 
+        let gapBetweenPorts = getPortPosEdgeGap symbol.Component.Type 
 
         let posX = 0.0
-        let posY = (float(comp.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
+        let posY = (float(symbol.Component.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
 
         // Handle rotation
-        match stransform with
+        match symbol.STransform with
         | Rotation.Zero -> {X = posX; Y = posY}
         | Rotation.Ninety -> {X = posY; Y = posX}
-        | Rotation.OneEighty -> {X = float(comp.W); Y = posY}
-        | Rotation.TwoSeventy -> {X = posY; Y = posX + float(comp.W)}
+        | Rotation.OneEighty -> {X = float(symbol.Component.W); Y = posY}
+        | Rotation.TwoSeventy -> {X = posY; Y = posX + float(symbol.Component.W)}
         | _ -> {X = posX; Y = posY}
         
     else
-        let ports = comp.OutputPorts 
+        let ports = symbol.Component.OutputPorts 
         
         let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
-        let gapBetweenPorts = getPortPosEdgeGap comp.Type 
+        let gapBetweenPorts = getPortPosEdgeGap symbol.Component.Type 
 
-        let posX = float( comp.W )
-        let posY = (float(comp.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
+        let posX = float(symbol.Component.W)
+        let posY = (float(symbol.Component.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
 
         // Handle rotation
-        match stransform with
+        match symbol.STransform with
         | Rotation.Zero -> {X = posX; Y = posY}
         | Rotation.Ninety -> {X = posY; Y = posX}
-        | Rotation.TwoSeventy -> {X = posY; Y = posX - float(comp.H)}
+        | Rotation.OneEighty -> {X = 0.0; Y = posY}
+        | Rotation.TwoSeventy -> {X = posY; Y = posX - float(symbol.Component.H)}
         | _ -> {X = posX; Y = posY}
     
 
 let getModelPortPos (model: Model) (port: Port) =
-    getPortPos (Map.find (ComponentId port.HostId) model.Symbols).Component port
+    getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
 
 //-----------------------------------------DRAWING HELPERS ---------------------------------------------------
 
@@ -338,7 +339,7 @@ let private drawPortCircle x y =
     [makeCircle x y portCircle]
 
 // Print the name of each port 
-let private drawPortText (portList: Port List) (listOfNames: string List) (comp: Component) = 
+let private drawPortText (portList: Port List) (listOfNames: string List) (symbol: Symbol) = 
     // Define the name of each port 
     let addPortName x y name portType=
         let xPos = if portType = PortType.Output then x - 5. else x + 5.
@@ -350,16 +351,16 @@ let private drawPortText (portList: Port List) (listOfNames: string List) (comp:
         then  []
         else 
             [0..(portList.Length-1)]
-            |> List.map2 (fun name x -> (addPortName (getPortPos comp portList[x]).X (getPortPos comp portList[x]).Y name (portList.Head.PortType))) listOfNames 
+            |> List.map2 (fun name x -> (addPortName (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y name (portList.Head.PortType))) listOfNames 
             |> List.collect id
 
 // Function to draw ports using getPortPos. The ports are equidistant     
-let private drawPorts (portList: Port List) (printPorts: bool) (comp: Component) = 
+let private drawPorts (portList: Port List) (printPorts: bool) (symbol: Symbol) = 
     if (portList.Length)  < 1 
     then []
     else
         if printPorts
-        then [0..(portList.Length-1)] |> List.collect (fun x -> (drawPortCircle (getPortPos comp portList[x]).X (getPortPos comp portList[x]).Y))
+        then [0..(portList.Length-1)] |> List.collect (fun x -> (drawPortCircle (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y))
         else []
 
 //------------------------------HELPER FUNCTIONS FOR DRAWING SYMBOLS-------------------------------------
@@ -463,10 +464,10 @@ let drawSymbol
         | _ -> "black", "1.0"
    
     // Put everything together 
-    (drawPorts comp.OutputPorts showOutputPorts comp)
-    |> List.append (drawPorts comp.InputPorts showInputPorts comp)
-    |> List.append (drawPortText comp.InputPorts (fst(insertPortTitle comp)) comp)
-    |> List.append (drawPortText comp.OutputPorts (snd(insertPortTitle comp)) comp)  
+    (drawPorts comp.OutputPorts showOutputPorts symbol)
+    |> List.append (drawPorts comp.InputPorts showInputPorts symbol)
+    |> List.append (drawPortText comp.InputPorts (fst(insertPortTitle comp)) symbol)
+    |> List.append (drawPortText comp.OutputPorts (snd(insertPortTitle comp)) symbol)  
     |> List.append (addText (float halfW) (+5.0) (insertCompTitle comp) "middle" "bold" "14px") 
     |> List.append (addText (float halfW) (-20.0) comp.Label "middle" "normal" "16px")
     |> List.append (additions)
