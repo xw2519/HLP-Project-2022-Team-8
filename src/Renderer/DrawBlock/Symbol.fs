@@ -277,30 +277,50 @@ let addToPortModel (model: Model) (sym: Symbol) =
 //-----------------------------------------GET PORT POSITION---------------------------------------------------
 // Function that calculates the positions of the ports 
 
-let getPortPos (comp: Component) (port: Port) = 
+let getPortPos (comp: Component) (port: Port) : XYPos = 
     /// hack so that bounding box of splitwire, mergewires can be smaller height relative to ports
     // This is where we modify port rotations
     let inline getPortPosEdgeGap (compType: ComponentType) =
         match compType with
         | MergeWires | SplitWire _  -> 0.25
         | _ -> 1.0
+    
+    // Testing purposes
+    let stransform = Rotation.Zero
 
-    // Handle posX rotation
-    // match comp.STransform with
-    // | Zero -> 
+    if port.PortType = (PortType.Input) then
+        let ports = comp.InputPorts 
+        
+        let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
+        let gapBetweenPorts = getPortPosEdgeGap comp.Type 
 
-    let (ports, posX) =
-        if port.PortType = (PortType.Input) then
-            (comp.InputPorts, 0.0)
-        else 
-            (comp.OutputPorts, float( comp.W ))
+        let posX = 0.0
+        let posY = (float(comp.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
 
-    let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
-    let gapBetweenPorts = getPortPosEdgeGap comp.Type 
-    // the ports are created so that they are equidistant
-    let posY = (float(comp.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
+        // Handle rotation
+        match stransform with
+        | Rotation.Zero -> {X = posX; Y = posY}
+        | Rotation.Ninety -> {X = posY; Y = posX}
+        | Rotation.OneEighty -> {X = float(comp.W); Y = posY}
+        | Rotation.TwoSeventy -> {X = posY; Y = posX + float(comp.W)}
+        | _ -> {X = posX; Y = posY}
+        
+    else
+        let ports = comp.OutputPorts 
+        
+        let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
+        let gapBetweenPorts = getPortPosEdgeGap comp.Type 
 
-    {X = posX; Y = posY}
+        let posX = float( comp.W )
+        let posY = (float(comp.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
+
+        // Handle rotation
+        match stransform with
+        | Rotation.Zero -> {X = posX; Y = posY}
+        | Rotation.Ninety -> {X = posY; Y = posX}
+        | Rotation.TwoSeventy -> {X = posY; Y = posX - float(comp.H)}
+        | _ -> {X = posX; Y = posY}
+    
 
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols).Component port
