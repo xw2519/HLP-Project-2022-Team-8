@@ -285,14 +285,13 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         | MergeWires | SplitWire _  -> 0.25
         | _ -> 1.0
     
+    let gapBetweenPorts = getPortPosEdgeGap symbol.Component.Type 
+    
     // Testing purposes
     // let stransform = Rotation.OneEighty
-
     if port.PortType = (PortType.Input) then
         let ports = symbol.Component.InputPorts 
-        
         let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
-        let gapBetweenPorts = getPortPosEdgeGap symbol.Component.Type 
 
         let posX = 0.0
         let posY = (float(symbol.Component.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
@@ -307,9 +306,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         
     else
         let ports = symbol.Component.OutputPorts 
-        
         let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
-        let gapBetweenPorts = getPortPosEdgeGap symbol.Component.Type 
 
         let posX = float(symbol.Component.W)
         let posY = (float(symbol.Component.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
@@ -321,7 +318,6 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         | Rotation.OneEighty -> {X = 0.0; Y = posY}
         | Rotation.TwoSeventy -> {X = posY; Y = posX - float(symbol.Component.H)}
         | _ -> {X = posX; Y = posY}
-    
 
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
