@@ -18,7 +18,7 @@ let GridSize = 30
 /// ---------- SYMBOL TYPES ---------- ///
 type Symbol =
     {
-        Pos: XYPos
+        Center: XYPos
         InWidth0: int option
         InWidth1: int option
         Id : ComponentId       
@@ -180,7 +180,7 @@ let customToLength (lst : (string * int) list) =
     else List.max labelList
 
 // helper function to initialise each type of component
-let makeComp (pos: XYPos) (comptype: ComponentType) (id:string) (label:string) : Component =
+let makeComp (symCenter: XYPos) (comptype: ComponentType) (id:string) (label:string) : Component =
 
     // function that helps avoid dublicate code by initialising parameters that are the same for all component types and takes as argument the others
     let makeComponent (n, nout, h, w) label : Component=  
@@ -190,8 +190,8 @@ let makeComp (pos: XYPos) (comptype: ComponentType) (id:string) (label:string) :
             Label = label 
             InputPorts = portLists n id PortType.Input 
             OutputPorts  = portLists nout id PortType.Output 
-            X  = int (pos.X - float w / 2.0) 
-            Y = int (pos.Y - float h / 2.0) 
+            X  = int (symCenter.X - float w / 2.0) 
+            Y = int (symCenter.Y - float h / 2.0) 
             H = h 
             W = w
         }
@@ -244,7 +244,7 @@ let createNewSymbol (pos: XYPos) (comptype: ComponentType) (label:string) =
     let id = JSHelpers.uuid ()
     let comp = makeComp pos comptype id label
     { 
-      Pos = { X = pos.X - float comp.W / 2.0; Y = pos.Y - float comp.H / 2.0 }
+      Center = {X = pos.X ; Y = pos.Y }
       ShowInputPorts = false
       ShowOutputPorts = false
       InWidth0 = None // set by BusWire
@@ -732,43 +732,44 @@ let genCmpLabel (model: Model) (compType: ComponentType) : string =
 
 
 /// Interface function to paste symbols. Is a function instead of a message because we want an output
-/// Currently drag-and-drop
-/// 
-/// 
-let pasteSymbols (symModel: Model) (mPos: XYPos) : (Model * ComponentId list) =
+let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
     
-    /// generates Pasted Symbols. Pasted symbol Pos depends on referenceSymbol and mPos
-    let genPastedSyms (basePos: XYPos) ((currSymbolModel, pastedIdsList) : Model * ComponentId List) (oldSymbol: Symbol): Model * ComponentId List =
-        let newId = JSHelpers.uuid()
-        let posDiff = posDiff oldSymbol.Pos basePos
-        let newPos = posAdd posDiff mPos
+    /// folder function used to update the State (Model, list of pasted symbols) with a list of copied symbols
+    let genPastedSyms (referencePos: XYPos) ((currModel, pastedIds) : Model * ComponentId List) (copiedSym: Symbol): Model * ComponentId List =
         
+        // generate pastedSymbol
+        let Id' = JSHelpers.uuid()
+        let offsetFromReferencePos = posDiff copiedSym.Center referencePos
+        let pastedSymCenter = posAdd offsetFromReferencePos mousePos
+        let pastedCmp = makeComp pastedSymCenter copiedSym.Compo.Type Id' (genCmpLabel { model with Symbols = currModel.Symbols } copiedSym.Compo.Type )
+
         let pastedSymbol =
-            { oldSymbol with
-                Id = ComponentId newId
-                Compo = makeComp newPos oldSymbol.Compo.Type newId (genCmpLabel { symModel with Symbols = currSymbolModel.Symbols } oldSymbol.Compo.Type ) // TODO: Change label later
-                Pos = newPos
+            { copiedSym with
+                Id = ComponentId Id'
+                Compo = pastedCmp 
+                Center = pastedSymCenter
                 ShowInputPorts = false
                 ShowOutputPorts = false }
-             
-        let newSymbolMap = currSymbolModel.Symbols.Add ((ComponentId newId), pastedSymbol) // List needs to be in this order
-        let newPorts = addToPortModel currSymbolModel pastedSymbol
-        { currSymbolModel with Symbols = newSymbolMap; Ports = newPorts }, pastedIdsList @ [ pastedSymbol.Id ]
-        
+                
+        // update currModel with pastedSymbol  
+        let currSymbols' = currModel.Symbols.Add ((ComponentId Id'), pastedSymbol) // List needs to be in this order
+        let currPorts' = addToPortModel currModel pastedSymbol
+        { currModel with Symbols = currSymbols'; Ports = currPorts' }, pastedIds @ [ pastedSymbol.Id ]
+
+    // Symbols that need to be pasted  
     let copiedSyms =
-        symModel.CopiedSymbols
+        model.CopiedSymbols
         |> Map.toList
         |> List.map snd
     
-    // Order Symbols based on their X coordinate
+    // Order copiedSyms based on their X coordinate.
     let copiedSyms' = List.sortBy (fun sym -> sym.Compo.X) copiedSyms
-
 
     match copiedSyms' with
     | referenceSymbol :: _ ->
-        let basePos = posAdd referenceSymbol.Pos { X = (float referenceSymbol.Compo.W) / 2.0; Y = (float referenceSymbol.Compo.H) / 2.0 }
-        ((symModel, []), copiedSyms') ||> List.fold (genPastedSyms basePos)
-    | [] -> symModel, []
+        let referencePos = referenceSymbol.Center 
+        ((model, []), copiedSyms') ||> List.fold (genPastedSyms referencePos)
+    | [] -> model, []
 
     
 /// Given two componentId list of same length and input / output ports that are in list 1, return the equivalent ports in list 2.
@@ -898,8 +899,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let resetSymbols = Map.map (fun _ sym -> { sym with Moving = false}) model.Symbols
         let newSymbols =
             (List.fold (fun prevSymbols sId ->
-                let (newCompo: Component) = {model.Symbols[sId].Compo with X = model.Symbols[sId].Compo.X + int move.X ;Y = model.Symbols[sId].Compo.Y +  int move.Y }
-                Map.add sId {model.Symbols[sId] with Moving = true; Pos = {X = (float model.Symbols[sId].Compo.X + move.X); Y = float model.Symbols[sId].Pos.Y + move.Y} ; Compo = newCompo} prevSymbols) resetSymbols compList)
+                let (newCmp: Component) = {model.Symbols[sId].Compo with X = model.Symbols[sId].Compo.X + int move.X ;Y = model.Symbols[sId].Compo.Y +  int move.Y }
+                Map.add sId {model.Symbols[sId] with Moving = true; Center = {X = float (newCmp.X + newCmp.W/2); Y = float (newCmp.Y + newCmp.H/2)} ; Compo = newCmp} prevSymbols) resetSymbols compList)
         { model with Symbols = newSymbols }, Cmd.none
 
     | SymbolsHaveError compList ->
@@ -969,15 +970,14 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let compIdsWithSymbols =
             comps
             |> List.map ( fun comp -> (
-                                        let xyPos = {X = float comp.X; Y = float comp.Y}
                                         let (h,w) =
                                             if comp.H = -1 && comp.W = -1 then
-                                                let comp' = makeComp xyPos comp.Type comp.Id comp.Label
+                                                let comp' = makeComp {X = float comp.X; Y = float comp.Y} comp.Type comp.Id comp.Label
                                                 comp'.H,comp'.W
                                             else
                                                 comp.H, comp.W
                                         ComponentId comp.Id,
-                                        { Pos = xyPos
+                                        { Center = {X = float (comp.X + h/2); Y = float (comp.Y+ w/2)}
                                           ShowInputPorts = false //do not show input ports initially
                                           ShowOutputPorts = false //do not show output ports initially
                                           Colour = "lightgrey"     // initial color 
