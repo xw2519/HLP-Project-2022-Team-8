@@ -36,6 +36,8 @@ TODO: remove getBoundingBoxofSymbol and only use getOneBoundingBox
 
 # GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS
 
+TODO: use Component (wrapped by symbol) input and output ports!
+
 **getSymbolPos**
 - function not used anywhere. Removed
 
@@ -67,7 +69,7 @@ TODO: remove getBoundingBoxofSymbol and only use getOneBoundingBox
 #  LABEL AND COPY SYMBOLS
 
 **getCopiedSymbols**
-- ok
+- renamed to getCopiedSymbolsIds
 
 **getCompList**
 - change later if you have time. Only used in genCmpIndex to return the number associated 
@@ -111,3 +113,40 @@ times it is displayed in the current model
 
 # INTERFACE TO ISSIE
 - ok
+  
+
+
+# 2nd Refactoring
+
+TODO:
+- port locations functions. Use Model.Ports
+- Use Cmp X and Y rather than Sym Pos. Beware that Cmp X and Cmp Y are ints but Sym.Pos.X and Sym.Pos.Y are floats.
+- make sym pos sym center
+- Remove Sym Id and use Cmp Id instead
+- add STransform (Rotation) and PortOrientation.
+- add PortOffsets map and helper functions to rotate ports
+
+# GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS
+
+**getInputPortsPositionMap**
+- made subfunction of getCmpsPortLocations
+
+**getOutputPortsPositionMap**
+- made subfunction of getCmpsPortLocations
+
+**getInputPortLocation**
+- improved efficiency and speed. Rather than generating getInputPortsPositionMap it nows looks up the port from Model.Ports
+
+**getOutputPortLocation**
+- improved efficiency and speed. Rather than generating getOutputPortsPositionMap it nows looks up the port from Model.Ports
+
+**getPortLocation**
+- removed. Substituted with getInputPortLocation and getOutputPortLocation
+- 
+**getPortLocations**
+- removed. Substituted with getInputPortLocation and getOutputPortLocation
+
+#  LABEL AND COPY SYMBOLS
+
+**pasteSymbols**
+- renamed and commented to facilitate understanding. Used new type Center to make the funciton simpler
