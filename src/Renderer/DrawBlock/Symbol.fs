@@ -460,7 +460,7 @@ let private renderSymbol =
     FunctionComponent.Of(
         fun (props : RenderSymbolProps) ->
             let symbol = props.Symbol
-            let ({X=fX; Y=fY}:XYPos) = symbol.Pos
+            let ({X=fX; Y=fY}:XYPos) = {X =symbol.Compo.X; Y = symbol.Compo.Y}
             g ([ Style [ Transform(sprintf "translate(%fpx, %fpx)" fX fY) ] ]) (compSymbol props.Symbol props.Symbol.Compo symbol.Colour symbol.ShowInputPorts symbol.ShowOutputPorts symbol.Opacity)
             
         , "Symbol"
@@ -517,7 +517,7 @@ let getCmpBoundingBox (model: Model) (compid: ComponentId ): BoundingBox =
 let getInputPortsPositionMap (model: Model) (symbols: Symbol list)  = 
     symbols
     |> List.collect (fun sym -> List.map (fun p -> sym,p) sym.Compo.InputPorts)
-    |> List.map (fun (sym,port) -> (InputPortId port.Id, posAdd (getPortPosModel model port) (sym.Pos)))
+    |> List.map (fun (sym,port) -> (InputPortId port.Id, posAdd (getPortPosModel model port) ({X= sym.Compo.X; Y=sym.Compo.Y})))
     |> Map.ofList
 
 /// This is quite slow, because it gets the whole maps.
@@ -526,7 +526,7 @@ let getInputPortsPositionMap (model: Model) (symbols: Symbol list)  =
 let getOutputPortsPositionMap (model: Model) (symbols: Symbol list)  = //These function add the coordinates of the symbol too
     symbols
     |> List.collect (fun sym -> List.map (fun p -> sym,p) sym.Compo.OutputPorts)
-    |> List.map (fun (sym,port) -> (OutputPortId port.Id , posAdd (getPortPosModel model port) (sym.Pos)))
+    |> List.map (fun (sym,port) -> (OutputPortId port.Id , posAdd (getPortPosModel model port) ({X= sym.Compo.X; Y=sym.Compo.Y})))
     |> Map.ofList
 
 ///Returns the port object associated with a given portId
@@ -578,7 +578,7 @@ let getPortLocation (symModel: Model) (portId : string) (pType: PortType) : XYPo
             List.tryFind (fun (po:Port) -> po.Id = portId) comp.InputPorts
         else
             List.tryFind (fun (po:Port) -> po.Id = portId) comp.OutputPorts
-        |> Option.map (fun port -> posAdd (getPortPosModel symModel port) (sym.Pos)))
+        |> Option.map (fun port -> posAdd (getPortPosModel symModel port) ({X= sym.Compo.X; Y=sym.Compo.Y})))
 
 
 /// Returns the locations of a given input portId and output portId
@@ -733,8 +733,12 @@ let genCmpLabel (model: Model) (compType: ComponentType) : string =
 
 /// Interface function to paste symbols. Is a function instead of a message because we want an output
 /// Currently drag-and-drop
+/// 
+/// 
 let pasteSymbols (symModel: Model) (mPos: XYPos) : (Model * ComponentId list) =
-    let createNewSymbol (basePos: XYPos) ((currSymbolModel, pastedIdsList) : Model * ComponentId List) (oldSymbol: Symbol): Model * ComponentId List =
+    
+    /// generates Pasted Symbols. Pasted symbol Pos depends on referenceSymbol and mPos
+    let genPastedSyms (basePos: XYPos) ((currSymbolModel, pastedIdsList) : Model * ComponentId List) (oldSymbol: Symbol): Model * ComponentId List =
         let newId = JSHelpers.uuid()
         let posDiff = posDiff oldSymbol.Pos basePos
         let newPos = posAdd posDiff mPos
@@ -751,16 +755,19 @@ let pasteSymbols (symModel: Model) (mPos: XYPos) : (Model * ComponentId list) =
         let newPorts = addToPortModel currSymbolModel pastedSymbol
         { currSymbolModel with Symbols = newSymbolMap; Ports = newPorts }, pastedIdsList @ [ pastedSymbol.Id ]
         
-    let oldSymbolsList =
+    let copiedSyms =
         symModel.CopiedSymbols
         |> Map.toList
         |> List.map snd
+    
+    // Order Symbols based on their X coordinate
+    let copiedSyms' = List.sortBy (fun sym -> sym.Compo.X) copiedSyms
 
-    match List.sortBy (fun sym -> sym.Pos.X) oldSymbolsList with
-    | baseSymbol :: _ ->
-        let basePos = posAdd baseSymbol.Pos { X = (float baseSymbol.Compo.W) / 2.0; Y = (float baseSymbol.Compo.H) / 2.0 }
-        
-        ((symModel, []), oldSymbolsList) ||> List.fold (createNewSymbol basePos)
+
+    match copiedSyms' with
+    | referenceSymbol :: _ ->
+        let basePos = posAdd referenceSymbol.Pos { X = (float referenceSymbol.Compo.W) / 2.0; Y = (float referenceSymbol.Compo.H) / 2.0 }
+        ((symModel, []), copiedSyms') ||> List.fold (genPastedSyms basePos)
     | [] -> symModel, []
 
     
@@ -891,8 +898,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let resetSymbols = Map.map (fun _ sym -> { sym with Moving = false}) model.Symbols
         let newSymbols =
             (List.fold (fun prevSymbols sId ->
-                let (newCompo: Component) = {model.Symbols[sId].Compo with X = int (model.Symbols[sId].Pos.X + move.X);Y = int (model.Symbols[sId].Pos.Y + move.Y )}
-                Map.add sId {model.Symbols[sId] with Moving = true; Pos = {X = (model.Symbols[sId].Pos.X + move.X);Y = (model.Symbols[sId].Pos.Y + move.Y)} ; Compo = newCompo} prevSymbols) resetSymbols compList)
+                let (newCompo: Component) = {model.Symbols[sId].Compo with X = model.Symbols[sId].Compo.X + int move.X ;Y = model.Symbols[sId].Compo.Y +  int move.Y }
+                Map.add sId {model.Symbols[sId] with Moving = true; Pos = {X = (float model.Symbols[sId].Compo.X + move.X); Y = float model.Symbols[sId].Pos.Y + move.Y} ; Compo = newCompo} prevSymbols) resetSymbols compList)
         { model with Symbols = newSymbols }, Cmd.none
 
     | SymbolsHaveError compList ->
