@@ -559,11 +559,6 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
 
-/// Interface function to get componentIds of the copied symbols
-let getCopiedSymbols (symModel: Model) : (ComponentId list) =
-    symModel.CopiedSymbols
-    |> Map.toList
-    |> List.map fst
 
 
 let getCompList compType listSymbols =
@@ -697,6 +692,12 @@ let genCmpLabel (model: Model) (compType: ComponentType) : string =
     | IOLabel -> label
     | _ -> label.ToUpper() + (genCmpIndex modelSyms compType)
 
+
+/// Interface function to get componentIds of the copied symbols
+let getCopiedSymbolsIds (model: Model) : (ComponentId list) =
+    model.CopiedSymbols
+    |> Map.toList
+    |> List.map fst
 
 /// Interface function to paste symbols. Is a function instead of a message because we want an output
 let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =

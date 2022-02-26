@@ -1505,7 +1505,7 @@ let getWireIfClicked (wModel : Model) (pos : XYPos) (n : float) : ConnectionId O
 
 ///
 let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list<ConnectionId>) =
-    let oldCompIds = Symbol.getCopiedSymbols wModel.Symbol
+    let oldCompIds = Symbol.getCopiedSymbolsIds wModel.Symbol
     
     let pastedWires =
         let createNewWire (oldWire : Wire) : list<Wire> =
