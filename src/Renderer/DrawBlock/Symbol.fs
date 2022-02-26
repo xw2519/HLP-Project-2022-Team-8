@@ -34,8 +34,6 @@ type Model = {
     Symbols: Map<ComponentId, Symbol>
     CopiedSymbols: Map<ComponentId, Symbol>
     Ports: Map<string, Port> 
-    
-                               // string since it's for both input and output ports
     }
 
 //----------------------------Message Type-----------------------------------//
@@ -511,30 +509,25 @@ let getCmpBoundingBox (model: Model) (compid: ComponentId ): BoundingBox =
 //--------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS-------------------------------
 
 
-/// This is quite slow, because it gets the whole maps.
-/// It is used in getInputPortLocation for a single port!!
-/// Bad
-let getInputPortsPositionMap (model: Model) (symbols: Symbol list)  = 
-    symbols
-    |> List.collect (fun sym -> List.map (fun p -> sym,p) sym.Compo.InputPorts)
-    |> List.map (fun (sym,port) -> (InputPortId port.Id, posAdd (getPortPosModel model port) ({X= sym.Compo.X; Y=sym.Compo.Y})))
-    |> Map.ofList
-
-/// This is quite slow, because it gets the whole maps.
-/// It is used in getOutputPortLocation for a single port!!
-/// Bad
-let getOutputPortsPositionMap (model: Model) (symbols: Symbol list)  = //These function add the coordinates of the symbol too
-    symbols
-    |> List.collect (fun sym -> List.map (fun p -> sym,p) sym.Compo.OutputPorts)
-    |> List.map (fun (sym,port) -> (OutputPortId port.Id , posAdd (getPortPosModel model port) ({X= sym.Compo.X; Y=sym.Compo.Y})))
-    |> Map.ofList
-
 ///Returns the port object associated with a given portId
 let getPort (model: Model) (portId: string) =
     model.Ports[portId]
 
 ///Returns all the port locations of the given components   
 let getCmpsPortLocations (model: Model) (symIds: ComponentId list) = 
+    let getInputPortsPositionMap (model: Model) (symbols: Symbol list)  = 
+        symbols
+        |> List.collect (fun sym -> List.map (fun p -> sym,p) sym.Compo.InputPorts)
+        |> List.map (fun (sym,port) -> (InputPortId port.Id, posAdd (getPortPosModel model port) ({X= sym.Compo.X; Y=sym.Compo.Y})))
+        |> Map.ofList
+
+
+    let getOutputPortsPositionMap (model: Model) (symbols: Symbol list)  = //These function add the coordinates of the symbol too
+        symbols
+        |> List.collect (fun sym -> List.map (fun p -> sym,p) sym.Compo.OutputPorts)
+        |> List.map (fun (sym,port) -> (OutputPortId port.Id , posAdd (getPortPosModel model port) ({X= sym.Compo.X; Y=sym.Compo.Y})))
+        |> Map.ofList
+
     let syms = 
         model.Symbols 
         |> Map.filter (fun sId sym  -> List.contains sId symIds)
@@ -547,26 +540,22 @@ let getCmpsPortLocations (model: Model) (symIds: ComponentId list) =
     getInputPortMap , getOutputPortMap
 
 ///Returns the location of an input portId  
-let getInputPortLocation (model:Model) (inPortId: InputPortId)  = 
-    let allSymbols =
-        model.Symbols
-        |> Map.toList
-        |> List.map snd
-        
-    getInputPortsPositionMap model allSymbols 
-    |> Map.find (inPortId)
+let getInputPortLocation (model:Model) (inPortId: InputPortId)  =     
+    match inPortId with
+    | InputPortId(str) -> 
+        let inPort = Map.find str model.Ports
+        let sym = Map.find (ComponentId(inPort.HostId)) model.Symbols
+        posAdd (getPortPosModel model inPort) {X= sym.Compo.X; Y=sym.Compo.Y}
     
-
+    
 //Returns the location of an output portId
 let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
-    let allSymbols =
-        model.Symbols
-        |> Map.toList
-        |> List.map snd
-        
-    getOutputPortsPositionMap model allSymbols 
-    |> Map.find (outPortId)     
-
+    match outPortId with
+    | OutputPortId(str) -> 
+        let outPort = Map.find str model.Ports
+        let sym = Map.find (ComponentId(outPort.HostId)) model.Symbols
+        posAdd (getPortPosModel model outPort) {X= sym.Compo.X; Y=sym.Compo.Y}
+    
             
 /// Returns the location of a given portId, with better efficiency
 /// This is still slow, the ports should be looked up from a map of ports
@@ -583,9 +572,7 @@ let getPortLocation (symModel: Model) (portId : string) (pType: PortType) : XYPo
 
 /// Returns the locations of a given input portId and output portId
 let getPortLocations (symModel: Model) (inPortId: InputPortId ) (outPortId: OutputPortId) =
-    match inPortId, outPortId with
-    | InputPortId inputId, OutputPortId outputId ->
-        (getPortLocation symModel inputId PortType.Input, getPortLocation symModel outputId PortType.Output)
+    (getInputPortLocation symModel inPortId, getOutputPortLocation symModel outPortId)
 
 
 
