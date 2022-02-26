@@ -508,7 +508,6 @@ let getCmpBoundingBox (model: Model) (compid: ComponentId ): BoundingBox =
 
 //--------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS-------------------------------
 
-
 ///Returns the port object associated with a given portId
 let getPort (model: Model) (portId: string) =
     model.Ports[portId]
@@ -555,13 +554,6 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
         let outPort = Map.find str model.Ports
         let sym = Map.find (ComponentId(outPort.HostId)) model.Symbols
         posAdd (getPortPosModel model outPort) {X= sym.Compo.X; Y=sym.Compo.Y}
-
-
-
-/// Returns the locations of a given input portId and output portId
-let getPortLocations (symModel: Model) (inPortId: InputPortId ) (outPortId: OutputPortId) =
-    (getInputPortLocation symModel inPortId, getOutputPortLocation symModel outPortId)
-
 
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//

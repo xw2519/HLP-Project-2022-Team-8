@@ -759,7 +759,7 @@ let routeGivenWiresBasedOnPortPositions (wiresToBeRouted : list<ConnectionId>) (
         |> List.map
             (
                 fun wire -> 
-                    let posTuple = Symbol.getPortLocations (model.Symbol) (wire.InputPort) (wire.OutputPort)
+                    let posTuple = (Symbol.getInputPortLocation model.Symbol wire.InputPort, Symbol.getOutputPortLocation model.Symbol wire.OutputPort)
                     (wire.Id, {wire with Segments = makeInitialSegmentsList wire.Id posTuple})
             )
         |> Map.ofList
@@ -986,7 +986,7 @@ let filterWiresByCompMoved (wModel : Model) (compIds : list<ComponentId>) =
 
 //Returns a newly autorouted wire given a model and wire
 let autorouteWire (model : Model) (wire : Wire) : Wire =
-    let posTuple = Symbol.getPortLocations (model.Symbol) (wire.InputPort) (wire.OutputPort)
+    let posTuple = (Symbol.getInputPortLocation model.Symbol wire.InputPort, Symbol.getOutputPortLocation model.Symbol wire.OutputPort)
     {wire with Segments = makeInitialSegmentsList wire.Id posTuple}
 
 /// reverse segment order, and Start, End coordinates, so list can be processed from input to output
@@ -1252,7 +1252,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         updateWires model componentIdList diff, Cmd.none
 
     | AddWire ( (inputId, outputId) : (InputPortId * OutputPortId) ) ->
-        let portOnePos, portTwoPos = Symbol.getPortLocations model.Symbol inputId outputId
+        let portOnePos, portTwoPos = Symbol.getInputPortLocation model.Symbol inputId, Symbol.getOutputPortLocation model.Symbol outputId
         let wireWidthFromSymbol = WireWidth.Configured 1
         let wireId = ConnectionId(JSHelpers.uuid())
         let segmentList = makeInitialSegmentsList wireId (portOnePos, portTwoPos)
@@ -1513,8 +1513,7 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
     
             match Symbol.getEquivalentCopiedPorts wModel.Symbol oldCompIds newCompIds (oldWire.InputPort, oldWire.OutputPort) with
             | Some (newInputPort, newOutputPort) ->
-
-                let portOnePos, portTwoPos = Symbol.getPortLocations wModel.Symbol (InputPortId newInputPort) (OutputPortId newOutputPort)
+                let portOnePos, portTwoPos = Symbol.getInputPortLocation wModel.Symbol (InputPortId newInputPort), Symbol.getOutputPortLocation wModel.Symbol (OutputPortId newOutputPort)
                 let segmentList = makeInitialSegmentsList newId (portOnePos, portTwoPos)
                 [
                     {
