@@ -555,19 +555,7 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
         let outPort = Map.find str model.Ports
         let sym = Map.find (ComponentId(outPort.HostId)) model.Symbols
         posAdd (getPortPosModel model outPort) {X= sym.Compo.X; Y=sym.Compo.Y}
-    
-            
-/// Returns the location of a given portId, with better efficiency
-/// This is still slow, the ports should be looked up from a map of ports
-let getPortLocation (symModel: Model) (portId : string) (pType: PortType) : XYPos=
-    symModel.Symbols
-    |> Map.pick (fun key sym -> 
-        let comp = sym.Compo
-        if pType = PortType.Input then
-            List.tryFind (fun (po:Port) -> po.Id = portId) comp.InputPorts
-        else
-            List.tryFind (fun (po:Port) -> po.Id = portId) comp.OutputPorts
-        |> Option.map (fun port -> posAdd (getPortPosModel symModel port) ({X= sym.Compo.X; Y=sym.Compo.Y})))
+
 
 
 /// Returns the locations of a given input portId and output portId

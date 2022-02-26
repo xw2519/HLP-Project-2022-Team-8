@@ -649,11 +649,7 @@ let view (model : Model) (dispatch : Dispatch<Msg>) =
         |> Array.map
             (
                 fun wire ->
-                    let stringOutId =
-                        match wire.OutputPort with
-                        | OutputPortId stringId -> stringId
-                        
-                    let outputPortLocation = Symbol.getPortLocation model.Symbol stringOutId PortType.Output
+                    let outputPortLocation = Symbol.getOutputPortLocation model.Symbol wire.OutputPort
                     let props =
                         {
                             key = match wire.Id with | ConnectionId s -> s
