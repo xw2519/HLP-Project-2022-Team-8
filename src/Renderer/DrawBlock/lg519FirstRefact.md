@@ -156,9 +156,6 @@ TODO:
 
 **getCompList**
 - removed
-
-**getCompIndex**
-- removed
   
 introduced new Type **SymbolCount**
 

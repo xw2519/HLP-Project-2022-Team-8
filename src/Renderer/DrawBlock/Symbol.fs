@@ -584,10 +584,17 @@ let addSymToSymbolsCount cmpType model  =
             // Add new componentType to map with count of 1
             Map.add cmpType 1 model.SymbolsCount
 
+let getCmpIndex (str : string) = 
+    let index = Regex.Match(str, @"\d+$")
+    match index with
+    | null -> 0
+    | _ -> int index.Value
+
 let removeSymsFromSymbolsCount cmpIds model =
     let removeSym model symbolCount cmpId =
             let cmpType = model.Symbols[cmpId].Compo.Type
-            Map.change cmpType (Option.map (fun n -> n-1)) symbolCount
+            let cmpIndex = getCmpIndex model.Symbols[cmpId].Compo.Label
+            Map.change cmpType (Option.map (fun n -> if n = cmpIndex then n-1 else n)) symbolCount
     List.fold (removeSym model) model.SymbolsCount cmpIds
 
 /// Given a model return a model with a new Symbol and also the component id
