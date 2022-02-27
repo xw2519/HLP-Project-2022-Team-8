@@ -16,11 +16,9 @@ open System.Text.RegularExpressions
 let GridSize = 30 
 
 /// ---------- SYMBOL TYPES ---------- ///
-type Rotation = 
-| Zero = 0 
-| Ninety = 90
-| OneEighty = 180 
-| TwoSeventy = 270
+// TODO: ComponentID removed
+// TODO: POS centered
+
 
 type Symbol =
     {
@@ -41,15 +39,9 @@ type Model = {
     Symbols: Map<ComponentId, Symbol>
     CopiedSymbols: Map<ComponentId, Symbol>
     Ports: Map<string, Port>                            // string since it's for both input and output ports
-
-    InputPortsConnected:  Set<InputPortId>              // we can use a set since we only care if an input port 
-                                                        // is connected or not (if so it is included) in the set 
-
-    OutputPortsConnected: Map<OutputPortId, int>        // map of output port id to number of wires connected to that port
     }
 
 //----------------------------Message Type-----------------------------------//
-
 
 type Msg =
     | MouseMsg of MouseT
@@ -115,7 +107,7 @@ let insertCompLabel (compType: ComponentType) =
 
 //-----------------------------Skeleton Model Type for symbols----------------//
 
-let init () = { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty ; InputPortsConnected= Set.empty ; OutputPortsConnected = Map.empty}, Cmd.none
+let init () = {Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty}, Cmd.none
 
 // Text to be put inside different Symbols depending on their ComponentType
 let insertCompTitle (comp: Component) =
@@ -155,13 +147,13 @@ let insertPortTitle (comp: Component) =
     | NbitsXor _ -> (["P"; "Q"], ["Out"])
     | Custom x -> (List.map fst x.InputLabels), (List.map fst x.OutputLabels)
     |_ -> ([],[])
-   // |Mux4 -> (["0"; "1"; "2"; "3" ;"SEL"],["OUT"])
-   // |Demux4 -> (["IN"; "SEL"],["0"; "1";"2"; "3";])
-   // |Demux8 -> (["IN"; "SEL"],["0"; "1"; "2" ; "3" ; "4" ; "5" ; "6" ; "7"])
-   // |Mux8 -> (["0"; "1"; "2" ; "3" ; "4" ; "5" ; "6" ; "7";"SEL"],["OUT"])
-   // |_ -> ([],[])
-   // EXTENSION: Extra Components made that are not currently in Issie. Can be extended later by using this code as it is .
-
+    // EXTENSION: Extra Components made that are not currently in Issie. Can be extended later by using this code as it is .
+    // |Mux4 -> (["0"; "1"; "2"; "3" ;"SEL"],["OUT"])
+    // |Demux4 -> (["IN"; "SEL"],["0"; "1";"2"; "3";])
+    // |Demux8 -> (["IN"; "SEL"],["0"; "1"; "2" ; "3" ; "4" ; "5" ; "6" ; "7"])
+    // |Mux8 -> (["0"; "1"; "2" ; "3" ; "4" ; "5" ; "6" ; "7";"SEL"],["OUT"])
+    // |_ -> ([],[])
+   
 let initPorts numOfPorts compId (portType: PortType) =
     if numOfPorts < 1 
     then []
@@ -206,11 +198,7 @@ let initialiseComponent (pos: XYPos) (compType: ComponentType) (compId: string) 
         | MergeWires -> ( 2 , 1, 2*GridSize ,  2*GridSize) 
         | SplitWire (a) ->(  1 , 2 , 2*GridSize ,  2*GridSize) 
         | Mux2 -> ( 3  , 1, 3*GridSize ,  2*GridSize) 
-        // EXTENSION:    | Mux4 -> ( 5  , 1, 5*GridSize ,  2*GridSize)   
-        // EXTENSION:    | Mux8 -> ( 9  , 1, 7*GridSize ,  2*GridSize) 
         | Demux2 ->( 2  , 2, 3*GridSize ,  2*GridSize) 
-        // EXTENSION:   | Demux4 -> ( 2  , 4, 150 ,  50) 
-        // EXTENSION:    | Demux8 -> ( 2  , 8, 200 ,  50) 
         | BusSelection (a, b) -> (  1 , 1, GridSize,  2*GridSize) 
         | BusCompare (a, b) -> ( 1 , 1, GridSize ,  2*GridSize) 
         | DFF -> (  1 , 1, 3*GridSize  , 3*GridSize) 
@@ -230,6 +218,11 @@ let initialiseComponent (pos: XYPos) (compType: ComponentType) (compId: string) 
             let w = max scaledW (GridSize * 4) //Ensures a minimum width if the labels are very small
             ( List.length x.InputLabels, List.length x.OutputLabels, h ,  w)
 
+        // EXTENSION:    | Mux4 -> ( 5  , 1, 5*GridSize ,  2*GridSize)   
+        // EXTENSION:    | Mux8 -> ( 9  , 1, 7*GridSize ,  2*GridSize) 
+        // EXTENSION:   | Demux4 -> ( 2  , 4, 150 ,  50) 
+        // EXTENSION:    | Demux8 -> ( 2  , 8, 200 ,  50) 
+
     // function that helps avoid duplicate code by initialising parameters that are the same for all component types and takes as argument the others
     let makeComponent (numOfInputPorts, numOfOutputPorts, height, width) label : Component =  
         {
@@ -247,6 +240,7 @@ let initialiseComponent (pos: XYPos) (compType: ComponentType) (compId: string) 
     makeComponent args compLabel
    
 // Function to generate a new symbol
+// TODO: Change to component ID
 let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) =
     let id = JSHelpers.uuid ()
     let comp = initialiseComponent pos comptype id label
@@ -396,7 +390,6 @@ let addHorizontalColorLine posX1 posX2 posY opacity (color: string) = // TODO: L
     [makePolygon points {defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity}]
 
 /// --------------------------------------- SYMBOL DRAWING ------------------------------------------------------ ///   
-
 let drawSymbol 
     (
         symbol: Symbol,
@@ -444,15 +437,17 @@ let drawSymbol
             mergeSplitLine halfW w (1.0/6.0) midt 0 @ 
             mergeSplitLine halfW w (5.0/6.0) msb midb @ 
             mergeSplitLine 0 halfW 0.5 msb 0
-        | DFF |DFFE -> (addClock 0 h colour opacity)
-        | Register _ |RegisterE _ -> (addClock 0 h colour opacity)
-        | ROM1 _ |RAM1 _ | AsyncRAM1 _ -> (addClock 0 h colour opacity)
+        | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> (addClock 0 h colour opacity)
         | BusSelection(x,y) -> (addText  (float(w/2)-5.0) ((float(h)/2.7)-2.0) (insertBusTitle x y) "middle" "normal" "12px")
         | BusCompare (_,y) -> (addText  (float(w/2)-6.0) (float(h)/2.7-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px")
         | Input (x) -> (addText  (float(w/2)-5.0) ((float(h)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
         | Output (x) -> (addText  (float(w/2)) ((float(h)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
         | Viewer (x) -> (addText  (float(w/2)) ((float(h)/2.7)-1.25) (insertSymbolTitle "" x) "middle" "normal" "9px")
         | _ -> []
+
+    let print x = printfn "%A" x
+
+    print symbol
 
     let outlineColor, strokeWidth =
         match comp.Type with
@@ -467,7 +462,7 @@ let drawSymbol
     |> List.append (addText (float halfW) (+5.0) (insertCompTitle comp) "middle" "bold" "14px") 
     |> List.append (addText (float halfW) (-20.0) comp.Label "middle" "normal" "16px")
     |> List.append (additions)
-    |> List.append (createBiColorPolygon (generateSymbolPoints comp h w) colour outlineColor opacity strokeWidth)
+    |> List.append (createBiColorPolygon (generateSymbolPoints symbol.Component h w symbol.STransform) colour outlineColor opacity strokeWidth)
 
 //----------------------------View Function for Symbols----------------------------//
 

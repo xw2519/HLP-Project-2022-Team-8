@@ -47,4 +47,10 @@
 
 ### `drawSymbol`
 - Moved the section of code that generates points (`points`) to a function inside `DrawHelpers`
-- 
+
+
+
+### Rotation functionality
+- Changed function parameters to pass in symbol 
+  - `drawPortText`
+  - `drawPorts`
