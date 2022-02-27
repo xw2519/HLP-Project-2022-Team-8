@@ -33,6 +33,7 @@ type Symbol =
 type Model = {
     Symbols: Map<ComponentId, Symbol>
     CopiedSymbols: Map<ComponentId, Symbol>
+    SymbolsCount: Map<ComponentType, int>
     Ports: Map<string, Port> 
     }
 
@@ -442,7 +443,7 @@ let compSymbol (symbol:Symbol) (comp:Component) (colour:string) (showInputPorts:
     |> List.append (createBiColorPolygon points colour olColour opacity strokeWidth)
 
 let init () = 
-    { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty }, Cmd.none
+    { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty; SymbolsCount = Map.empty }, Cmd.none
 
 //----------------------------View Function for Symbols----------------------------//
 type private RenderSymbolProps =
@@ -558,139 +559,45 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
-
-
-
-let getCompList compType listSymbols =
-    match compType with 
-       | Not | And | Or | Xor | Nand | Nor | Xnor -> 
-            listSymbols
-            |> List.filter (fun sym ->
-                (sym.Compo.Type = Not || sym.Compo.Type = And 
-                || sym.Compo.Type = Or || sym.Compo.Type = Xor
-                || sym.Compo.Type = Nand || sym.Compo.Type = Nor
-                || sym.Compo.Type = Xnor)
-                )
-       | DFF | DFFE -> 
-            listSymbols
-            |> List.filter (fun sym ->
-                (sym.Compo.Type = DFF || sym.Compo.Type = DFFE))
-       //The following components require this pattern matching in order to correctly identify all of the components in the circuit of that type
-       //Normally this is because they are defined by a width as well as a type
-       | Register _ | RegisterE _ ->
-            listSymbols
-            |> List.filter (fun sym ->
-                match sym.Compo.Type with 
-                | Register _ | RegisterE _ -> true
-                | _ -> false)
-       | Constant1 _ ->
-            listSymbols
-            |> List.filter (fun sym ->
-                match sym.Compo.Type with 
-                | Constant1 _ -> true
-                | _ -> false)
-       | Input _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | Input _ -> true
-               | _ -> false)
-       | Output _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | Output _ -> true
-               | _ -> false)
-       | Viewer _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | Viewer _ -> true
-               | _ -> false)
-       | BusSelection _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | BusSelection _ -> true
-               | _ -> false)
-       | BusCompare _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | BusCompare _ -> true
-               | _ -> false)
-       | NbitsAdder _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | NbitsAdder _ -> true
-               | _ -> false)
-       | NbitsXor _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | NbitsXor _ -> true
-               | _ -> false)
-       | AsyncROM1 _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | AsyncROM1 _ -> true
-               | _ -> false)
-       | ROM1 _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | ROM1 _ -> true
-               | _ -> false)
-       | RAM1 _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | RAM1 _ -> true
-               | _ -> false)
-       | AsyncRAM1 _ ->
-           listSymbols
-           |> List.filter (fun sym ->
-               match sym.Compo.Type with 
-               | AsyncRAM1 _ -> true
-               | _ -> false)
-
-       | _ ->
-            listSymbols
-            |> List.filter (fun sym -> sym.Compo.Type = compType)
-
-///Genertates the number of the component label (i.e. the number 1 from IN1 or XOR1)
-let genCmpIndex modelSyms compType =
     
-    let getCmpIndex (str : string) = 
-        let index = Regex.Match(str, @"\d+$")
-        match index with
-        | null -> 0
-        | _ -> int index.Value
 
-    let symbolList = 
-        getCompList compType modelSyms
+///Generates the label for a given cmpType
+let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
+    ///Genertates the number of the component label (i.e. the number 1 from IN1 or XOR1)
+    let genCmpIndex model cmpType = 
+        match Map.tryFind cmpType model.SymbolsCount with
+        | Some count -> count+1 |> string
+        | None -> 1 |> string
 
-    match compType with
-    | MergeWires | SplitWire _ -> ""
-    | _ ->
-        if List.isEmpty symbolList then 1 
-        else symbolList
-            |> List.map (fun sym -> getCmpIndex sym.Compo.Label)
-            |> List.max
-            |> (+) 1
-        |> string
-
-
-///Generates the label for a component type
-let genCmpLabel (model: Model) (compType: ComponentType) : string =
-
-    let label = prefix compType
-    let modelSyms = List.map snd (Map.toList model.Symbols) 
-    match compType with
+    let label = prefix cmpType
+    match cmpType with
     | IOLabel -> label
-    | _ -> label.ToUpper() + (genCmpIndex modelSyms compType)
+    | _ -> label.ToUpper() + (genCmpIndex model cmpType)
+
+
+let addSymToSymbolsCount cmpType model  =
+    match Map.tryFindKey (fun cType cCount -> cType = cmpType) model.SymbolsCount with
+        | Some cmp -> 
+            // Increase count of componentType
+            Map.change cmp (Option.map (fun n -> n+1)) model.SymbolsCount
+        | None -> 
+            // Add new componentType to map with count of 1
+            Map.add cmpType 1 model.SymbolsCount
+
+let removeSymsFromSymbolsCount cmpIds model =
+    let removeSym model symbolCount cmpId =
+            let cmpType = model.Symbols[cmpId].Compo.Type
+            Map.change cmpType (Option.map (fun n -> n-1)) symbolCount
+    List.fold (removeSym model) model.SymbolsCount cmpIds
+
+/// Given a model return a model with a new Symbol and also the component id
+let addSymToModel (model: Model) symPos cmpType symLabel =
+    let sym = createNewSymbol symPos cmpType symLabel
+    let ports = addToPortModel model sym
+    let updatedSyms = Map.add sym.Id sym model.Symbols
+    let updatedCount = addSymToSymbolsCount sym.Compo.Type model 
+    { model with Symbols = updatedSyms; Ports = ports; SymbolsCount = updatedCount }, sym.Id
+
 
 
 /// Interface function to get componentIds of the copied symbols
@@ -782,12 +689,7 @@ let getEquivalentPorts (model: Model) (copiedCmpIds) (pastedCmpIds) (InputPortId
     | _ -> None // If either of source or target component of the wire was not copied then we discard the wire
   
  
-/// Given a model return a model with a new Symbol and also the component id
-let addSymbol (model: Model) pos compType lbl =
-    let newSym = createNewSymbol pos compType lbl
-    let newPorts = addToPortModel model newSym
-    let newSymModel = Map.add newSym.Id newSym model.Symbols
-    { model with Symbols = newSymModel; Ports = newPorts }, newSym.Id
+
 
 // Helper function to change the number of bits expected in a port of each component type
 let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (newBits : int) =
@@ -842,10 +744,11 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
     match msg with
     | DeleteSymbols compList ->
         let newSymbols = List.fold (fun prevModel sId -> Map.remove sId prevModel) model.Symbols compList
-        { model with Symbols = newSymbols }, Cmd.none //filters out symbol with a specified id
+        let newSymbolCount = removeSymsFromSymbolsCount compList model
+        { model with Symbols = newSymbols; SymbolsCount = newSymbolCount }, Cmd.none //filters out symbol with a specified id
 
     | AddSymbol (pos,compType, lbl) ->
-        let (newModel, _) = addSymbol model pos compType lbl
+        let (newModel, _) = addSymToModel model pos compType lbl
         newModel, Cmd.none
 
     | CopySymbols compIds ->

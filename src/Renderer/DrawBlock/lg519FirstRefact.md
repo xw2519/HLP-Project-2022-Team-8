@@ -153,3 +153,20 @@ TODO:
 
 **getEquivalentCopiedPorts**
 - renamed to getEquivalentPorts and commented to facilitate understanding.
+
+**getCompList**
+- removed
+
+**getCompIndex**
+- removed
+  
+introduced new Type **SymbolCount**
+
+**genCompIndex**
+- made subfunction of genCompLabel. Restructured to work with SymbolCount
+
+**addSymToSymbolsCount** and **removeSymFromSymbolsCount**
+- created new funcitons to deal with SymbolCount functionality
+
+**addSymbol**
+- renamed to addSymToModel
