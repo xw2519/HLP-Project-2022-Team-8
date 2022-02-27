@@ -32,7 +32,7 @@ type Symbol =
 
 type Model = {
     Symbols: Map<ComponentId, Symbol>
-    ComponentCount: Map<ComponentType, int>
+    SymbolsCount: Map<ComponentType, int>
     CopiedSymbols: Map<ComponentId, Symbol>
     Ports: Map<string, Port> 
     }
@@ -443,7 +443,7 @@ let compSymbol (symbol:Symbol) (comp:Component) (colour:string) (showInputPorts:
     |> List.append (createBiColorPolygon points colour olColour opacity strokeWidth)
 
 let init () = 
-    { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty; ComponentCount = Map.empty }, Cmd.none
+    { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty; SymbolsCount = Map.empty }, Cmd.none
 
 //----------------------------View Function for Symbols----------------------------//
 type private RenderSymbolProps =
@@ -686,9 +686,9 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
 
 
 let genCmpIndex model cmpType = 
-    match Map.tryFind cmpType model.ComponentCount with
+    match Map.tryFind cmpType model.SymbolsCount with
     | Some count -> count |> string
-    | _ -> 0 |> string
+    | _ -> 1 |> string
 
 
 ///Generates the label for a component type
@@ -751,7 +751,6 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
     
 
 
-
 /// Given the current model and two componentId list of same length, find the equivalent ports of copiedInputPort and copiedOutputPort
 /// An equivalent port between component A and component B is a port that is found at the same index in either
 /// A.InputPorts and B.InputPorts or A.OutputPorts and B.Outputports. Component A and component B must have the same type.
@@ -791,12 +790,27 @@ let getEquivalentPorts (model: Model) (copiedCmpIds) (pastedCmpIds) (InputPortId
     | _ -> None // If either of source or target component of the wire was not copied then we discard the wire
   
  
+
+let addSymToSymbolCount cmpType model  =
+    printfn "addSymToSymbolCount CALLED"
+    match Map.tryFindKey (fun cType cCount -> cType = cmpType) model.SymbolsCount with
+        | Some cmp -> 
+            // Increase count of componentType
+            Map.change cmp (Option.map (fun n -> n+1)) model.SymbolsCount
+        | None -> 
+            // Add new componentType to map with count of 1
+            printfn $"adding {cmpType} to ComponentCount"
+            Map.add cmpType 1 model.SymbolsCount
+
+
 /// Given a model return a model with a new Symbol and also the component id
-let addSymbol (model: Model) pos compType lbl =
-    let newSym = createNewSymbol pos compType lbl
-    let newPorts = addToPortModel model newSym
-    let newSymModel = Map.add newSym.Id newSym model.Symbols
-    { model with Symbols = newSymModel; Ports = newPorts }, newSym.Id
+let addSymToModel (model: Model) symPos cmpType symLabel =
+    printfn "ADD SYMBOL CALLED"
+    let sym = createNewSymbol symPos cmpType symLabel
+    let ports = addToPortModel model sym
+    let updatedSyms = Map.add sym.Id sym model.Symbols
+    let updatedCount = addSymToSymbolCount sym.Compo.Type model 
+    { model with Symbols = updatedSyms; Ports = ports; SymbolsCount = updatedCount }, sym.Id
 
 // Helper function to change the number of bits expected in a port of each component type
 let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (newBits : int) =
@@ -850,19 +864,19 @@ let updateConstant (symModel:Model) (compId:ComponentId) (constantVal:int64) (co
 let updateComponentCount model msg =
     match msg with
     | AddSymbol (_,cmpType, _) ->
-        match Map.tryFindKey (fun cType cCount -> cType = cmpType) model.ComponentCount with
+        match Map.tryFindKey (fun cType cCount -> cType = cmpType) model.SymbolsCount with
         | Some cmp -> 
             // Increase count of componentType
-            Map.change cmp (Option.map (fun n -> n+1)) model.ComponentCount
+            Map.change cmp (Option.map (fun n -> n+1)) model.SymbolsCount
         | None -> 
             // Add new componentType to map with count of 1
             printfn $"adding {cmpType} to ComponentCount"
-            Map.add cmpType 1 model.ComponentCount
+            Map.add cmpType 1 model.SymbolsCount
     | DeleteSymbols compIds ->
         let deleteCmp model componentCount cmpId =
             let cmpType = model.Symbols[cmpId].Compo.Type
             Map.change cmpType (Option.map (fun n -> n-1)) componentCount
-        List.fold (deleteCmp model) model.ComponentCount compIds
+        List.fold (deleteCmp model) model.SymbolsCount compIds
     | _ -> failwithf "input not expected"
     
 
@@ -871,16 +885,15 @@ let updateComponentCount model msg =
 let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
     match msg with
     | DeleteSymbols compList ->
-        printfn "DELETE SYMBOL CALLED"
+        
         let newSymbols = List.fold (fun prevModel sId -> Map.remove sId prevModel) model.Symbols compList
         let newComponentCount = updateComponentCount model msg
-        { model with Symbols = newSymbols; ComponentCount = newComponentCount }, Cmd.none //filters out symbol with a specified id
+        { model with Symbols = newSymbols; SymbolsCount = newComponentCount }, Cmd.none //filters out symbol with a specified id
 
     | AddSymbol (pos,compType, lbl) ->
-        printfn "ADD SYMBOL CALLED"
-        let (newModel, _) = addSymbol model pos compType lbl
+        let (newModel, _) = addSymToModel model pos compType lbl
         let newComponentCount = updateComponentCount model msg
-        {newModel with ComponentCount = newComponentCount}, Cmd.none
+        {newModel with SymbolsCount = newComponentCount}, Cmd.none
 
     | CopySymbols compIds ->
         let copiedSymbols = Map.filter (fun compId _ -> List.contains compId compIds) model.Symbols
