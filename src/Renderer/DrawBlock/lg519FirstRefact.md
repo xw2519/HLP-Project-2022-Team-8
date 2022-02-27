@@ -149,4 +149,7 @@ TODO:
 #  LABEL AND COPY SYMBOLS
 
 **pasteSymbols**
-- renamed and commented to facilitate understanding. Used new type Center to make the funciton simpler
+- refactored heavily and commented to facilitate understanding. Used new type Center to make the funciton simpler
+
+**getEquivalentCopiedPorts**
+- renamed to getEquivalentPorts and commented to facilitate understanding.

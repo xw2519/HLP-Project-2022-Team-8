@@ -740,21 +740,28 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
     | [] -> model, []
 
     
-/// Given two componentId list of same length and input / output ports that are in list 1, return the equivalent ports in list 2.
-/// ComponentIds at same index in both list 1 and list 2 need to be of the same ComponentType
-/// CompIds1 need to be in model.CopiedSymbols
-let getEquivalentCopiedPorts (model: Model) (copiedIds) (pastedIds) (InputPortId copiedInputPort, OutputPortId copiedOutputPort) =
-    let findEquivalentPorts compId1 compId2 =
-        let copiedComponent = model.CopiedSymbols[compId1].Compo
-        let pastedComponent = model.Symbols[compId2].Compo // TODO: These can be different for an output gate for some reason.
+
+
+
+/// Given the current model and two componentId list of same length, find the equivalent ports of copiedInputPort and copiedOutputPort
+/// An equivalent port between component A and component B is a port that is found at the same index in either
+/// A.InputPorts and B.InputPorts or A.OutputPorts and B.Outputports. Component A and component B must have the same type.
+let getEquivalentPorts (model: Model) (copiedCmpIds) (pastedCmpIds) (InputPortId copiedInputPort, OutputPortId copiedOutputPort) =
+    
+    /// Try to find equivalent port of copiedInputPort and copiedOutputPort in pastedCmpId.
+    let tryFindEquivalentPorts copiedCmpId pastedCmpId =
+
+        let copiedComponent = model.CopiedSymbols[copiedCmpId].Compo
+        let pastedComponent = model.Symbols[pastedCmpId].Compo 
         
+        /// Find targetPort in copiedPorts. If found in copiedPorts, return equivalent port in pastedPorts
         let tryFindEquivalentPort (copiedPorts: Port list) (pastedPorts: Port list) targetPort =
             if copiedPorts.Length = 0 || pastedPorts.Length = 0
             then None
             else
-                match List.tryFindIndex ( fun (port: Port) -> port.Id = targetPort ) copiedPorts with
+                let foundIndex = List.tryFindIndex ( fun (port: Port) -> port.Id = targetPort ) copiedPorts
+                match foundIndex with
                 | Some portIndex -> 
-
                     Some pastedPorts[portIndex].Id // Get the equivalent port in pastedPorts. Assumes ports at the same index are the same (should be the case unless copy pasting went wrong).
                 | _ -> None
         
@@ -764,8 +771,8 @@ let getEquivalentCopiedPorts (model: Model) (copiedIds) (pastedIds) (InputPortId
         pastedInputPortId, pastedOutputPortId
         
     let foundPastedPorts =
-        List.zip copiedIds pastedIds
-        |> List.map (fun (compId1, compId2) -> findEquivalentPorts compId1 compId2)
+        List.zip copiedCmpIds pastedCmpIds
+        |> List.map (fun (copiedCmpId, pastedCmpId) -> tryFindEquivalentPorts copiedCmpId pastedCmpId)
     
     let foundPastedInputPort = List.collect (function | Some a, _ -> [a] | _ -> []) foundPastedPorts
     let foundPastedOutputPort = List.collect (function | _, Some b -> [b] | _ -> []) foundPastedPorts
