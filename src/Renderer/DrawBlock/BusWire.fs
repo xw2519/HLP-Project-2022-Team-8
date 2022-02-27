@@ -20,13 +20,13 @@ let minSegLen = 5.
 //------------------------------BusWire Types-----------------------------//
 //------------------------------------------------------------------------//
 
-///
+/// 1 of 2 Orientations of a Wire (wires can only be horizontal or vertical in ISSIE)
 type Orientation =  Horizontal | Vertical
 
-///
+/// ?
 type SnapPosition = High | Mid | Low
 
-///
+/// Default type for Segments, using Coordinates for both start- and end-points of segments
 type Segment = 
     {
         Id : SegmentId
@@ -39,10 +39,40 @@ type Segment =
         JumpCoordinateList: list<float * SegmentId>
         Draggable : bool
     }
+    
+/// Absolute-based segment, with relative length and direction, less redundancy, equivalent to initial one
+//type ASeg = 
+//    {
+//        Id : SegmentId
+//        Index: int              // keep for quick lookup?
+//        Start: XYPos            // Absolute start of segment
+//        Dir: Orientation        // 1 of 2 orientations in X and Y       // -> in vector
+//        Length: float           // Length of the segment                // -> in vector
+//        HostId: ConnectionId
+//        Autorouted: bool        // bool to see if the segment is manually routed or autorouted
+//        /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
+//        JumpCoordinateList: list<float * SegmentId>
+//        Draggable : bool
+//    }
+    
+/// Rotation-invariant representation of a segment: we know that all consecutive segments are perpendicular to each other
+/// So no need to store individual orientations
+//type RISeg = 
+//    {
+//        Id : SegmentId
+//        Index: int              // keep for quick lookup?
+//        //Dir: Orientation        // 1 of 2 base orientations in X and Y: this is the default orientation, assuming no rotation
+//        // -> Not needed as we know that all segments are perpendicular to each other
+//        Length: float           // Length of the segment
+//        HostId: ConnectionId
+//        Autorouted: bool        // bool to see if the segment is manually routed or autorouted
+//        /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
+//        JumpCoordinateList: list<float * SegmentId>
+//        Draggable : bool
+//    }
 
 
-
-///
+/// Default type to represent Wires in ISSIE
 type Wire =
     {
         Id: ConnectionId 
@@ -55,9 +85,36 @@ type Wire =
 
     with static member stickLength = 16.0
 
+/// Absolute Wire type using ASegs, less redundancy
+//type AWire =
+//    {
+//        Id: ConnectionId 
+//        InputPort: InputPortId
+//        OutputPort: OutputPortId
+//        Color: HighLightColor
+//        Width: int
+//        Segments: array<ASeg>    // List of absolute segments (use array for faster lookup of nested elements, maybe list for interface h::tl)
+//    }
+//    with static member stickLength = 16.0
 
+/// Rotation-invariant Wire type using RISegs and initial StartPos
+//type RIWire =
+//    {
+//        Id: ConnectionId 
+//        InputPort: InputPortId
+//        OutputPort: OutputPortId
+//        Color: HighLightColor
+//        Width: int
+//        Start: XYPos                // Start of the wire
+//        Segments: array<RISeg>      // RI Segments one after the other
 
-///
+        //XMirroring: bool            //should be included?
+        //YMirroring: bool            //should be included?
+        //AngleRotation: Rotation     //should be included?
+//    }
+//    with static member stickLength = 16.0
+
+/// Type that contains all elements regarding BusWires
 type Model =
     {
         Symbol: Symbol.Model
