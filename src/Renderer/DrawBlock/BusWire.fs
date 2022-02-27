@@ -670,6 +670,12 @@ let view (model : Model) (dispatch : Dispatch<Msg>) =
     |> TimeHelpers.instrumentInterval "WireView" start
 
 
+//
+//          ###############################
+//          ###     START OF PART 2     ###
+//          ###############################
+//
+
 
 /// This function is given two couples of
 /// points that define two line segments and it returns:
@@ -1140,6 +1146,15 @@ let updateWire (model : Model) (wire : Wire) (inOut : bool) =
         partialAutoRoute wire.Segments newPort
     |> Option.map (fun segs -> {wire with Segments = segs})
     |> Option.defaultValue (autorouteWire model wire)
+
+
+
+//
+//          #############################
+//          ###     END OF PART 2     ###
+//          #############################
+//
+
 
 let makeAllJumps (wiresWithNoJumps: ConnectionId list) (model: Model) =
     let mutable newWX = model.WX
