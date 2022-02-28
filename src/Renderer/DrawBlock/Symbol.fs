@@ -23,7 +23,7 @@ let GridSize = 30
 
 type Symbol =
     {
-        Pos: XYPos
+        Pos: XYPos // Changed to reflect center position
         InWidth0: int option
         InWidth1: int option
         ComponentId : ComponentId       
@@ -33,8 +33,7 @@ type Symbol =
         ShowOutputPorts: bool
         Opacity: float
         Moving: bool
-        Rotation: Rotation
-
+        Rotation: float
         SymbolPoints: XYPos list
     }
 
@@ -171,22 +170,23 @@ let initPorts numOfPorts compId (portType: PortType) =
                 HostId = compId
             }])
 
-let initSymbolCoordinates (comp: Component) h w : XYPos list = 
-    let halfW = comp.W/2
-    let halfH = (comp.H)/2
+let initSymbolCoordinates (comp: Component) (pos: XYPos) H W : XYPos list = 
+
+    let halfW = W/2
+    let halfH = H/2
 
     match comp.Type with
-        | BusSelection _ | BusCompare _ -> [{X=0; Y=0}; {X=0; Y=h}; {X=(0.6*float(w)); Y=h}; {X=(0.8*float(w)); Y=(0.7*float(h))}; {X=w; Y=(0.7*float(h))}; {X=w; Y=(0.3*float(h))}; {X=(0.8*float(w)); Y=(0.3*float(h))}; {X=(0.6*float(w)); Y=0}]
+        | BusSelection _ | BusCompare _ -> [{X=0; Y=0}; {X=0; Y=H}; {X=(0.6*float(W)); Y=H}; {X=(0.8*float(W)); Y=(0.7*float(H))}; {X=W; Y=(0.7*float(H))}; {X=W; Y=(0.3*float(H))}; {X=(0.8*float(W)); Y=(0.3*float(H))}; {X=(0.6*float(W)); Y=0}]
         | Constant1 _ -> [{X=0; Y=comp.H}; {X=halfW; Y=halfH}; {X=0; Y=0}]
-        | Demux2 -> [{X=0; Y=(float(h)*0.2)}; {X=0; Y=(float(h)*0.8)}; {X=w; Y=h}; {X=w; Y=0}]
-        | Input _ -> [{X=0; Y=0}; {X=0; Y=h}; {X=(float(w)*0.66); Y=h}; {X=w; Y=halfH}; {X=(float(w)*0.66); Y=0}]
-        | IOLabel -> [{X=(float(w)*0.33); Y=0}; {X=0; Y=halfH}; {X=(float(w)*0.33); Y=h}; {X=(float(w)*0.66); Y=h}; {X=w; Y=halfH}; {X=(float(w)*0.66); Y=0}]
-        | Output _ | Viewer _ -> [{X=(float(w)*(0.2)); Y=0}; {X=0; Y=halfH}; {X=(float(w)*(0.2)); Y=h}; {X=w; Y=h}; {X=w; Y=0}]
-        | MergeWires | SplitWire _ -> [{X=halfW; Y=((1.0/6.0)*float(h))}; {X=halfW; Y=((5.0/6.0)*float(h))}]
-        | Mux2 -> [{X=0; Y=0}; {X=w; Y=(float(h)*0.2)}; {X=w; Y=(float(h)*0.8)}; {X=0; Y=h}]
-        | _ -> [{X=0; Y=comp.H}; {X=comp.H; Y=comp.W}; {X=comp.W; Y=0}; {X=0; Y=0}]
-        // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 w (float(h)*0.2) w (float(h)*0.8) 0 h )
-        // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(h)*0.2) 0 (float(h)*0.8) w h w 0)
+        | Demux2 -> [{X=0; Y=(float(H)*0.2)}; {X=0; Y=(float(H)*0.8)}; {X=W; Y=H}; {X=W; Y=0}]
+        | Input _ -> [{X=0; Y=0}; {X=0; Y=H}; {X=(float(W)*0.66); Y=H}; {X=W; Y=halfH}; {X=(float(W)*0.66); Y=0}]
+        | IOLabel -> [{X=(float(W)*0.33); Y=0}; {X=0; Y=halfH}; {X=(float(W)*0.33); Y=H}; {X=(float(W)*0.66); Y=H}; {X=W; Y=halfH}; {X=(float(W)*0.66); Y=0}]
+        | Output _ | Viewer _ -> [{X=(float(W)*(0.2)); Y=0}; {X=0; Y=halfH}; {X=(float(W)*(0.2)); Y=H}; {X=W; Y=H}; {X=W; Y=0}]
+        | MergeWires | SplitWire _ -> [{X=halfW; Y=((1.0/6.0)*float(H))}; {X=halfW; Y=((5.0/6.0)*float(H))}]
+        | Mux2 -> [{X=0; Y=0}; {X=W; Y=(float(H)*0.2)}; {X=W; Y=(float(H)*0.8)}; {X=0; Y=H}]
+        | _ -> [{X=0; Y=H}; {X=H; Y=W}; {X=W; Y=0}; {X=0; Y=0}]
+        // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
+        // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
 
 //-----------------------Skeleton Message type for symbols---------------------//
 
@@ -276,8 +276,8 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) =
       Component = comp
       Opacity = 1.0
       Moving = false
-      Rotation = Rotation.Zero
-      SymbolPoints = (initSymbolCoordinates comp comp.H comp.W)
+      Rotation = 0.0
+      SymbolPoints = (initSymbolCoordinates comp pos comp.H comp.W)
     }
 
 // Function to add ports to port model     
@@ -314,10 +314,10 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 
         // Handle rotation
         match symbol.Rotation with
-        | Rotation.Zero -> {X = posX; Y = posY}
-        | Rotation.Ninety -> {X = posY; Y = posX}
-        | Rotation.OneEighty -> {X = float(symbol.Component.W); Y = posY}
-        | Rotation.TwoSeventy -> {X = posY; Y = posX + float(symbol.Component.W)}
+        | 0.0 -> {X = posX; Y = posY}
+        | 90.0 -> {X = posY; Y = posX}
+        | 180.0 -> {X = float(symbol.Component.W); Y = posY}
+        | 270.0 -> {X = posY; Y = posX + float(symbol.Component.W)}
         | _ -> {X = posX; Y = posY}
         
     else
@@ -329,10 +329,10 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 
         // Handle rotation
         match symbol.Rotation with
-        | Rotation.Zero -> {X = posX; Y = posY}
-        | Rotation.Ninety -> {X = posY; Y = posX}
-        | Rotation.OneEighty -> {X = 0.0; Y = posY}
-        | Rotation.TwoSeventy -> {X = posY; Y = posX - float(symbol.Component.H)}
+        | 0.0 -> {X = posX; Y = posY}
+        | 90.0 -> {X = posY; Y = posX}
+        | 180. -> {X = 0.0; Y = posY}
+        | 270.0 -> {X = posY; Y = posX - float(symbol.Component.H)}
         | _ -> {X = posX; Y = posY}
 
 let getModelPortPos (model: Model) (port: Port) =
@@ -414,26 +414,48 @@ let addHorizontalColorLine posX1 posX2 posY opacity (color: string) = // TODO: L
 // Points that specify each symbol 
 let getSymbolPoints (symbol: Symbol) =
     let convertSymbolPointstoString : string = 
-        let splitXYPos accumulator (xyPos: XYPos) = accumulator + string(xyPos.X) + "," + string(xyPos.Y) + ","
+        let splitXYPos accumulator (xyPos: XYPos) = accumulator + string(xyPos.X) + "," + string(xyPos.Y) + " "
         let coordinateString = ("", symbol.SymbolPoints) ||> List.fold splitXYPos
 
-        coordinateString[0..(String.length coordinateString) - 2]
+        coordinateString[0..(String.length coordinateString) - 2]   
+
+    print convertSymbolPointstoString
 
     convertSymbolPointstoString
 
 let rotateSymbol (symbol: Symbol) = 
     // For debugging purposes: Get next rotation
     let rotationMappings = 
-        [   Rotation.Zero, Rotation.Ninety;
-            Rotation.Ninety, Rotation.OneEighty;
-            Rotation.OneEighty, Rotation.TwoSeventy;
-            Rotation.TwoSeventy, Rotation.Zero  ]
+        [   0.0, 90.0;
+            90.0, 180.0;
+            180.0, 270.0;
+            270.0, 0.0  ]
         |> Map.ofList
 
-    print "Rotation Triggered"
-    print rotationMappings.[symbol.Rotation]
+    let convertDegtoRad degree = System.Math.PI * degree / 180.0 
 
-    {symbol with Rotation = rotationMappings.[symbol.Rotation]}
+    // Once Pos is converted to read center positions, can remove 
+    // Convert to center coordinate format for rotation
+    let convertCoordtoCenter : XYPos list =
+        symbol.SymbolPoints
+        |> List.map (fun xyPos -> {X = xyPos.X-(float(symbol.Component.W) / 2.0); Y = xyPos.Y-(float(symbol.Component.H) / 2.0)})
+
+    let convertCenterCoordtoOriginal (symbolPointsL: XYPos list) : XYPos list =
+        symbolPointsL
+        |> List.map (fun xyPos -> {X = xyPos.X+(float(symbol.Component.W) / 2.0); Y = xyPos.Y+(float(symbol.Component.H)/ 2.0)})
+
+    let rotatePoint (xyPos: XYPos) : XYPos =
+        {       
+            X = (xyPos.Y * System.Math.Sin(convertDegtoRad rotationMappings.[symbol.Rotation]) + xyPos.X * System.Math.Cos(convertDegtoRad rotationMappings.[symbol.Rotation]))
+            Y = (xyPos.X * -System.Math.Sin(convertDegtoRad rotationMappings.[symbol.Rotation]) + xyPos.Y * System.Math.Cos(convertDegtoRad rotationMappings.[symbol.Rotation]))
+        }
+
+    let newSymbolPoints = 
+        convertCoordtoCenter 
+        |> List.map rotatePoint
+        |> convertCenterCoordtoOriginal
+
+    {symbol with Rotation = rotationMappings.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
 
 let flipSymbol (symbolList: Symbol) = 
     print "Flip Triggered"
@@ -1053,8 +1075,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
                                           Moving = false
                                           InWidth0 = None
                                           InWidth1 = None
-                                          Rotation = Rotation.Zero
-                                          SymbolPoints = (initSymbolCoordinates comp comp.H comp.W)
+                                          Rotation = 0.0
+                                          SymbolPoints = (initSymbolCoordinates comp xyPos comp.H comp.W)
                                         }
                                         ))
         let symbolList =
