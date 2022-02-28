@@ -187,6 +187,12 @@ let initSymbolCoordinates (comp: Component) h w : XYPos list =
         // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 w (float(h)*0.2) w (float(h)*0.8) 0 h )
         // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(h)*0.2) 0 (float(h)*0.8) w h w 0)
 
+let rotateSymbol (symbolList: Symbol) = 
+    print "Rotation Triggered"
+
+let flipSymbol (symbolList: Symbol) = 
+    print "Flip Triggered"
+
 //-----------------------Skeleton Message type for symbols---------------------//
 
 let cutToLength (lst : (string * int) list) =
@@ -412,13 +418,8 @@ let addHorizontalColorLine posX1 posX2 posY opacity (color: string) = // TODO: L
 
 // Points that specify each symbol 
 let getSymbolPoints (symbol: Symbol) =
-    let halfW = symbol.Component.W/2
-    let halfH = symbol.Component.H/2
-
     let convertSymbolPointstoString : string = 
-        let splitXYPos accumulator (xyPos: XYPos) = 
-            accumulator + string(xyPos.X) + "," + string(xyPos.Y) + ","
-
+        let splitXYPos accumulator (xyPos: XYPos) = accumulator + string(xyPos.X) + "," + string(xyPos.Y) + ","
         let coordinateString = ("", symbol.SymbolPoints) ||> List.fold splitXYPos
 
         coordinateString[0..(String.length coordinateString) - 2]
@@ -1101,3 +1102,12 @@ let extractComponents (symModel: Model) : Component list =
     symModel.Symbols
     |> Map.toList
     |> List.map (fun (key, _) -> extractComponent symModel key)
+
+let extractSymbol(symModel: Model) (sId:ComponentId) : Symbol = 
+    symModel.Symbols[sId]
+
+let extractSymbols (symModel: Model) : Symbol list =
+    symModel.Symbols
+    |> Map.toList
+    |> List.map (fun (key, _) -> extractSymbol symModel key)
+

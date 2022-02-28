@@ -83,7 +83,7 @@ type SnapIndicator =
 
 /// For Keyboard messages
 type KeyboardMsg =
-    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC
+    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | F | R
 
 type Msg =
     | Wire of BusWire.Msg
@@ -844,6 +844,15 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         Cmd.batch [ wireCmd (BusWire.DeleteWires wireUnion) // Delete Wires before components so nothing bad happens
                     symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
                     Cmd.ofMsg UpdateBoundingBoxes ]
+
+    | KeyPress F -> 
+        Symbol.flipSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
+        model, Cmd.none
+
+    | KeyPress R -> 
+        Symbol.rotateSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
+        model, Cmd.none
+
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
         Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1")); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
@@ -1104,7 +1113,6 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         else {model with CursorType = Default}, Cmd.none
 
     | ToggleNet _ | DoNothing | _ -> model, Cmd.none
-
 
 /// This function zooms an SVG canvas by transforming its content and altering its size.
 /// Currently the zoom expands based on top left corner. 
