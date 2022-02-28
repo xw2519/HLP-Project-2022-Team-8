@@ -645,12 +645,12 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
         |> List.map snd
     
     // Order copiedSyms based on their X coordinate.
-    let copiedSyms' = List.sortBy (fun sym -> sym.Compo.X) copiedSyms
+    let copiedSymsSorted = List.sortBy (fun sym -> sym.Compo.X) copiedSyms
 
-    match copiedSyms' with
+    match copiedSymsSorted with
     | referenceSymbol :: _ ->
         let referencePos = referenceSymbol.Center 
-        ((model, []), copiedSyms') ||> List.fold (genPastedSyms referencePos)
+        ((model, []), copiedSyms) ||> List.fold (genPastedSyms referencePos)
     | [] -> model, []
 
     
