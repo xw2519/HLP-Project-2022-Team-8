@@ -221,11 +221,16 @@ let segmentsToVertices (segList:Segment list) =
     [firstCoord] @ verticesExceptFirst
 
 
+// -------------------------------------------- tlp19 start ---------------------------------------------------
+
 /// Given the coordinates of two port locations that correspond
 /// to the endpoints of a wire, this function returns a list of
 /// wire vertices
 let makeInitialWireVerticesList (portCoords : XYPos * XYPos)  = 
-    let xs, ys, Xt, Yt = snd(portCoords).X, snd(portCoords).Y, fst(portCoords).X, fst(portCoords).Y
+    // Coordinates of the starting port the wire
+    let xs, ys = snd(portCoords).X, snd(portCoords).Y
+    // Coordinates of the ending port the wire
+    let Xt, Yt = fst(portCoords).X, fst(portCoords).Y
 
     // adjust length of segments 0 and 6 - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
     let adjStick = 
@@ -274,12 +279,16 @@ let makeInitialWireVerticesList (portCoords : XYPos * XYPos)  =
             {X = Xt; Y = Yt}
         ]
 
-    if Xt - xs >= adjStick * 2.0 then 
+    if Xt - xs >= adjStick * 2.0 then       // put return in anonymous record
         leftToRight, true
     elif abs (ys - Yt) < 4.0 then 
         rightToLeftHorizontal, false
     else 
         rightToLeft, false 
+
+
+// -------------------------------------------- tlp19 end ---------------------------------------------------
+
 
 let inferDirectionfromVertices (xyVerticesList: XYPos list) =
     if xyVerticesList.Length <> 8 then 
@@ -299,9 +308,13 @@ let inferDirectionfromVertices (xyVerticesList: XYPos list) =
     | _, true, false -> Some Horizontal
     | _, false, _ -> None
 
+
+// -------------------------------------------- tlp19 start ---------------------------------------------------
+
+
 /// this turns a list of vertices into a list of segments
 let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos list) =
-
+    // Define the shape of the Wire/Segment List
     let dirs = 
         match isLeftToRight with
         | true -> 
@@ -311,6 +324,7 @@ let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos lis
             // for 3 adjustale segments right-to-left
             [Horizontal;Horizontal;Vertical;Horizontal;Vertical;Horizontal;Horizontal]
 
+    // Pair-up the verticies to form segments
     List.pairwise xyVerticesList
     |> List.mapi (
         fun i ({X=startX; Y=startY},{X=endX; Y=endY}) ->    
@@ -328,6 +342,10 @@ let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos lis
                     | 0  | 6  -> false
                     | _ -> true
             })
+
+
+// -------------------------------------------- tlp19 end ---------------------------------------------------
+
 
 /// Convert a (possibly legacy) issie Connection stored as a list of vertices to Wire
 let issieVerticesToSegments 
@@ -465,14 +483,18 @@ let distanceBetweenTwoPoints (pos1 : XYPos) (pos2 : XYPos) : float =
     sqrt ( (pos1.X - pos2.X)*(pos1.X - pos2.X) + (pos1.Y - pos2.Y)*(pos1.Y - pos2.Y) )
 
 
+
+// -------------------------------------------- tlp19 start ---------------------------------------------------
+
 /// Given the coordinates of two port locations that correspond
 /// to the endpoints of a wire, this function returns a list of
 /// Segment(s).
-let makeInitialSegmentsList (hostId : ConnectionId) (portCoords : XYPos * XYPos) : list<Segment> =              // Take care of that
+let makeInitialSegmentsList (hostId : ConnectionId) (portCoords : XYPos * XYPos) : list<Segment> =
     let xyPairs, isLeftToRight = makeInitialWireVerticesList portCoords
     xyPairs
     |> xyVerticesToSegments hostId isLeftToRight
 
+// -------------------------------------------- tlp19 end ---------------------------------------------------
 
 /// This function renders the given
 /// segment (i.e. creates a ReactElement

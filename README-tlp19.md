@@ -21,10 +21,9 @@ cannot easily find everything via links from this README.
 
 ## Admin and quick access links
 
-***-- UPDATE THIS AT THE END: --***
+***-- UPDATE THIS AT THE END: WITH MAIN SECTION AND TRADED FUNCTIONS IN SECTION 1 --***
 
-*link to your teamN.md file*
-[Common repo TeamN file](https://github.com/tomcl/hlp22docs/blob/main/README.md)
+[Common repo TeamN file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
 [Buswire (section 2)](src/renderer/drawblock/buswire.fs)
 
