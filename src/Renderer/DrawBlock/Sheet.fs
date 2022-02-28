@@ -83,7 +83,7 @@ type SnapIndicator =
 
 /// For Keyboard messages
 type KeyboardMsg =
-    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC
+    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | F | R
 
 type Msg =
     | Wire of BusWire.Msg
@@ -293,7 +293,7 @@ let boxUnion (box:BoundingBox) (box':BoundingBox) =
     }
 
 let symbolToBB (symbol:Symbol.Symbol) =
-    let co = symbol.Compo 
+    let co = symbol.Component 
     {X= float co.X; Y=float co.Y; W=float (co.W); H=float (co.H)}
     
 
@@ -370,10 +370,6 @@ let isAllVisible (model: Model)(conns: ConnectionId list) (comps: ComponentId li
         |> List.map isBBoxAllVisible
         |> List.fold (&&) true
     wVisible && cVisible
-
-    
-    
-
 
 /// Calculates if two bounding boxes intersect by comparing corner coordinates of each box
 let boxesIntersect (box1: BoundingBox) (box2: BoundingBox) =
@@ -844,6 +840,19 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         Cmd.batch [ wireCmd (BusWire.DeleteWires wireUnion) // Delete Wires before components so nothing bad happens
                     symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
                     Cmd.ofMsg UpdateBoundingBoxes ]
+
+    // | KeyPress F -> 
+    //     let symbol = Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0]
+    //     let newSymbolModel = Symbol.flipSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
+
+    //     {model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
+
+    | KeyPress R -> 
+        let symbol = Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0]
+        let newSymbolModel = Symbol.rotateSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
+
+        { model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
+
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
         Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1")); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
@@ -1104,7 +1113,6 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         else {model with CursorType = Default}, Cmd.none
 
     | ToggleNet _ | DoNothing | _ -> model, Cmd.none
-
 
 /// This function zooms an SVG canvas by transforming its content and altering its size.
 /// Currently the zoom expands based on top left corner. 

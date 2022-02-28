@@ -3,6 +3,7 @@
 *)
 
 module DrawHelpers
+open CommonTypes
 open Browser.Types
 open Fable.Core.JsInterop
 open Fable.React
@@ -275,8 +276,6 @@ let makeText (posX: float) (posY: float) (displayedText: string) (textParameters
 /// deliver string suitable for HTML color from a HighlightColor type value
 let getColorString (col: CommonTypes.HighLightColor) =
     (sprintf "%A" col).ToLower()
-
-
 
 //--------------------------------Constants----------------------------------//
 

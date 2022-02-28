@@ -1288,7 +1288,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                     let symId = ComponentId inPort.HostId
                     let symbol = m[symId]
 
-                    match symbol.Compo.Type with
+                    match symbol.Component.Type with
                     | SplitWire n ->
                         match inPort.PortNumber with 
                         | Some 0 -> {symbol with InWidth0 = Some wire.Width}
@@ -1458,7 +1458,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                                             Map.tryFind connId model.Symbol.Ports
                                             |> Option.map (fun port -> port.HostId)
                                             |> Option.bind (fun symId -> Map.tryFind (ComponentId symId) model.Symbol.Symbols)
-                                            |> Option.map (fun sym -> sym.Compo.Label)
+                                            |> Option.map (fun sym -> sym.Component.Label)
                                         printfn $"Updating loaded wire from {getS conn.Source.Id}->{getS conn.Target.Id} of wire "
                                         updateWire model wire inOut)
                                 

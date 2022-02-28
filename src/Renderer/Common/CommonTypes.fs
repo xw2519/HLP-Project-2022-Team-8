@@ -321,6 +321,12 @@ module CommonTypes
         W : int
     }
 
+    type Rotation = 
+    | Zero = 0 
+    | Ninety = 90
+    | OneEighty = 180 
+    | TwoSeventy = 270
+
     /// JSConnection mapped to F# record.
     /// Id uniquely identifies connection globally and is used by library.
     type Connection = {
