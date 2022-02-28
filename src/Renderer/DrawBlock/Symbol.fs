@@ -467,9 +467,21 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
         |> (createPolygon colour opacity)
 
     let addClock posX posY =
-        let points = (sprintf "%i,%i %i,%i %i,%i" posX (posY-1) (posX+8) (posY-7) posX (posY-13))
-        createPolygon colour opacity points
-        |> List.append (insertText (float(posX+10)) (float(posY-13)) " clk" "start" "normal" "12px")
+        let clockText = 
+            {X=posX+10.0; Y=posY-13.0}
+            |> convertCoordtoCenter symbol
+            |> rotatePoint symbol.Rotation
+            |> convertCenterCoordtoOriginal symbol
+            
+        [{X=posX; Y=posY-1.0}; {X=(posX+8.0); Y=posY-7.0}; {X=posX; Y=(posY-13.0)}]
+        |> List.map (convertCoordtoCenter symbol)
+        |> List.map (rotatePoint symbol.Rotation)
+        |> List.map (convertCenterCoordtoOriginal symbol)
+        |> convertSymbolPointsListtoString
+        |> (createPolygon colour opacity)
+        |> List.append (insertText clockText.X clockText.Y "clk" "start" "normal" "12px")
+        
+        
 
     match symbol.SymbolCharacteristics with 
     | { clocked = false; inverted = true  } -> addInvertor (float(symbol.Component.W)) (float(symbol.Component.H) / 2.0)

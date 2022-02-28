@@ -851,7 +851,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         let symbol = Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0]
         let newSymbolModel = Symbol.rotateSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
 
-        {model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
+        { model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
