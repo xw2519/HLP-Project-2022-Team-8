@@ -184,7 +184,7 @@ let initSymbolCoordinates (comp: Component) (pos: XYPos) H W : XYPos list =
         | Output _ | Viewer _ -> [{X=(float(W)*(0.2)); Y=0}; {X=0; Y=halfH}; {X=(float(W)*(0.2)); Y=H}; {X=W; Y=H}; {X=W; Y=0}]
         | MergeWires | SplitWire _ -> [{X=halfW; Y=((1.0/6.0)*float(H))}; {X=halfW; Y=((5.0/6.0)*float(H))}]
         | Mux2 -> [{X=0; Y=0}; {X=W; Y=(float(H)*0.2)}; {X=W; Y=(float(H)*0.8)}; {X=0; Y=H}]
-        | _ -> [{X=0; Y=H}; {X=H; Y=W}; {X=W; Y=0}; {X=0; Y=0}]
+        | _ -> [{X=0; Y=H}; {X=W; Y=H}; {X=W; Y=0}; {X=0; Y=0}]
         // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
         // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
 
@@ -295,45 +295,40 @@ let addToPortModel (model: Model) (sym: Symbol) =
 
 let getPortPos (symbol: Symbol) (port: Port) : XYPos = 
     /// hack so that bounding box of splitwire, mergewires can be smaller height relative to ports
-    // This is where we modify port rotations
     let inline getPortPosEdgeGap (compType: ComponentType) =
         match compType with
         | MergeWires | SplitWire _  -> 0.25
         | _ -> 1.0
     
-    let gapBetweenPorts = getPortPosEdgeGap symbol.Component.Type 
-    
-    // Testing purposes
-    // let stransform = Rotation.OneEighty
-    if port.PortType = (PortType.Input) then
-        let ports = symbol.Component.InputPorts 
-        let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
+    let (ports, posX) =
+        if port.PortType = (PortType.Input) then
+            (symbol.Component.InputPorts, 0.0)
+        else 
+            (symbol.Component.OutputPorts, float( symbol.Component.W ))
 
-        let posX = 0.0
-        let posY = (float(symbol.Component.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
+    let index = float( List.findIndex (fun (p:Port)  -> p = port) ports )
+    let gap = getPortPosEdgeGap symbol.Component.Type 
+    let posY = (float(symbol.Component.H))* (( index + gap )/( float( ports.Length ) + 2.0*gap - 1.0))  // the ports are created so that they are equidistant
 
-        // Handle rotation
-        match symbol.Rotation with
-        | 0.0 -> {X = posX; Y = posY}
-        | 90.0 -> {X = posY; Y = posX}
-        | 180.0 -> {X = float(symbol.Component.W); Y = posY}
-        | 270.0 -> {X = posY; Y = posX + float(symbol.Component.W)}
-        | _ -> {X = posX; Y = posY}
-        
-    else
-        let ports = symbol.Component.OutputPorts 
-        let index = float( List.findIndex (fun (p: Port)  -> p = port) ports )
+    // Rotation logic
+    let convertDegtoRad degree = System.Math.PI * degree / 180.0 
 
-        let posX = float(symbol.Component.W)
-        let posY = (float(symbol.Component.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
+    let convertCoordtoCenter (portPos: XYPos) : XYPos =
+        {X = portPos.X-(float(symbol.Component.W) / 2.0); Y = portPos.Y-(float(symbol.Component.H) / 2.0)}
 
-        // Handle rotation
-        match symbol.Rotation with
-        | 0.0 -> {X = posX; Y = posY}
-        | 90.0 -> {X = posY; Y = posX}
-        | 180. -> {X = 0.0; Y = posY}
-        | 270.0 -> {X = posY; Y = posX - float(symbol.Component.H)}
-        | _ -> {X = posX; Y = posY}
+    let convertCenterCoordtoOriginal (portPos: XYPos) : XYPos =
+        {X = portPos.X+(float(symbol.Component.W) / 2.0); Y = portPos.Y+(float(symbol.Component.H) / 2.0)}
+
+    let rotatePoint (xyPos: XYPos) : XYPos =
+        {       
+            X = (xyPos.Y * System.Math.Sin(convertDegtoRad symbol.Rotation) + xyPos.X * System.Math.Cos(convertDegtoRad symbol.Rotation))
+            Y = (xyPos.X * -System.Math.Sin(convertDegtoRad symbol.Rotation) + xyPos.Y * System.Math.Cos(convertDegtoRad symbol.Rotation))
+        }
+
+    {X = posX; Y = posY}
+    |> convertCoordtoCenter
+    |> rotatePoint
+    |> convertCenterCoordtoOriginal
 
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
@@ -419,11 +414,11 @@ let getSymbolPoints (symbol: Symbol) =
 
         coordinateString[0..(String.length coordinateString) - 2]   
 
-    print convertSymbolPointstoString
-
     convertSymbolPointstoString
 
 let rotateSymbol (symbol: Symbol) = 
+    let convertDegtoRad degree = System.Math.PI * degree / 180.0 
+
     // For debugging purposes: Get next rotation
     let rotationMappings = 
         [   0.0, 90.0;
@@ -432,17 +427,15 @@ let rotateSymbol (symbol: Symbol) =
             270.0, 0.0  ]
         |> Map.ofList
 
-    let convertDegtoRad degree = System.Math.PI * degree / 180.0 
-
     // Once Pos is converted to read center positions, can remove 
     // Convert to center coordinate format for rotation
-    let convertCoordtoCenter : XYPos list =
-        symbol.SymbolPoints
+    let convertCoordtoCenter (symbolPointsL: XYPos list) : XYPos list =
+        symbolPointsL
         |> List.map (fun xyPos -> {X = xyPos.X-(float(symbol.Component.W) / 2.0); Y = xyPos.Y-(float(symbol.Component.H) / 2.0)})
 
     let convertCenterCoordtoOriginal (symbolPointsL: XYPos list) : XYPos list =
         symbolPointsL
-        |> List.map (fun xyPos -> {X = xyPos.X+(float(symbol.Component.W) / 2.0); Y = xyPos.Y+(float(symbol.Component.H)/ 2.0)})
+        |> List.map (fun xyPos -> {X = xyPos.X+(float(symbol.Component.W) / 2.0); Y = xyPos.Y+(float(symbol.Component.H) / 2.0)})
 
     let rotatePoint (xyPos: XYPos) : XYPos =
         {       
@@ -451,7 +444,8 @@ let rotateSymbol (symbol: Symbol) =
         }
 
     let newSymbolPoints = 
-        convertCoordtoCenter 
+        symbol.SymbolPoints
+        |> convertCoordtoCenter
         |> List.map rotatePoint
         |> convertCenterCoordtoOriginal
 
