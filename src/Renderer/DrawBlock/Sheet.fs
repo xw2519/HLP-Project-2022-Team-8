@@ -371,10 +371,6 @@ let isAllVisible (model: Model)(conns: ConnectionId list) (comps: ComponentId li
         |> List.fold (&&) true
     wVisible && cVisible
 
-    
-    
-
-
 /// Calculates if two bounding boxes intersect by comparing corner coordinates of each box
 let boxesIntersect (box1: BoundingBox) (box2: BoundingBox) =
     // Requires min and max since H & W can be negative, i.e. we don't know which corner is which automatically
@@ -845,13 +841,17 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                     symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
                     Cmd.ofMsg UpdateBoundingBoxes ]
 
-    | KeyPress F -> 
-        Symbol.flipSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
-        model, Cmd.none
+    // | KeyPress F -> 
+    //     let symbol = Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0]
+    //     let newSymbolModel = Symbol.flipSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
+
+    //     {model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
 
     | KeyPress R -> 
-        Symbol.rotateSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
-        model, Cmd.none
+        let symbol = Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0]
+        let newSymbolModel = Symbol.rotateSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
+
+        {model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},

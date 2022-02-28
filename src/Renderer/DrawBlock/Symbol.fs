@@ -67,6 +67,7 @@ type Msg =
     | LoadComponents of  Component list // For Issie Integration
     | WriteMemoryLine of ComponentId * int64 * int64 // For Issie Integration 
     | WriteMemoryType of ComponentId * ComponentType
+    | RotateSymbols of ComponentId list
 
 //---------------------------------helper types and functions----------------//
 
@@ -186,12 +187,6 @@ let initSymbolCoordinates (comp: Component) h w : XYPos list =
         | _ -> [{X=0; Y=comp.H}; {X=comp.H; Y=comp.W}; {X=comp.W; Y=0}; {X=0; Y=0}]
         // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 w (float(h)*0.2) w (float(h)*0.8) 0 h )
         // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(h)*0.2) 0 (float(h)*0.8) w h w 0)
-
-let rotateSymbol (symbolList: Symbol) = 
-    print "Rotation Triggered"
-
-let flipSymbol (symbolList: Symbol) = 
-    print "Flip Triggered"
 
 //-----------------------Skeleton Message type for symbols---------------------//
 
@@ -425,6 +420,23 @@ let getSymbolPoints (symbol: Symbol) =
         coordinateString[0..(String.length coordinateString) - 2]
 
     convertSymbolPointstoString
+
+let rotateSymbol (symbol: Symbol) = 
+    // For debugging purposes: Get next rotation
+    let rotationMappings = 
+        [   Rotation.Zero, Rotation.Ninety;
+            Rotation.Ninety, Rotation.OneEighty;
+            Rotation.OneEighty, Rotation.TwoSeventy;
+            Rotation.TwoSeventy, Rotation.Zero  ]
+        |> Map.ofList
+
+    print "Rotation Triggered"
+    print rotationMappings.[symbol.Rotation]
+
+    {symbol with Rotation = rotationMappings.[symbol.Rotation]}
+
+let flipSymbol (symbolList: Symbol) = 
+    print "Flip Triggered"
 
 /// --------------------------------------- SYMBOL DRAWING ------------------------------------------------------ ///   
 let drawSymbol 
@@ -1111,3 +1123,13 @@ let extractSymbols (symModel: Model) : Symbol list =
     |> Map.toList
     |> List.map (fun (key, _) -> extractSymbol symModel key)
 
+let updateModel(symModel: Model) (symbol: Symbol): Model = 
+    let updateSymbolMapping =
+        symModel.Symbols
+        |> Map.change (symbol.ComponentId) ( fun x ->
+                                               match x with
+                                               | Some s -> Some symbol
+                                               | None -> None
+                                           )
+
+    {CopiedSymbols = symModel.CopiedSymbols; Ports = symModel.Ports; Symbols = updateSymbolMapping}
