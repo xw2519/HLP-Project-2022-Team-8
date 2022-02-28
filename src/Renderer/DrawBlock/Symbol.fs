@@ -20,6 +20,21 @@ let GridSize = 30
 // TODO: ComponentID removed
 // TODO: POS centered
 
+type SymbolCharacteristics =
+    {
+        clocked: bool 
+        inverted: bool
+    }
+
+type SymbolTitles = 
+    { 
+        posX: float
+        posY: float
+        text: string
+        textAlignment: string
+        fontWeight: string
+        fontSize: string 
+    }
 
 type Symbol =
     {
@@ -33,14 +48,18 @@ type Symbol =
         ShowOutputPorts: bool
         Opacity: float
         Moving: bool
+
         Rotation: float
         SymbolPoints: XYPos list
+        SymbolCharacteristics: SymbolCharacteristics
+        // SymbolTitles: SymbolTitles list
     }
 
-type Model = {
-    Symbols: Map<ComponentId, Symbol>
-    CopiedSymbols: Map<ComponentId, Symbol>
-    Ports: Map<string, Port>                            // string since it's for both input and output ports
+type Model = 
+    {
+        Symbols: Map<ComponentId, Symbol>
+        CopiedSymbols: Map<ComponentId, Symbol>
+        Ports: Map<string, Port>                            // string since it's for both input and output ports
     }
 
 //----------------------------Message Type-----------------------------------//
@@ -76,6 +95,29 @@ let posAdd (a: XYPos) (b: XYPos) = {X=a.X+b.X; Y=a.Y+b.Y}
 
 let posOf x y = {X=x; Y=y}
 
+let convertDegtoRad degree = System.Math.PI * degree / 180.0 
+
+// Once Pos is converted to read center positions, can remove 
+let convertCoordtoCenter (symbol: Symbol) (portPos: XYPos) : XYPos =
+    {X = portPos.X-(float(symbol.Component.W) / 2.0); Y = portPos.Y-(float(symbol.Component.H) / 2.0)}
+
+let convertCenterCoordtoOriginal (symbol: Symbol) (portPos: XYPos) : XYPos =
+    {X = portPos.X+(float(symbol.Component.W) / 2.0); Y = portPos.Y+(float(symbol.Component.H) / 2.0)}
+
+let rotatePoint degree (xyPos: XYPos) : XYPos =
+    {       
+        X = (xyPos.Y * -System.Math.Sin(convertDegtoRad degree) + xyPos.X * System.Math.Cos(convertDegtoRad degree))
+        Y = (xyPos.X * System.Math.Sin(convertDegtoRad degree) + xyPos.Y * System.Math.Cos(convertDegtoRad degree))
+    }
+
+let convertSymbolPointsListtoString (xyPosL: XYPos list) : string = 
+    let splitXYPos accumulator (xyPos: XYPos) = accumulator + string(xyPos.X) + "," + string(xyPos.Y) + " "
+    let coordinateString = ("", xyPosL) ||> List.fold splitXYPos
+
+    coordinateString[0..(String.length coordinateString) - 2]   
+
+// Points that specify each symbol 
+let getSymbolPoints (symbol: Symbol) = convertSymbolPointsListtoString symbol.SymbolPoints
 // ----- helper functions for titles ----- //
 
 // Insert titles compatible with greater than 1 buswidth
@@ -84,6 +126,9 @@ let insertSymbolTitle title busWidth =
 
 // Insert titles for bus select
 let insertBusTitle busWidth lsb = 
+    print "Bus title"
+    print lsb
+    
     if busWidth <> 1 then"(" + string(busWidth + lsb - 1) + ".." + string(lsb) +  ")" else string(lsb)
 
 // Decodes the component type into component labels
@@ -113,7 +158,7 @@ let insertCompLabel (compType: ComponentType) =
 let init () = {Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty}, Cmd.none
 
 // Text to be put inside different Symbols depending on their ComponentType
-let insertCompTitle (comp: Component) =
+let getSymbolTitle (comp: Component) =
     match comp.Type with
     | And | Nand-> "&"
     | Or | Nor-> "≥1"
@@ -170,7 +215,15 @@ let initPorts numOfPorts compId (portType: PortType) =
                 HostId = compId
             }])
 
-let initSymbolCoordinates (comp: Component) (pos: XYPos) H W : XYPos list = 
+// let initSymbolTitles posX posY (comp: Component) = 
+
+let initSymbolCharacteristics (comp: Component) = 
+    match comp.Type with 
+    | Nand | Nor | Xnor | Not -> {clocked=false; inverted=true}
+    | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> {clocked=true; inverted=false}
+    | _ -> {clocked=false; inverted=false}
+
+let initSymbolPoints (comp: Component) (pos: XYPos) H W : XYPos list = 
 
     let halfW = W/2
     let halfH = H/2
@@ -277,7 +330,8 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) =
       Opacity = 1.0
       Moving = false
       Rotation = 0.0
-      SymbolPoints = (initSymbolCoordinates comp pos comp.H comp.W)
+      SymbolPoints = (initSymbolPoints comp pos comp.H comp.W)
+      SymbolCharacteristics = (initSymbolCharacteristics comp)
     }
 
 // Function to add ports to port model     
@@ -290,7 +344,7 @@ let addToPortModel (model: Model) (sym: Symbol) =
 
     (addedInputPorts, sym.Component.OutputPorts) ||> List.fold addOnePort
 
-//-----------------------------------------GET PORT POSITION---------------------------------------------------
+//----------------------------------------- GET PORT POSITION---------------------------------------------------
 // Function that calculates the positions of the ports 
 
 let getPortPos (symbol: Symbol) (port: Port) : XYPos = 
@@ -311,32 +365,17 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     let posY = (float(symbol.Component.H))* (( index + gap )/( float( ports.Length ) + 2.0*gap - 1.0))  // the ports are created so that they are equidistant
 
     // Rotation logic
-    let convertDegtoRad degree = System.Math.PI * degree / 180.0 
-
-    let convertCoordtoCenter (portPos: XYPos) : XYPos =
-        {X = portPos.X-(float(symbol.Component.W) / 2.0); Y = portPos.Y-(float(symbol.Component.H) / 2.0)}
-
-    let convertCenterCoordtoOriginal (portPos: XYPos) : XYPos =
-        {X = portPos.X+(float(symbol.Component.W) / 2.0); Y = portPos.Y+(float(symbol.Component.H) / 2.0)}
-
-    let rotatePoint (xyPos: XYPos) : XYPos =
-        {       
-            X = (xyPos.Y * -System.Math.Sin(convertDegtoRad symbol.Rotation) + xyPos.X * System.Math.Cos(convertDegtoRad symbol.Rotation))
-            Y = (xyPos.X * System.Math.Sin(convertDegtoRad symbol.Rotation) + xyPos.Y * System.Math.Cos(convertDegtoRad symbol.Rotation))
-        }
-
     {X = posX; Y = posY}
-    |> convertCoordtoCenter
-    |> rotatePoint
-    |> convertCenterCoordtoOriginal
+    |> convertCoordtoCenter symbol
+    |> rotatePoint symbol.Rotation
+    |> convertCenterCoordtoOriginal symbol
 
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
 
-//-----------------------------------------DRAWING HELPERS ---------------------------------------------------
-
+//----------------------------------------- DRAWING HELPERS ---------------------------------------------------
 // Text adding function with many parameters (such as bold, position and text)
-let private addText posX posY name txtPos weight size =
+let private insertText posX posY name txtPos weight size =
     let text = {defaultText with TextAnchor = txtPos; FontWeight = weight; FontSize = size}
 
     [makeText posX posY name text]
@@ -346,13 +385,13 @@ let private drawPortCircle x y =
     [makeCircle x y portCircle]
 
 // Print the name of each port 
-let private drawPortText (portList: Port List) (listOfNames: string List) (symbol: Symbol) = 
+let private insertPortText (portList: Port List) (listOfNames: string List) (symbol: Symbol) = 
     // Define the name of each port 
     let addPortName x y name portType=
         let xPos = if portType = PortType.Output then x - 5. else x + 5.
         let test = if portType = PortType.Output then "end" else "start"
         
-        (addText xPos (y - 7.0) name test "normal" "12px")
+        (insertText xPos (y - 7.0) name test "normal" "12px")
     
     if listOfNames.Length < 1
         then  []
@@ -370,29 +409,20 @@ let private drawPorts (portList: Port List) (printPorts: bool) (symbol: Symbol) 
         then [0..(portList.Length-1)] |> List.collect (fun x -> (drawPortCircle (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y))
         else []
 
-//------------------------------HELPER FUNCTIONS FOR DRAWING SYMBOLS-------------------------------------
+//------------------------------ HELPER FUNCTIONS FOR DRAWING SYMBOLS-------------------------------------
 
-let private createPolygon points colour opacity = 
+let private createPolygon colour opacity points  = 
     [makePolygon points {defaultPolygon with Fill = colour; FillOpacity = opacity}]
 
-let createBiColorPolygon points colour strokeColor opacity strokeWidth = 
+let drawBiColorPolygon points colour strokeColor opacity strokeWidth = 
     if strokeColor <> "black" then 
         [makePolygon points {defaultPolygon with Fill = colour; Stroke = strokeColor; FillOpacity = opacity; StrokeWidth=strokeWidth}]
     else   
         [makePolygon points {defaultPolygon with Fill = colour; FillOpacity = opacity; StrokeWidth = strokeWidth}]
 
-let addInvertor posX posY colour opacity =
-    let points = (sprintf "%i,%i %i,%i %i,%i" posX (posY) (posX+9) (posY) posX (posY-8))
-    createPolygon points colour opacity
-
-let addClock posX posY colour opacity =
-    let points = (sprintf "%i,%i %i,%i %i,%i" posX (posY-1) (posX+8) (posY-7) posX (posY-13))
-    createPolygon points colour opacity
-    |> List.append (addText (float(posX+10)) (float(posY-13)) " clk" "start" "normal" "12px")
-
 let addHorizontalLine posX1 posX2 posY opacity = // TODO: Line instead of polygon?
     let points = (sprintf "%i,%f %i,%f" posX1 posY posX2 posY)
-    createPolygon points "lightgray" opacity
+    createPolygon "lightgray" opacity points
 
 let addOutlineColor (color:string) =
     match color.ToLower() with
@@ -406,64 +436,52 @@ let addHorizontalColorLine posX1 posX2 posY opacity (color: string) = // TODO: L
     let olColor = addOutlineColor color
     [makePolygon points {defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity}]
 
-// Points that specify each symbol 
-let getSymbolPoints (symbol: Symbol) =
-    let convertSymbolPointstoString : string = 
-        let splitXYPos accumulator (xyPos: XYPos) = accumulator + string(xyPos.X) + "," + string(xyPos.Y) + " "
-        let coordinateString = ("", symbol.SymbolPoints) ||> List.fold splitXYPos
-
-        coordinateString[0..(String.length coordinateString) - 2]   
-
-    convertSymbolPointstoString
-
 let rotateSymbol (symbol: Symbol) = 
-    let convertDegtoRad degree = System.Math.PI * degree / 180.0 
-
     // For debugging purposes: Get next rotation
-    let rotationMappings = 
+    let nextRotation = 
         [   0.0, 90.0;
             90.0, 180.0;
             180.0, 270.0;
             270.0, 0.0  ]
         |> Map.ofList
 
-    let rotationCalcMappings = 
-        [   0.0, 90.0;
-            90.0, 90.0;
-            180.0, 270.0;
-            270.0, 90.0 ]
-        |> Map.ofList
-
-    // Once Pos is converted to read center positions, can remove 
-    // Convert to center coordinate format for rotation
-    let convertCoordtoCenter (symbolPointsL: XYPos list) : XYPos list =
-        symbolPointsL
-        |> List.map (fun xyPos -> {X = xyPos.X-(float(symbol.Component.W) / 2.0); Y = xyPos.Y-(float(symbol.Component.H) / 2.0)})
-
-    let convertCenterCoordtoOriginal (symbolPointsL: XYPos list) : XYPos list =
-        symbolPointsL
-        |> List.map (fun xyPos -> {X = xyPos.X+(float(symbol.Component.W) / 2.0); Y = xyPos.Y+(float(symbol.Component.H) / 2.0)})
-
-    let rotatePoint (xyPos: XYPos) : XYPos =
-        {       
-            X = (xyPos.Y * -System.Math.Sin(convertDegtoRad rotationCalcMappings.[symbol.Rotation]) + xyPos.X * System.Math.Cos(convertDegtoRad rotationCalcMappings.[symbol.Rotation]))
-            Y = (xyPos.X * System.Math.Sin(convertDegtoRad rotationCalcMappings.[symbol.Rotation]) + xyPos.Y * System.Math.Cos(convertDegtoRad rotationCalcMappings.[symbol.Rotation]))
-        }
-
-    print "Converted to center"
-    print (symbol.SymbolPoints |> convertCoordtoCenter)
-    print (symbol.SymbolPoints |> convertCoordtoCenter |> List.map rotatePoint)
-
+    // Handle merge and split wires exception
     let newSymbolPoints = 
         symbol.SymbolPoints
-        |> convertCoordtoCenter
-        |> List.map rotatePoint
-        |> convertCenterCoordtoOriginal
+        |> List.map (convertCoordtoCenter symbol)
+        |> List.map (rotatePoint 90.0)
+        |> List.map (convertCenterCoordtoOriginal symbol)
 
-    {symbol with Rotation = rotationMappings.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
+    {symbol with Rotation = nextRotation.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
 
-let flipSymbol (symbolList: Symbol) = 
+let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement list=
+    print "drawSymbolCharacteristics"
+    print symbol
+
+    let addInvertor posX posY =
+        [{X=posX; Y=posY}; {X=(posX+9.0); Y=posY}; {X=posX; Y=(posY-8.0)}]
+        |> List.map (convertCoordtoCenter symbol)
+        |> List.map (rotatePoint symbol.Rotation)
+        |> List.map (convertCenterCoordtoOriginal symbol)
+        |> convertSymbolPointsListtoString
+        |> (createPolygon colour opacity)
+
+    let addClock posX posY =
+        let points = (sprintf "%i,%i %i,%i %i,%i" posX (posY-1) (posX+8) (posY-7) posX (posY-13))
+        createPolygon colour opacity points
+        |> List.append (insertText (float(posX+10)) (float(posY-13)) " clk" "start" "normal" "12px")
+
+    match symbol.SymbolCharacteristics with 
+    | { clocked = false; inverted = true  } -> addInvertor (float(symbol.Component.W)) (float(symbol.Component.H) / 2.0)
+    | { clocked = true;  inverted = false } -> addClock 0 symbol.Component.H
+    | { clocked = true;  inverted = true  } -> addClock 0 symbol.Component.H @ addInvertor symbol.Component.X symbol.Component.Y
+    | _ -> []
+
+let flipSymbol (symbol: Symbol) = 
     print "Flip Triggered"
+
+// let insertSymbolTitles 
+
 
 /// --------------------------------------- SYMBOL DRAWING ------------------------------------------------------ ///   
 let drawSymbol 
@@ -488,13 +506,20 @@ let drawSymbol
             | true, _ -> sprintf $"({msb})"
             | false, _ -> sprintf $"({msb}:{lsb})"
         addHorizontalColorLine posX1 posX2 (posY*float(h)) opacity colour @
-        addText (float (posX1 + posX2)/2.0) (posY*float(h)-11.0) text "middle" "bold" "9px"
+        insertText (float (posX1 + posX2)/2.0) (posY*float(h)-11.0) text "middle" "bold" "9px"
 
     // Helper function to add certain characteristics on specific symbols (inverter, enables, clocks)
     let additions = 
         match comp.Type with
-        | Constant1 (_,_,txt) -> (addHorizontalLine halfW w (float(halfH)) opacity @ addText (float (halfW)-5.0) (float(h)-8.0) txt "middle" "normal" "12px") 
-        | Nand | Nor | Xnor |Not -> (addInvertor w halfH colour opacity)
+        // Write Custom Name
+        | Input (x) -> (insertText  (float(w/2)-5.0) ((float(h)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
+        | Output (x) -> (insertText  (float(w/2)) ((float(h)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
+        | Viewer (x) -> (insertText  (float(w/2)) ((float(h)/2.7)-1.25) (insertSymbolTitle "" x) "middle" "normal" "9px")
+        | BusSelection(x,y) -> (insertText  (float(w/2)-5.0) ((float(h)/2.7)-2.0) (insertBusTitle x y) "middle" "normal" "12px")
+
+        | BusCompare (_,y) -> (insertText  (float(w/2)-6.0) (float(h)/2.7-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px")
+        | Constant1 (_,_,txt) -> (addHorizontalLine halfW w (float(halfH)) opacity @ insertText (float (halfW)-5.0) (float(h)-8.0) txt "middle" "normal" "12px") 
+
         | MergeWires -> 
             let lo, hi = 
                 match symbol.InWidth0, symbol.InWidth1  with 
@@ -504,7 +529,7 @@ let drawSymbol
             let midb = lo
             let midt = lo - 1
             mergeSplitLine 0 halfW (1.0/6.0) midt 0 @ 
-            mergeSplitLine 0 halfW (5.0/6.0) msb midb @ 
+            mergeSplitLine 0 halfW (10.0/6.0) msb midb @ 
             mergeSplitLine halfW w 0.5 msb 0
         | SplitWire mid -> 
             let msb, mid' = match symbol.InWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
@@ -513,12 +538,7 @@ let drawSymbol
             mergeSplitLine halfW w (1.0/6.0) midt 0 @ 
             mergeSplitLine halfW w (5.0/6.0) msb midb @ 
             mergeSplitLine 0 halfW 0.5 msb 0
-        | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> (addClock 0 h colour opacity)
-        | BusSelection(x,y) -> (addText  (float(w/2)-5.0) ((float(h)/2.7)-2.0) (insertBusTitle x y) "middle" "normal" "12px")
-        | BusCompare (_,y) -> (addText  (float(w/2)-6.0) (float(h)/2.7-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px")
-        | Input (x) -> (addText  (float(w/2)-5.0) ((float(h)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
-        | Output (x) -> (addText  (float(w/2)) ((float(h)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
-        | Viewer (x) -> (addText  (float(w/2)) ((float(h)/2.7)-1.25) (insertSymbolTitle "" x) "middle" "normal" "9px")
+        
         | _ -> []
 
     print symbol
@@ -532,12 +552,13 @@ let drawSymbol
     // Put everything together 
     (drawPorts comp.OutputPorts showOutputPorts symbol)
     |> List.append (drawPorts comp.InputPorts showInputPorts symbol)
-    |> List.append (drawPortText comp.InputPorts (fst(insertPortTitle comp)) symbol)
-    |> List.append (drawPortText comp.OutputPorts (snd(insertPortTitle comp)) symbol)  
-    |> List.append (addText (float halfW) (+5.0) (insertCompTitle comp) "middle" "bold" "14px") 
-    |> List.append (addText (float halfW) (-20.0) comp.Label "middle" "normal" "16px")
+    |> List.append (insertPortText comp.InputPorts (fst(insertPortTitle comp)) symbol)
+    |> List.append (insertPortText comp.OutputPorts (snd(insertPortTitle comp)) symbol)  
+    |> List.append (insertText (float halfW) (+5.0) (getSymbolTitle comp) "middle" "bold" "14px") 
+    |> List.append (insertText (float halfW) (-20.0) comp.Label "middle" "normal" "16px")
     |> List.append (additions)
-    |> List.append (createBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth)
+    |> List.append (drawSymbolCharacteristics symbol colour opacity)
+    |> List.append (drawBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth)
 
 //----------------------------View Function for Symbols----------------------------//
 
@@ -564,12 +585,12 @@ let private renderSymbol =
 let convertMapsIntoLists map =
     let listMoving = 
         Map.filter (fun _ sym -> not sym.Moving) map
-        |>Map.toList
-        |>List.map snd
+        |> Map.toList
+        |> List.map snd
     let listNotMoving =
         Map.filter (fun _ sym -> sym.Moving) map
-        |>Map.toList
-        |>List.map snd
+        |> Map.toList
+        |> List.map snd
     listMoving @ listNotMoving
 
 let view (model: Model) (dispatch: Msg -> unit) = 
@@ -1082,7 +1103,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
                                           InWidth0 = None
                                           InWidth1 = None
                                           Rotation = 0.0
-                                          SymbolPoints = (initSymbolCoordinates comp xyPos comp.H comp.W)
+                                          SymbolPoints = (initSymbolPoints comp xyPos comp.H comp.W)
+                                          SymbolCharacteristics = (initSymbolCharacteristics comp)
                                         }
                                         ))
         let symbolList =
