@@ -321,8 +321,8 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 
     let rotatePoint (xyPos: XYPos) : XYPos =
         {       
-            X = (xyPos.Y * System.Math.Sin(convertDegtoRad symbol.Rotation) + xyPos.X * System.Math.Cos(convertDegtoRad symbol.Rotation))
-            Y = (xyPos.X * -System.Math.Sin(convertDegtoRad symbol.Rotation) + xyPos.Y * System.Math.Cos(convertDegtoRad symbol.Rotation))
+            X = (xyPos.Y * -System.Math.Sin(convertDegtoRad symbol.Rotation) + xyPos.X * System.Math.Cos(convertDegtoRad symbol.Rotation))
+            Y = (xyPos.X * System.Math.Sin(convertDegtoRad symbol.Rotation) + xyPos.Y * System.Math.Cos(convertDegtoRad symbol.Rotation))
         }
 
     {X = posX; Y = posY}
@@ -439,8 +439,8 @@ let rotateSymbol (symbol: Symbol) =
 
     let rotatePoint (xyPos: XYPos) : XYPos =
         {       
-            X = (xyPos.Y * System.Math.Sin(convertDegtoRad rotationMappings.[symbol.Rotation]) + xyPos.X * System.Math.Cos(convertDegtoRad rotationMappings.[symbol.Rotation]))
-            Y = (xyPos.X * -System.Math.Sin(convertDegtoRad rotationMappings.[symbol.Rotation]) + xyPos.Y * System.Math.Cos(convertDegtoRad rotationMappings.[symbol.Rotation]))
+            X = (xyPos.Y * -System.Math.Sin(convertDegtoRad rotationMappings.[symbol.Rotation]) + xyPos.X * System.Math.Cos(convertDegtoRad rotationMappings.[symbol.Rotation]))
+            Y = (xyPos.X * System.Math.Sin(convertDegtoRad rotationMappings.[symbol.Rotation]) + xyPos.Y * System.Math.Cos(convertDegtoRad rotationMappings.[symbol.Rotation]))
         }
 
     let newSymbolPoints = 
