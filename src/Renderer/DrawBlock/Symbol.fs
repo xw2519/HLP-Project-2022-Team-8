@@ -10,6 +10,7 @@ open DrawHelpers
 open CommonTypes
 open System.Text.RegularExpressions
 
+let print x = printfn "%A" x
 
 /// --------- STATIC VARIABLES --------- ///
 
@@ -32,7 +33,9 @@ type Symbol =
         ShowOutputPorts: bool
         Opacity: float
         Moving: bool
-        STransform: Rotation
+        Rotation: Rotation
+
+        SymbolPoints: XYPos list
     }
 
 type Model = {
@@ -167,6 +170,23 @@ let initPorts numOfPorts compId (portType: PortType) =
                 HostId = compId
             }])
 
+let initSymbolCoordinates (comp: Component) h w : XYPos list = 
+    let halfW = comp.W/2
+    let halfH = (comp.H)/2
+
+    match comp.Type with
+        | BusSelection _ | BusCompare _ -> [{X=0; Y=0}; {X=0; Y=h}; {X=(0.6*float(w)); Y=h}; {X=(0.8*float(w)); Y=(0.7*float(h))}; {X=w; Y=(0.7*float(h))}; {X=w; Y=(0.3*float(h))}; {X=(0.8*float(w)); Y=(0.3*float(h))}; {X=(0.6*float(w)); Y=0}]
+        | Constant1 _ -> [{X=0; Y=comp.H}; {X=halfW; Y=halfH}; {X=0; Y=0}]
+        | Demux2 -> [{X=0; Y=(float(h)*0.2)}; {X=0; Y=(float(h)*0.8)}; {X=w; Y=h}; {X=w; Y=0}]
+        | Input _ -> [{X=0; Y=0}; {X=0; Y=h}; {X=(float(w)*0.66); Y=h}; {X=w; Y=halfH}; {X=(float(w)*0.66); Y=0}]
+        | IOLabel -> [{X=(float(w)*0.33); Y=0}; {X=0; Y=halfH}; {X=(float(w)*0.33); Y=h}; {X=(float(w)*0.66); Y=h}; {X=w; Y=halfH}; {X=(float(w)*0.66); Y=0}]
+        | Output _ | Viewer _ -> [{X=(float(w)*(0.2)); Y=0}; {X=0; Y=halfH}; {X=(float(w)*(0.2)); Y=h}; {X=w; Y=h}; {X=w; Y=0}]
+        | MergeWires | SplitWire _ -> [{X=halfW; Y=((1.0/6.0)*float(h))}; {X=halfW; Y=((5.0/6.0)*float(h))}]
+        | Mux2 -> [{X=0; Y=0}; {X=w; Y=(float(h)*0.2)}; {X=w; Y=(float(h)*0.8)}; {X=0; Y=h}]
+        | _ -> [{X=0; Y=comp.H}; {X=comp.H; Y=comp.W}; {X=comp.W; Y=0}; {X=0; Y=0}]
+        // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 w (float(h)*0.2) w (float(h)*0.8) 0 h )
+        // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(h)*0.2) 0 (float(h)*0.8) w h w 0)
+
 //-----------------------Skeleton Message type for symbols---------------------//
 
 let cutToLength (lst : (string * int) list) =
@@ -255,7 +275,8 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) =
       Component = comp
       Opacity = 1.0
       Moving = false
-      STransform = Rotation.Zero
+      Rotation = Rotation.Zero
+      SymbolPoints = (initSymbolCoordinates comp comp.H comp.W)
     }
 
 // Function to add ports to port model     
@@ -291,7 +312,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         let posY = (float(symbol.Component.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
 
         // Handle rotation
-        match symbol.STransform with
+        match symbol.Rotation with
         | Rotation.Zero -> {X = posX; Y = posY}
         | Rotation.Ninety -> {X = posY; Y = posX}
         | Rotation.OneEighty -> {X = float(symbol.Component.W); Y = posY}
@@ -306,7 +327,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         let posY = (float(symbol.Component.H))* (( index + gapBetweenPorts )/( float( ports.Length ) + 2.0*gapBetweenPorts - 1.0))  
 
         // Handle rotation
-        match symbol.STransform with
+        match symbol.Rotation with
         | Rotation.Zero -> {X = posX; Y = posY}
         | Rotation.Ninety -> {X = posY; Y = posX}
         | Rotation.OneEighty -> {X = 0.0; Y = posY}
@@ -389,6 +410,21 @@ let addHorizontalColorLine posX1 posX2 posY opacity (color: string) = // TODO: L
     let olColor = addOutlineColor color
     [makePolygon points {defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity}]
 
+// Points that specify each symbol 
+let getSymbolPoints (symbol: Symbol) =
+    let halfW = symbol.Component.W/2
+    let halfH = symbol.Component.H/2
+
+    let convertSymbolPointstoString : string = 
+        let splitXYPos accumulator (xyPos: XYPos) = 
+            accumulator + string(xyPos.X) + "," + string(xyPos.Y) + ","
+
+        let coordinateString = ("", symbol.SymbolPoints) ||> List.fold splitXYPos
+
+        coordinateString[0..(String.length coordinateString) - 2]
+
+    convertSymbolPointstoString
+
 /// --------------------------------------- SYMBOL DRAWING ------------------------------------------------------ ///   
 let drawSymbol 
     (
@@ -445,8 +481,6 @@ let drawSymbol
         | Viewer (x) -> (addText  (float(w/2)) ((float(h)/2.7)-1.25) (insertSymbolTitle "" x) "middle" "normal" "9px")
         | _ -> []
 
-    let print x = printfn "%A" x
-
     print symbol
 
     let outlineColor, strokeWidth =
@@ -462,7 +496,7 @@ let drawSymbol
     |> List.append (addText (float halfW) (+5.0) (insertCompTitle comp) "middle" "bold" "14px") 
     |> List.append (addText (float halfW) (-20.0) comp.Label "middle" "normal" "16px")
     |> List.append (additions)
-    |> List.append (createBiColorPolygon (generateSymbolPoints symbol.Component h w symbol.STransform) colour outlineColor opacity strokeWidth)
+    |> List.append (createBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth)
 
 //----------------------------View Function for Symbols----------------------------//
 
@@ -997,8 +1031,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
                                                 comp.H, comp.W
                                         ComponentId comp.Id,
                                         { Pos = xyPos
-                                          ShowInputPorts = false //do not show input ports initially
-                                          ShowOutputPorts = false //do not show output ports initially
+                                          ShowInputPorts = false   // do not show input ports initially
+                                          ShowOutputPorts = false  // do not show output ports initially
                                           Colour = "lightgrey"     // initial color 
                                           ComponentId = ComponentId comp.Id
                                           Component = {comp with H=h ; W = w}
@@ -1006,7 +1040,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
                                           Moving = false
                                           InWidth0 = None
                                           InWidth1 = None
-                                          STransform = Rotation.Zero
+                                          Rotation = Rotation.Zero
+                                          SymbolPoints = (initSymbolCoordinates comp comp.H comp.W)
                                         }
                                         ))
         let symbolList =

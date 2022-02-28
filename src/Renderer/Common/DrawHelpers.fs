@@ -277,33 +277,6 @@ let makeText (posX: float) (posY: float) (displayedText: string) (textParameters
 let getColorString (col: CommonTypes.HighLightColor) =
     (sprintf "%A" col).ToLower()
 
-
-
-// Points that specify each symbol 
-let generateSymbolPoints (comp: Component) h w STransform =
-    let halfW = comp.W/2
-    let halfH = (comp.H)/2
-
-    match comp.Type with
-        | BusSelection _ | BusCompare _ -> (sprintf "%i,%i %i,%i %f,%i %f,%f %i,%f %i,%f %f,%f %f,%i ") 0 0 0 h (0.6*float(w)) h (0.8*float(w)) (0.7*float(h)) w (0.7*float(h)) w (0.3*float(h)) (0.8*float(w)) (0.3*float(h)) (0.6*float(w)) 0
-        | Constant1 _ -> (sprintf "%i,%i %i,%i %i,%i" 0 comp.H halfW halfH 0 0)
-        | Demux2 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(h)*0.2) 0 (float(h)*0.8) w h w 0)
-        | Input _ -> 
-            match STransform with 
-            // | 0 -> (sprintf "%i,%i %i,%i %f,%i %i,%i %f,%i" 0 0 0 h (float(w)*0.66) h w halfH (float(w)*0.66) 0)
-            // | 90 -> (sprintf "%i,%i %i,%i %f,%i %i,%i %f,%i" 0 0 0 h (float(w)*0.66) h w halfH (float(w)*0.66) 0)
-            // | 180 -> (sprintf "%i,%i %i,%i %f,%i %i,%i %f,%i" 0 0 0 h (float(w)*0.66) h w halfH (float(w)*0.66) 0)
-            // | 270 -> (sprintf "%i,%i %i,%i %f,%i %i,%i %f,%i" 0 0 0 h (float(w)*0.66) h w halfH (float(w)*0.66) 0)
-            | _ -> (sprintf "%i,%i %i,%i %f,%i %i,%i %f,%i" 0 0 0 h (float(w)*0.66) h w halfH (float(w)*0.66) 0)
-        | IOLabel -> (sprintf "%f, %i %i, %i %f, %i %f, %i %i, %i %f, %i"  (float(w)*0.33) 0 0 halfH (float(w)*0.33) h (float(w)*0.66) h w halfH (float(w)*0.66) 0)
-        | Output _ | Viewer _ -> (sprintf "%f,%i %i,%i %f,%i %i,%i %i,%i" (float(w)*(0.2)) 0 0 halfH (float(w)*(0.2)) h w h w 0)
-        | MergeWires | SplitWire _ -> (sprintf "%i,%f %i,%f " halfW ((1.0/6.0)*float(h)) halfW ((5.0/6.0)*float(h)))
-        | Mux2 -> (sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 w (float(h)*0.2) w (float(h)*0.8) 0 h )
-        | _ -> (sprintf "%i,%i %i,%i %i,%i %i,%i" 0 comp.H comp.H comp.W comp.W 0 0 0)
-        // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 w (float(h)*0.2) w (float(h)*0.8) 0 h )
-        // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(h)*0.2) 0 (float(h)*0.8) w h w 0)
-
-
 //--------------------------------Constants----------------------------------//
 
 /// these determine the size of the draw block canvas relative to the objects on it.
