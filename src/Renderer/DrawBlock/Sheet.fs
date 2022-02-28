@@ -13,6 +13,7 @@ open DrawHelpers
 
 let mutable canvasDiv:Types.Element option = None
 
+type Modes = OldFashionedCircuit | ModernCircuit | Radiussed
 
 /// Used to keep mouse movement (AKA velocity) info as well as position
 type XYPosMov = {
@@ -83,7 +84,7 @@ type SnapIndicator =
 
 /// For Keyboard messages
 type KeyboardMsg =
-    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC
+    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | CtrlM
 
 type Msg =
     | Wire of BusWire.Msg
@@ -909,6 +910,10 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             el.scrollTop <- paras.ScrollY
             el.scrollLeft <- paras.ScrollX
             { model with Zoom = paras.MagToUse}, Cmd.ofMsg (UpdateScrollPos (el.scrollLeft, el.scrollTop))
+    | KeyPress CtrlM ->
+        // let inputPorts, outputPorts = BusWire.getPortIdsOfWires model.Wire wireUnion
+        model, Cmd.batch [ wireCmd (BusWire.ChangeMode)] // Delete Wires before components so nothing bad happens
+
     | ToggleSelectionOpen ->
         //if List.isEmpty model.SelectedComponents && List.isEmpty model.SelectedWires then  
         //    model, Cmd.none

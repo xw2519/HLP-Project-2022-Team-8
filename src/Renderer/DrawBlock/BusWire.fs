@@ -23,9 +23,23 @@ let minSegLen = 5.
 ///
 type Orientation =  Horizontal | Vertical
 
+type InOut = Input | Output
+
+type Modes = OldFashionedCircuit | ModernCircuit | Radiussed
+
 ///
 type SnapPosition = High | Mid | Low
 
+type Index = One | Two | Three | Four | Five
+with
+    member this.Text() = // the match statement is used for performance
+        match this with
+        | One -> 1
+        | Two -> 2
+        | Three -> 3
+        | Four -> 4
+        | Five -> 5
+    
 ///
 type Segment = 
     {
@@ -69,6 +83,9 @@ type Model =
         LastMousePos: XYPos
         ErrorWires: list<ConnectionId>
         Notifications: Option<string>
+        Mode: Modes
+        SplitWireList: XYPos list
+
     }
 
 //----------------------------Message Type-----------------------------------//
@@ -89,6 +106,7 @@ type Msg =
     | MakeJumps of list<ConnectionId>
     | ResetModel // For Issie Integration
     | LoadConnections of list<Connection> // For Issie Integration
+    | ChangeMode
 
 //-------------------------Debugging functions---------------------------------//
 let ppSId (sId:SegmentId) =
@@ -947,6 +965,9 @@ let init () =
         LastMousePos = {X = 0.0; Y = 0.0};
         ErrorWires = []
         Notifications = None
+        Mode = OldFashionedCircuit
+        SplitWireList= []
+
     } , Cmd.none
 
 ///Returns the wires connected to a list of components given by componentIds
@@ -1127,13 +1148,13 @@ let moveWire (wire : Wire) (diff : XYPos) =
 /// Re-routes a single wire in the model when its ports move.
 /// Tries to preserve manual routing when this makes sense, otherwise re-routes with autoroute.
 /// Partial routing from input end is done by reversing segments and and swapping Start/End
-/// inout = true => reroute input (target) side of wire.
-let updateWire (model : Model) (wire : Wire) (inOut : bool) =
+/// inout = Input => reroute input (target) side of wire.
+let updateWire (model : Model) (wire : Wire) (inOut : InOut) =
     let newPort = 
         match inOut with
-        | true -> Symbol.getInputPortLocation model.Symbol wire.InputPort
-        | false -> Symbol.getOutputPortLocation model.Symbol wire.OutputPort
-    if inOut then
+        | Input -> Symbol.getInputPortLocation model.Symbol wire.InputPort
+        | Output -> Symbol.getOutputPortLocation model.Symbol wire.OutputPort
+    if inOut = Input then
         partialAutoRoute (revSegments wire.Segments) newPort
         |> Option.map revSegments
     else 
@@ -1141,83 +1162,204 @@ let updateWire (model : Model) (wire : Wire) (inOut : bool) =
     |> Option.map (fun segs -> {wire with Segments = segs})
     |> Option.defaultValue (autorouteWire model wire)
 
+
+
+/// TODO: replace name findAllJumps:
+/// Finds all the Jumps and updates the list.
+/// TODO: change to array : JumpCoordinateList and so have Jumps of type array and not list
+/// 
 let makeAllJumps (wiresWithNoJumps: ConnectionId list) (model: Model) =
-    let mutable newWX = model.WX
     // Arrays are faster to check than lists
     let wiresWithNoJumpsA = List.toArray wiresWithNoJumps
-    let changeJumps wid index jumps =
-        let jumps = List.sortDescending jumps
-        let changeSegment segs =
-            List.mapi (fun i x -> if i <> index then x else { x with JumpCoordinateList = jumps }) segs
 
-        newWX <- Map.add wid { newWX[wid] with Segments = changeSegment newWX[wid].Segments } newWX
-
+    // Returns an array of: arrays of segments for all wires in Model.WX
     let segs =
         model.WX
         |> Map.toArray
-        |> Array.mapi (fun i (wid, w) -> List.toArray w.Segments)
+        |> Array.map (fun (_, w) -> List.toArray w.Segments)   
 
-    for w1 in 0 .. segs.Length - 1 do
-        for h in segs[w1] do
-            if h.Dir = Horizontal then
-                // work out what jumps this segment should have
-                let mutable jumps: (float * SegmentId) list = []
-                
-                if not (Array.contains h.HostId wiresWithNoJumpsA) then
-                    for w2 in 0 .. segs.Length - 1 do
-                        // everything inside the inner loop should be very highly optimised
-                        // it is executed n^2 time where n is the number of segments (maybe 5000)
-                        // the abs here are because segment coordinates my be negated to indicate manual routing
-                        for v in segs[w2] do
-                            if not (Array.contains v.HostId wiresWithNoJumpsA) then
-                                match v.Dir with
-                                | Vertical ->
-                                    let x, x1, x2 = abs v.Start.X, abs h.Start.X, abs h.End.X
-                                    let y, y1, y2 = abs h.Start.Y, abs v.Start.Y, abs v.End.Y
-                                    let xhi, xlo = max x1 x2, min x1 x2
-                                    let yhi, ylo = max y1 y2, min y1 y2
-                                    //printfn $"{[xlo;x;xhi]}, {[ylo;y;yhi]}"
-                                    if x < xhi - 5.0 && x > xlo + 5.0 && y < yhi - 5.0 && y > ylo + 5.0 then
-                                        //printfn "found a jump!"
-                                        jumps <- (x, v.Id) :: jumps
-                                | _ -> ()
-                    // compare jumps with what segment now has, and change newWX if need be
-                // note that if no change is needed we do not update WX
-                // simple cases are done without sort for speed, proably not necessary!
-                // The jump list is sorted in model to enable easier rendering of segments
-                match jumps, h.JumpCoordinateList with
-                | [], [] -> ()
-                | [ a ], [ b ] when a <> b -> changeJumps h.HostId h.Index jumps
-                | [], _ -> changeJumps h.HostId h.Index jumps
-                | _, [] -> // in this case we need to sort the jump list
-                    changeJumps h.HostId h.Index (List.sort jumps)
-                | newJumps, oldJ ->
-                    let newJ = List.sort newJumps
-                    // oldJ is already sorted (we only ever write newJ back to model)
-                    if newJ <> oldJ then changeJumps h.HostId h.Index newJumps else ()
 
+
+    let splithorizontalVertical allSegs=
+        let isSegInJumpList seg =
+            not (Array.contains seg.HostId wiresWithNoJumpsA)
+            
+        let horizontal seg =
+            match seg.Dir with
+            | Horizontal -> true
+            | _ -> false 
+            
+        let vertical seg =
+            match seg.Dir with
+            | Vertical -> true
+            | _ -> false 
+
+        let collectedSegments = allSegs
+                                |> Array.concat                // Collect all segments into a big array
+                                |> Array.filter isSegInJumpList
+
+        let horizontalArray = Array.filter horizontal collectedSegments
+        let verticalArray = Array.filter vertical collectedSegments
+
+        (horizontalArray, verticalArray)
+
+
+
+    let makeHoriVertiGrid (horizontalVerticalSegs: Segment array * Segment array) =
+        let horizontalArray = fst horizontalVerticalSegs
+        let verticalArray = snd horizontalVerticalSegs
+
+        let makePair a b =
+            (a,b)
+
+        let makeColumn (lst: Segment array) (x:Segment) =
+            Array.map (makePair x) lst
+        Array.map (makeColumn verticalArray) horizontalArray
+            |> Array.concat                                 
+    
+
+
+    /// If horizontal and Vertical segments intersect then append to the list of Jumps
+    let registerAllJumps hvGrid=
+        let checkCrossing (segHrz, segVrt) =
+            let vrtX = abs segVrt.Start.X
+            let hrzY = abs segHrz.Start.Y 
+
+            let maxMin x y =
+                (max x y , min x y)
+
+            let (xhi, xlo) = maxMin (abs segHrz.Start.X) (abs segHrz.End.X)
+            let (yhi, ylo) = maxMin (abs segVrt.Start.Y) (abs segVrt.End.Y)
+           
+            if vrtX < xhi - 5.0 && vrtX > xlo + 5.0 && hrzY < yhi - 5.0 && hrzY > ylo + 5.0 then
+                [|(segHrz.Id,(vrtX, segVrt.Id))|]
+            else [||]
+
+        Array.map checkCrossing hvGrid
+            |> Array.collect id 
+
+
+
+    let changeJumps (model: Model) (jumps: (SegmentId * (float * SegmentId)) array) =       //(WX:Map<ConnectionId,Wire>)
+        let WX = model.WX
+        let jumpHorizontalId = Array.toList (Array.map fst jumps)
+        let changeSegment (segs: Segment list) =
+            //printfn $"{jumps}"
+            List.map (fun (x:Segment) -> if not (List.contains x.Id jumpHorizontalId) then { x with JumpCoordinateList = []}     // Reinitialise it every time we change the concerned wire
+                                         else 
+                                            let contains lst =
+                                                x.Id = (fst lst)
+                                            let jumpIdList = Array.filter contains jumps
+                                            let jumpList = Array.toList (Array.map snd jumpIdList)
+                                            { x with JumpCoordinateList = jumpList} ) segs
+
+        let iterateWire connectionId =
+            let updateSeg = changeSegment (WX[connectionId].Segments)
+            {WX[connectionId] with Segments = updateSeg}
+
+        let keyList = List.map fst (Map.toList WX)
+        List.zip keyList (List.map iterateWire keyList)
+        |> Map.ofList
+
+    let newWX = segs
+                |> splithorizontalVertical
+                |> makeHoriVertiGrid
+                |> registerAllJumps
+                |> changeJumps model
+
+
+    //printfn $"{newWX}"
     { model with WX = newWX }
 
 
-let updateWireSegmentJumps (wireList: list<ConnectionId>) (wModel: Model) : Model =
-    let startT = TimeHelpers.getTimeMs()
-    let model = makeAllJumps [] wModel
-    TimeHelpers.instrumentTime "UpdateJumps" startT
-    model
+/// Function used to reset the JumpCoordinate part of the Model when changing modes
+let resetJumpsTo0 (WX:Map<ConnectionId,Wire>) =
+    let changeSegment (segs: Segment list) =
+        //printfn $"{jumps}"
+        List.map (fun (x:Segment) -> {x with JumpCoordinateList = []}) segs    // Reinitialise it every time we change the concerned wire
+                                    
+    let iterateWire connectionId =
+        let updateSeg = changeSegment (WX[connectionId].Segments)
+        {WX[connectionId] with Segments = updateSeg}
+
+    let keyList = List.map fst (Map.toList WX)
+    List.zip keyList (List.map iterateWire keyList)
+    |> Map.ofList
 
 
+///
+let computeWireSplitCoord (model:Model) =
+
+    let WX = model.WX
+
+    let makeWireGrid (wireList:(ConnectionId*Wire) list) =
+        let makePair a b =
+            (a,b)
+
+        let makeColumn (lst: (ConnectionId*Wire) list) (x:ConnectionId*Wire)=
+            List.map (makePair x) lst
+        List.map (makeColumn wireList) wireList
+            |> List.concat  
+ 
+
+    let findCircle (segs1: Segment list) (segs2: Segment list) =
+        let pairList = Seq.zip (List.toSeq segs1) (List.toSeq segs2)
+        let circleSeg = Seq.tryFind (fun ((x:Segment),(y:Segment)) ->  (x.Start.X = y.Start.X) && (x.Start.Y = y.Start.Y) && not ((x.End.X = y.End.X) && (x.End.Y = y.End.Y))) pairList
+        printfn $"{circleSeg}"
+        match circleSeg with
+
+        | Some (a,b) -> if ( sqrt ((a.End.X - a.Start.X)**2 + (a.End.Y - a.Start.Y)**2) <= sqrt ((b.End.X - b.Start.X)**2 + (b.End.Y - b.Start.Y)**2))
+                        then Some a.End
+                        else Some b.End
+        | None -> None
+
+
+    let getPorts ((wireSeq1:(ConnectionId * Wire)),(wireSeq2:ConnectionId * Wire)) =
+        
+        let wire1 = snd wireSeq1
+        let wire2 = snd wireSeq2
+        
+        let stringInId1, stringOutId1 =
+            match wire1.InputPort, wire1.OutputPort with
+            | InputPortId stringId1, OutputPortId stringId2 -> stringId1, stringId2
+        let stringInId2, stringOutId2 =
+            match wire2.InputPort, wire2.OutputPort with
+            | InputPortId stringId1, OutputPortId stringId2 -> stringId1, stringId2
+
+        match (stringOutId1 = stringOutId2) && (stringInId1 <> stringInId2) with
+        | false -> None
+        | true -> findCircle (wire1.Segments: Segment list) (wire2.Segments: Segment list)
+
+
+    let makeGrid (WX: (ConnectionId*Wire) list)=
+        let grid = makeWireGrid WX
+        List.map getPorts grid 
+
+    // remove all none from the option list and convert to list & keep all distinct some values
+    let XYPos = makeGrid (Map.toList WX) 
+               |> List.choose id 
+               |> List.distinct
+    
+    { model with SplitWireList= XYPos
+                 WX = resetJumpsTo0 WX }
+
+
+// Update at said interval the jumps arrays
 
 /// This function updates the wire model by removing from the stored lists of intersections
-/// all those generated by wireList wires.
-/// intersetcions are stored in maps on the model and on the horizontal segments containing the jumps
-let resetWireSegmentJumps (wireList : list<ConnectionId>) (wModel : Model) : Model =
-    makeAllJumps wireList wModel
+/// all those generated by wireList wires. It updates if the list is empty and Resets if the list is not.
+/// Intersections are stored in maps on the model and on the horizontal segments containing the jumps.
 
-
-
-   
-        
-
+let updateOrResetWireSegmentJumps (wireList: ConnectionId list) (wModel: Model) : Model =
+    let startT = TimeHelpers.getTimeMs()                // StartT is not an interval
+    let model = match wModel.Mode with
+                | OldFashionedCircuit -> makeAllJumps wireList wModel
+                | Radiussed -> { wModel with WX = resetJumpsTo0 wModel.WX }
+                | ModernCircuit -> let model = computeWireSplitCoord wModel
+                                   printfn $"{model.SplitWireList}"
+                                   model
+    TimeHelpers.instrumentTime "UpdateJumps" startT     // print interval
+    model
 
 
 /// Re-routes the wires in the model based on a list of components that have been altered.
@@ -1226,24 +1368,25 @@ let resetWireSegmentJumps (wireList : list<ConnectionId>) (wModel : Model) : Mod
 /// Otherwise it will auto-route wires connected to components that have moved
 let updateWires (model : Model) (compIdList : ComponentId list) (diff : XYPos) =
 
-    let (inputWires, outputWires, fullyConnected) = filterWiresByCompMoved model compIdList
+    ///Returns a tuple of: wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
+    let (inputWires, outputWires, InOutConnected) = filterWiresByCompMoved model compIdList
 
     let newWires = 
         model.WX
         |> Map.toList
-        |> List.map (fun (cId, wire) -> 
-            if List.contains cId fullyConnected //Translate wires that are connected to moving components on both sides
-            then (cId, moveWire wire diff)
-            elif List.contains cId inputWires //Only route wires connected to ports that moved for efficiency
-            then (cId, updateWire model wire true)
-            elif List.contains cId outputWires
-            then (cId, updateWire model wire false)
-            else (cId, wire))
+        |> List.map (fun (connectionId, wire) ->
+            match (List.contains connectionId InOutConnected), (List.contains connectionId inputWires), 
+                  (List.contains connectionId outputWires) with
+            | true, _ , _ -> (connectionId, moveWire wire diff)                      //Translate wires that are connected to moving components on both sides
+            | false, true, _ -> (connectionId, updateWire model wire Input)           //Only route wires connected to ports that moved for efficiency
+            | false, false, true -> (connectionId, updateWire model wire Output)
+            | _ ,_ ,_ -> (connectionId, wire)
+            )
         |> Map.ofList
         
     {model with WX = newWires}
 
-///
+
 let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
     
     match msg with
@@ -1253,11 +1396,10 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
 
 
     | UpdateWires (componentIdList, diff) -> 
-        updateWires model componentIdList diff, Cmd.none
+        (updateWires model componentIdList diff, Cmd.none)
 
     | AddWire ( (inputId, outputId) : (InputPortId * OutputPortId) ) ->
         let portOnePos, portTwoPos = Symbol.getTwoPortLocations model.Symbol inputId outputId
-        let wireWidthFromSymbol = WireWidth.Configured 1
         let wireId = ConnectionId(JSHelpers.uuid())
         let segmentList = makeInitialSegmentsList wireId (portOnePos, portTwoPos)
         
@@ -1272,7 +1414,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
             }
             
         let wireAddedMap = Map.add newWire.Id newWire model.WX
-        let newModel = updateWireSegmentJumps [wireId] {model with WX = wireAddedMap}
+        let newModel = updateOrResetWireSegmentJumps [] {model with WX = wireAddedMap}
 
         newModel, Cmd.ofMsg BusWidths
 
@@ -1284,38 +1426,45 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                     match connWidths[wire.Id] with
                     | Some a -> a
                     | None -> wire.Width
-                let newColor = if wire.Color = Purple || wire.Color = Brown then Purple else DarkSlateGrey
-                wireMap.Add ( wire.Id, { wire with Width = width ; Color = newColor} )
-
-            let addSymbolWidthFolder (m: Map<ComponentId,Symbol.Symbol>) (_: ConnectionId) (wire: Wire) =
+                let newColor =                                      // Done: if wire.Color = Purple || wire.Color = Brown then Purple else DarkSlateGrey       
+                    match wire.Color with
+                    | Purple | Brown -> Purple
+                    | _ -> DarkSlateGrey
+                wireMap.Add ( wire.Id, { wire with                  // formatting
+                                            Width = width ; 
+                                            Color = newColor} )
+                                                                                                                // change name m to map or else
+            let addSymbolWidthFolder (mapSymbolId: Map<ComponentId,Symbol.Symbol>) (_: ConnectionId) (wire: Wire) =       // _ as no need for the key in map.fold
                     let inPort = model.Symbol.Ports[match wire.InputPort with InputPortId ip -> ip]
                     let symId = ComponentId inPort.HostId
-                    let symbol = m[symId]
+                    let symbol = mapSymbolId[symId]
 
                     match symbol.Compo.Type with
-                    | SplitWire n ->
+                    | SplitWire _ ->        // Splitwire needs an argument int
                         match inPort.PortNumber with 
                         | Some 0 -> {symbol with InWidth0 = Some wire.Width}
                         | x -> failwithf $"What? wire found with input port {x} other than 0 connecting to SplitWire"
-                        |> (fun sym -> Map.add symId sym m)
+                        |> (fun sym -> Map.add symId sym mapSymbolId)
                     | MergeWires ->
-                        match inPort.PortNumber with 
+                        match inPort.PortNumber with
                         | Some 0 -> 
-                            Map.add symId  {symbol with InWidth0 = Some wire.Width} m
+                            Map.add symId {symbol with InWidth0 = Some wire.Width} mapSymbolId
                         | Some 1 -> 
-                            Map.add symId {symbol with InWidth1 = Some wire.Width} m
+                            Map.add symId {symbol with InWidth1 = Some wire.Width} mapSymbolId
                         | x -> failwithf $"What? wire found with input port {x} other than 0 or 1 connecting to MergeWires"
-                    | _ -> m
+                    | _ -> mapSymbolId
 
-            let newWX = ((Map.empty, model.WX) ||> Map.fold addWireWidthFolder)
 
+            let newWX = (Map.empty, model.WX) ||> Map.fold addWireWidthFolder
             let symbolsWithWidths =
                 (model.Symbol.Symbols, newWX) ||> Map.fold addSymbolWidthFolder
 
             { model with 
-                WX = newWX; Notifications = None ; 
-                ErrorWires=[]; 
-                Symbol = {model.Symbol with Symbols = symbolsWithWidths}}, Cmd.none    
+                WX = newWX
+                Notifications = None
+                ErrorWires=[]
+                Symbol = {model.Symbol with Symbols = symbolsWithWidths}}, Cmd.none
+            // TODO: rename type Model.Symbol in Model.SymbolModel
         
 
 
@@ -1329,66 +1478,68 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                 { model with 
                     Notifications = Some e.Msg }, Cmd.ofMsg (ErrorWires e.ConnectionsAffected)
     
-    | CopyWires (connIds : list<ConnectionId>) ->
-        let copiedWires = Map.filter (fun connId _ -> List.contains connId connIds) model.WX
+    | CopyWires (connIdList : list<ConnectionId>) ->
+        let copiedWires = Map.filter (fun connId _ -> List.contains connId connIdList) model.WX
         { model with CopiedWX = copiedWires }, Cmd.none
 
     | ErrorWires (connectionIds : list<ConnectionId>) -> 
         let newWX =
             model.WX
             |> Map.map
-                (fun id wire -> 
-                    if List.contains id connectionIds then
-                        {wire with Color = HighLightColor.Red}
-                    else if List.contains id model.ErrorWires then 
-                        {wire with Color = HighLightColor.DarkSlateGrey}
-                    else wire
+                (fun id wire ->                     // convert to match doesn't really makes sense more complexe
+                    match List.contains id connectionIds, List.contains id model.ErrorWires with
+                    | true , _ -> {wire with Color = HighLightColor.Red}                // If he got detected as error this turn around
+                    | false, true -> {wire with Color = HighLightColor.DarkSlateGrey}   // If he was in the error list but is not anymore switch back to default color
+                    | _ , _ -> wire                                                     // Else all the wires that are not errors and that you don't need to modify their color                        
                 ) 
         
-        {model with WX = newWX ; ErrorWires = connectionIds}, Cmd.none
+        { model with 
+            WX = newWX
+            ErrorWires = connectionIds}, Cmd.none
 
     | SelectWires (connectionIds : list<ConnectionId>) -> //selects all wires in connectionIds, and also deselects all other wires
         let newWX =
             model.WX
             |> Map.map
                 (fun id wire -> 
-                    if List.contains id model.ErrorWires then
-                        if List.contains id connectionIds then 
-                            {wire with Color = HighLightColor.Brown} 
-                        else 
-                            {wire with Color = HighLightColor.Red}
-                    else if List.contains id connectionIds then
-                        {wire with Color = HighLightColor.Purple} 
-                    else
-                        {wire with Color = HighLightColor.DarkSlateGrey} 
-                ) 
+                    match List.contains id model.ErrorWires, List.contains id connectionIds with
+                    | true, true -> {wire with Color = HighLightColor.Brown} 
+                    | true, false -> {wire with Color = HighLightColor.Red}
+                    | false, true -> {wire with Color = HighLightColor.Purple}
+                    | false, false -> {wire with Color = HighLightColor.DarkSlateGrey}
+                )
         
         {model with WX = newWX}, Cmd.none
 
+// Create a new model without the wires contained in connectionIds
     | DeleteWires (connectionIds : list<ConnectionId>) -> 
-        let newModel = resetWireSegmentJumps (connectionIds) (model)
+        let resetWireModel = updateOrResetWireSegmentJumps (connectionIds) (model)    // Reset Wire Segment
         let newWX =
-             newModel.WX
-             |> Map.filter (fun id wire -> not (List.contains id connectionIds))
-        {newModel with WX = newWX}, Cmd.ofMsg BusWidths
+             resetWireModel.WX
+             |> Map.filter (fun id _ -> not (List.contains id connectionIds))     // TODO: change the wire not used to a _
+        {resetWireModel with WX = newWX}, Cmd.ofMsg BusWidths
 
-    | DragWire (connId : ConnectionId, mMsg: MouseT) ->
-        match mMsg.Op with
+    | DragWire (connectionId : ConnectionId, mouse: MouseT) ->
+        match mouse.Op with                                             // TODO: Change to return cmd.none at the end only once | use newModel = match ... | newModel, cmd.none
         | Down ->
-            let segId = getClickedSegment model connId mMsg.Pos
+            let segId = getClickedSegment model connectionId mouse.Pos
             {model with SelectedSegment = segId }, Cmd.none
         | Drag ->
             let segId = model.SelectedSegment
-            let rec getSeg (segList: list<Segment>) = 
+            let rec getSeg (segList: list<Segment>) =           // TODO: change from rec to a library function call like list.filter or Map.tryfind
                 match segList with
                 | h::t -> if h.Id = segId then h else getSeg t
                 | _ -> failwithf "segment Id not found in segment list"
-            let seg = getSeg model.WX[connId].Segments
+        (*    match result with
+            | Some x -> printfn "Found an element: %d" x
+            | None -> printfn "Failed to find a matching element."  *)
+            let seg = getSeg model.WX[connectionId].Segments
+
             if seg.Draggable then
                 let distanceToMove = 
                     match seg.Dir with
-                    | Horizontal -> mMsg.Pos.Y - abs seg.Start.Y
-                    | Vertical -> mMsg.Pos.X - abs seg.Start.X
+                    | Horizontal -> mouse.Pos.Y - abs seg.Start.Y
+                    | Vertical -> mouse.Pos.X - abs seg.Start.X
 
                 let newWire = moveSegment seg distanceToMove model
                 let newWX = Map.add seg.HostId newWire model.WX
@@ -1400,60 +1551,58 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         | _ -> model, Cmd.none
 
 
-    | ColorWires (connIds, color) -> // Just Changes the colour of the wires, Sheet calls pasteWires before this
-        let newWires =
-            (List.fold (fun prevWires cId -> 
-                let oldWireOpt = Map.tryFind cId model.WX
-                match oldWireOpt with
-                | None -> 
-                    printfn "BusWire error: expected wire in ColorWires does not exist"
-                    prevWires
-                | Some oldWire ->
-                    Map.add cId { oldWire with Color = color } prevWires) model.WX connIds)
-        { model with WX = newWires }, Cmd.none
-    
-    | ResetJumps connIds ->
-        printfn $"resetting jumps on {connIds.Length} wires"
+    | ColorWires ((connIds: list<ConnectionId>), (color: HighLightColor)) -> // Just Changes the colour of the wires, Sheet calls pasteWires before this
+        let newWiresMap =
+            List.fold (fun oldWiresMap cId -> 
+                            let oldWireOpt = Map.tryFind cId model.WX
+                            match oldWireOpt with
+                            | Some oldWire ->
+                                Map.add cId { oldWire with Color = color } oldWiresMap
+                            | None -> 
+                                oldWiresMap      
+                        ) model.WX connIds
         
+        { model with WX = newWiresMap }, Cmd.none
+    
+    | ResetJumps connIds ->        
         let newModel =
             model
-            |> resetWireSegmentJumps connIds
+            |> updateOrResetWireSegmentJumps connIds    // Reset Wire Segment
         
         newModel, Cmd.none
     
-    | MakeJumps connIds ->
-        printfn $"making jumps on {connIds.Length} wires"
-
+    | MakeJumps _ ->
         let newModel =
             model
-            |> updateWireSegmentJumps connIds
+            |> updateOrResetWireSegmentJumps [] // Update Wire Segment
             
         newModel, Cmd.none
     
-    | ResetModel -> { model with WX = Map.empty; ErrorWires = []; Notifications = None }, Cmd.none
+    | ResetModel -> { model with 
+                        WX = Map.empty
+                        ErrorWires = []
+                        Notifications = None }, Cmd.none
     
-    | LoadConnections conns -> // we assume components (and hence ports) are loaded before connections
+    | LoadConnections connections -> // we assume components (and hence ports) are loaded before connections
         let posMatchesVertex (pos:XYPos) (vertex: float*float) =
             let epsilon = 0.00001
-            abs (abs pos.X - abs (fst vertex)) < epsilon &&
-            abs (abs pos.Y - abs (snd vertex)) < epsilon
-            |> (fun b -> if not b then printf $"Bad wire endpoint match on {pos} {vertex}"; b else b)
+            abs (abs pos.X - abs (fst vertex)) < epsilon && abs (abs pos.Y - abs (snd vertex)) < epsilon
         let newWX =
-            conns 
-            |> List.map ( fun conn ->
-                            let inputId = InputPortId conn.Target.Id
-                            let outputId = OutputPortId conn.Source.Id
-                            let connId = ConnectionId conn.Id
-                            let segments = issieVerticesToSegments connId conn.Vertices
+            connections 
+            |> List.map ( fun connection ->
+                            let inputId = InputPortId connection.Target.Id
+                            let outputId = OutputPortId connection.Source.Id
+                            let connId = ConnectionId connection.Id
+                            let segments = issieVerticesToSegments connId connection.Vertices
                             let makeWirePosMatchSymbol inOut (wire:Wire) =
                                 match inOut with
-                                | true -> posMatchesVertex 
+                                | Input -> posMatchesVertex 
                                             (Symbol.getInputPortLocation model.Symbol inputId)
-                                            (List.head conn.Vertices)
-                                | false ->
+                                            (List.head connection.Vertices)
+                                | Output ->
                                           posMatchesVertex 
                                             (Symbol.getOutputPortLocation model.Symbol outputId) 
-                                            (List.last conn.Vertices)
+                                            (List.last connection.Vertices)
                                 |> (fun b -> 
                                     if b then 
                                         wire 
@@ -1463,47 +1612,64 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                                             |> Option.map (fun port -> port.HostId)
                                             |> Option.bind (fun symId -> Map.tryFind (ComponentId symId) model.Symbol.Symbols)
                                             |> Option.map (fun sym -> sym.Compo.Label)
-                                        printfn $"Updating loaded wire from {getS conn.Source.Id}->{getS conn.Target.Id} of wire "
-                                        updateWire model wire inOut)
-                                
+                                        updateWire model wire inOut)  
                                 
                             connId,
-                            { Id = ConnectionId conn.Id
+
+                            { Id = ConnectionId connection.Id
                               InputPort = inputId
                               OutputPort = outputId
                               Color = HighLightColor.DarkSlateGrey
                               Width = 1
-                              Segments = segments}
-                            |> makeWirePosMatchSymbol false
-                            |> makeWirePosMatchSymbol true
+                              Segments = segments }
+
+                            |> makeWirePosMatchSymbol Output
+                            |> makeWirePosMatchSymbol Input
                         )
             |> Map.ofList
         
         let connIds =
-            conns
-            |> List.map (fun conn -> ConnectionId conn.Id)
+            connections
+            |> List.map (fun connection -> ConnectionId connection.Id)
             
         { model with WX = newWX }, Cmd.ofMsg (MakeJumps connIds)
+    
+    | ChangeMode ->
+        let prvmode = model.Mode
+        let mode = match prvmode with
+                    | OldFashionedCircuit -> Radiussed
+                    | Radiussed -> ModernCircuit
+                    | ModernCircuit -> OldFashionedCircuit
+        let wModel = model
+        let newWX = { wModel with Mode = mode }
+        printfn $"{mode}"
+        let resetWireModel = updateOrResetWireSegmentJumps [] (newWX)    // Reset Wire Segment
+        
+        resetWireModel, Cmd.none
 
 //---------------Other interface functions--------------------//
 
-///
-let wireIntersectsBoundingBox (w : Wire) (bb : BoundingBox) =
-    let boolList = List.map (fun seg -> fst(segmentIntersectsBoundingBoxCoordinates seg bb)) w.Segments
+/// returns true when for wires inside the bounding box or hovered by mouse else false
+let wireIntersectsBoundingBox (w : Wire) (boundBox : BoundingBox) =
+    let boolList = List.map (fun seg -> fst(segmentIntersectsBoundingBoxCoordinates seg boundBox)) w.Segments
     List.contains true boolList
 
-///
+
+/// 
 let getIntersectingWires (wModel : Model) (selectBox : BoundingBox) : list<ConnectionId> = 
     wModel.WX
     |> Map.map (fun id wire -> wireIntersectsBoundingBox wire selectBox)
     |> Map.filter (fun id boolVal -> boolVal)
     |> Map.toList
-    |> List.map (fun (id,bool) -> id)
+    |> List.map (fun (id, bool) -> id)
 
 ///searches if the position of the cursor is on a wire in a model
 ///Where n is 5 pixels adjusted for top level zoom
 let getWireIfClicked (wModel : Model) (pos : XYPos) (n : float) : ConnectionId Option =
-    let boundingBox = {BoundingBox.X = pos.X - n; Y = pos.Y - n; H = n*2.; W = n*2.}
+    let boundingBox = {X = pos.X - n
+                       Y = pos.Y - n
+                       H = n*2.
+                       W = n*2.}
     let intersectingWires = getIntersectingWires (wModel : Model) boundingBox
     List.tryHead intersectingWires
 
@@ -1546,7 +1712,7 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
         
     { wModel with WX = newWireMap }, pastedConnIds
 
-///
+/// not used in the code: was used in sheets though
 let getPortIdsOfWires (model: Model) (connIds: ConnectionId list) : (InputPortId list * OutputPortId list) =
     (([], []), connIds)
     ||> List.fold (fun (inputPorts, outputPorts) connId ->
