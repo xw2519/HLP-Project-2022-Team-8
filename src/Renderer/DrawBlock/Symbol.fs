@@ -120,16 +120,9 @@ let convertSymbolPointsListtoString (xyPosL: XYPos list) : string =
 let getSymbolPoints (symbol: Symbol) = convertSymbolPointsListtoString symbol.SymbolPoints
 // ----- helper functions for titles ----- //
 
-// Insert titles compatible with greater than 1 buswidth
-let insertSymbolTitle title busWidth =  
-    if busWidth = 1 then title else title + "(" + string(busWidth-1) + "..0)"
 
-// Insert titles for bus select
-let insertBusTitle busWidth lsb = 
-    print "Bus title"
-    print lsb
-    
-    if busWidth <> 1 then"(" + string(busWidth + lsb - 1) + ".." + string(lsb) +  ")" else string(lsb)
+
+
 
 // Decodes the component type into component labels
 let insertCompLabel (compType: ComponentType) = 
@@ -157,25 +150,7 @@ let insertCompLabel (compType: ComponentType) =
 
 let init () = {Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty}, Cmd.none
 
-// Text to be put inside different Symbols depending on their ComponentType
-let getSymbolTitle (comp: Component) =
-    match comp.Type with
-    | And | Nand-> "&"
-    | Or | Nor-> "≥1"
-    | Xor | Xnor -> "=1"
-    | Not -> "1"
-    | Decode4 -> "Decode"
-    | NbitsAdder n -> insertSymbolTitle "Adder" n
-    | Register n | RegisterE n -> insertSymbolTitle "Register" n
-    | AsyncROM1 _ -> "Async-ROM"
-    | ROM1 _ -> "Sync-ROM"
-    | RAM1 _ -> "Sync-RAM"
-    | AsyncRAM1 _ -> "Async-RAM"
-    | DFF -> "DFF"
-    | DFFE -> "DFFE"
-    | NbitsXor (x)->   insertSymbolTitle "N-bits-Xor" x
-    | Custom x -> x.Name
-    | _ -> ""
+
 
 // Input and Output names of the ports depending on their ComponentType
 // (input port names, output port names)
@@ -454,10 +429,7 @@ let rotateSymbol (symbol: Symbol) =
 
     {symbol with Rotation = nextRotation.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
 
-let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement list=
-    print "drawSymbolCharacteristics"
-    print symbol
-
+let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement list =
     let addInvertor posX posY =
         [{X=posX; Y=posY}; {X=(posX+9.0); Y=posY}; {X=posX; Y=(posY-8.0)}]
         |> List.map (convertCoordtoCenter symbol)
@@ -467,7 +439,7 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
         |> (createPolygon colour opacity)
 
     let addClock posX posY =
-        let clockText = 
+        let clockLabelPos = 
             {X=posX+10.0; Y=posY-13.0}
             |> convertCoordtoCenter symbol
             |> rotatePoint symbol.Rotation
@@ -479,21 +451,58 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
         |> List.map (convertCenterCoordtoOriginal symbol)
         |> convertSymbolPointsListtoString
         |> (createPolygon colour opacity)
-        |> List.append (insertText clockText.X clockText.Y "clk" "start" "normal" "12px")
+        |> List.append (insertText clockLabelPos.X clockLabelPos.Y "clk" "start" "normal" "12px")
         
-        
-
     match symbol.SymbolCharacteristics with 
     | { clocked = false; inverted = true  } -> addInvertor (float(symbol.Component.W)) (float(symbol.Component.H) / 2.0)
     | { clocked = true;  inverted = false } -> addClock 0 symbol.Component.H
     | { clocked = true;  inverted = true  } -> addClock 0 symbol.Component.H @ addInvertor symbol.Component.X symbol.Component.Y
     | _ -> []
 
+let addSymbolText (comp: Component) : ReactElement list =
+    // Insert titles compatible with greater than 1 buswidth
+    let insertSymbolTitle title busWidth =  
+        if busWidth = 1 then title else title + "(" + string(busWidth-1) + "..0)"
+    
+    // Insert titles for bus select
+    let insertBusTitle busWidth lsb = 
+        if busWidth <> 1 then"(" + string(busWidth + lsb - 1) + ".." + string(lsb) +  ")" else string(lsb)
+
+    // Text to be put inside different Symbols depending on their ComponentType
+    let getSymbolTitle (comp: Component) =
+        match comp.Type with
+        | And | Nand-> "&"
+        | Or | Nor-> "≥1"
+        | Xor | Xnor -> "=1"
+        | Not -> "1"
+        | Decode4 -> "Decode"
+        | NbitsAdder n -> insertSymbolTitle "Adder" n
+        | Register n | RegisterE n -> insertSymbolTitle "Register" n
+        | AsyncROM1 _ -> "Async-ROM"
+        | ROM1 _ -> "Sync-ROM"
+        | RAM1 _ -> "Sync-RAM"
+        | AsyncRAM1 _ -> "Async-RAM"
+        | DFF -> "DFF"
+        | DFFE -> "DFFE"
+        | NbitsXor (x)->   insertSymbolTitle "N-bits-Xor" x
+        | Custom x -> x.Name
+        | _ -> ""
+
+    match comp.Type with 
+    | Input (x) -> 
+        (insertText  (float(comp.W/2)-5.0) ((float(comp.H)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
+    | Output (x) -> 
+        (insertText  (float(comp.W/2)) ((float(comp.H)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
+    | BusSelection(x,y) ->
+        (insertText  (float(comp.W/2)-5.0) ((float(comp.H)/2.7)-2.0) (insertBusTitle x y) "middle" "normal" "12px")
+    | BusCompare (_,y) -> 
+        (insertText  (float(comp.W/2)-6.0) (float(comp.H)/2.7-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px")
+    | _ ->  
+        (insertText (float(comp.W/2)) (+5.0) (getSymbolTitle comp) "middle" "bold" "14px") 
+        |> List.append (insertText (float(comp.W/2)) (-20.0) comp.Label "middle" "normal" "16px")
+
 let flipSymbol (symbol: Symbol) = 
     print "Flip Triggered"
-
-// let insertSymbolTitles 
-
 
 /// --------------------------------------- SYMBOL DRAWING ------------------------------------------------------ ///   
 let drawSymbol 
@@ -524,12 +533,6 @@ let drawSymbol
     let additions = 
         match comp.Type with
         // Write Custom Name
-        | Input (x) -> (insertText  (float(w/2)-5.0) ((float(h)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
-        | Output (x) -> (insertText  (float(w/2)) ((float(h)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
-        | Viewer (x) -> (insertText  (float(w/2)) ((float(h)/2.7)-1.25) (insertSymbolTitle "" x) "middle" "normal" "9px")
-        | BusSelection(x,y) -> (insertText  (float(w/2)-5.0) ((float(h)/2.7)-2.0) (insertBusTitle x y) "middle" "normal" "12px")
-
-        | BusCompare (_,y) -> (insertText  (float(w/2)-6.0) (float(h)/2.7-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px")
         | Constant1 (_,_,txt) -> (addHorizontalLine halfW w (float(halfH)) opacity @ insertText (float (halfW)-5.0) (float(h)-8.0) txt "middle" "normal" "12px") 
 
         | MergeWires -> 
@@ -566,9 +569,8 @@ let drawSymbol
     |> List.append (drawPorts comp.InputPorts showInputPorts symbol)
     |> List.append (insertPortText comp.InputPorts (fst(insertPortTitle comp)) symbol)
     |> List.append (insertPortText comp.OutputPorts (snd(insertPortTitle comp)) symbol)  
-    |> List.append (insertText (float halfW) (+5.0) (getSymbolTitle comp) "middle" "bold" "14px") 
-    |> List.append (insertText (float halfW) (-20.0) comp.Label "middle" "normal" "16px")
     |> List.append (additions)
+    |> List.append (addSymbolText comp)
     |> List.append (drawSymbolCharacteristics symbol colour opacity)
     |> List.append (drawBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth)
 
