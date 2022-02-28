@@ -93,6 +93,29 @@ refer to your code if this helps.
 
 ***-- FILL THIS IN --***
 
+1. The function `segmentIntersectsSegmentCoordinates` has an inconsistent name with the fact that it returns an `Option`, and that it takes 2 tuples of coordinates, instead of two Segment types.
+
+1. The function `segmentIntersectsBoundingBoxCoordinates` returns a tuple of a `bool` and an `Option`, which is a bad output type. It could return a custom type, via an `Anonymous record`, but as the `Option` is not even used throughout the code, it can simply be removed. Inside the function, the calculation that gets the topLeft and bottomRight corners of the box, to then compute the width and height of the Bounding Box is useless as these parameters are already in the `BoundingBox` type. A similar redundant computation used later on in the function can similarly be removed to simply the function.
+
+1. The function `routeGivenWiresBasedOnPortPositions` is not used and can be deleted.
+
+1. The function `checkSegmentAngle` is very obscurly written, but can simply be removed as it is not used.
+
+1. The function `getSafeDistanceForMove` is uses the similar pattern to check if two floats are equal multiple times. We can extract it into a helper function.
+
+1. The function `moveSegment` calls an anonymous funtion that is longer that the rest of the function body. It should be extracted into a local function to make the code clearer.
+
+1. The function `filterWiresByCompMoved` has a very obsure name unless we see where it called. To make it more general, it should be renamed to `getWiresConnectedToPorts`. Its return type can be changed from a 3-tuple to an anonymous record. The XML comments of the function say that it should return wires connected to inputs ONLY, output ONLY, and those connected to both. However, in its implementation, the filters for wires connected to inputs only do not exclude wires connected to both, and similarly for the filters regarding wires connected to outputs only.
+
+1. The XML comment of `partialAutoRoute` is out of date, as the `ReverseFun` parameter is not being used. It should be updated. The name could also be improved to denote the fact that it returns an Option, and the names of local functions can also be improved to be made more clear and explicit.
+
+1. The function `negXYPos` has a very confusing name, and should be renamed to `addToPosAndKeepRoutingMode`.
+
+1. The function `moveWire` has a big part of computation inside of the type instanciation. This should be done outside, in the function body, to make the function cleaner.
+
+1. The function `updateWire` has a very cryptic boolean parameter called `inOut` that suggests that the wire in connected to an output, on the contrary, this boolean is used to denote that a wire is connected to an Input port, and should therefore be renamed to `isInInputPort`
+
+
 #### Other problems
 
 State **concisely** Issues with existing code, or in refactoring for new types, that do not fit into per function list. 
@@ -114,7 +137,7 @@ interview.
 functionality is preserved.
 
 ***-- FILL THIS IN --***
-
+*DESCRIBE ALGORITHM*
   
 
 # Extensions
