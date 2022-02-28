@@ -427,6 +427,13 @@ let rotateSymbol (symbol: Symbol) =
             270.0, 0.0  ]
         |> Map.ofList
 
+    let rotationCalcMappings = 
+        [   0.0, 90.0;
+            90.0, 90.0;
+            180.0, 270.0;
+            270.0, 90.0 ]
+        |> Map.ofList
+
     // Once Pos is converted to read center positions, can remove 
     // Convert to center coordinate format for rotation
     let convertCoordtoCenter (symbolPointsL: XYPos list) : XYPos list =
@@ -439,9 +446,13 @@ let rotateSymbol (symbol: Symbol) =
 
     let rotatePoint (xyPos: XYPos) : XYPos =
         {       
-            X = (xyPos.Y * -System.Math.Sin(convertDegtoRad rotationMappings.[symbol.Rotation]) + xyPos.X * System.Math.Cos(convertDegtoRad rotationMappings.[symbol.Rotation]))
-            Y = (xyPos.X * System.Math.Sin(convertDegtoRad rotationMappings.[symbol.Rotation]) + xyPos.Y * System.Math.Cos(convertDegtoRad rotationMappings.[symbol.Rotation]))
+            X = (xyPos.Y * -System.Math.Sin(convertDegtoRad rotationCalcMappings.[symbol.Rotation]) + xyPos.X * System.Math.Cos(convertDegtoRad rotationCalcMappings.[symbol.Rotation]))
+            Y = (xyPos.X * System.Math.Sin(convertDegtoRad rotationCalcMappings.[symbol.Rotation]) + xyPos.Y * System.Math.Cos(convertDegtoRad rotationCalcMappings.[symbol.Rotation]))
         }
+
+    print "Converted to center"
+    print (symbol.SymbolPoints |> convertCoordtoCenter)
+    print (symbol.SymbolPoints |> convertCoordtoCenter |> List.map rotatePoint)
 
     let newSymbolPoints = 
         symbol.SymbolPoints
@@ -511,6 +522,7 @@ let drawSymbol
         | _ -> []
 
     print symbol
+    print (getSymbolPoints symbol)
 
     let outlineColor, strokeWidth =
         match comp.Type with
