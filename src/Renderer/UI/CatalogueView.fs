@@ -115,7 +115,7 @@ let private createNbitsXorPopup (model:Model) dispatch =
 
 
 let private createSplitWirePopup model dispatch =
-    let title = sprintf "Add SplitWire node" 
+    let title = sprintf "Add Split Wire node" 
     let beforeInt =
         fun _ -> str "How many bits should go to the top (LSB) wire? The remaining bits will go to the bottom (MSB) wire."
     let intDefault = 1
@@ -363,9 +363,9 @@ let viewCatalogue model dispatch =
                                                                                                                          together wires or busses"]
                     makeMenuGroup
                         "Buses"
-                        [ catTip1 "MergeWires"  (fun _ -> createComponent MergeWires "" model dispatch) "Use Mergewire when you want to \
+                        [ catTip1 "Bus Merge"  (fun _ -> createComponent MergeWires "" model dispatch) "Use Bus Merge when you want to \
                                                                                        join the bits of a two busses to make a wider bus"
-                          catTip1 "SplitWire" (fun _ -> createSplitWirePopup model dispatch) "Use Splitwire when you want to split the \
+                          catTip1 "Bus Split" (fun _ -> createSplitWirePopup model dispatch) "Use Bus Split when you want to split the \
                                                                                              bits of a bus into two sets"
                           catTip1 "Bus Select" (fun _ -> createBusSelectPopup model dispatch) "Bus Select output connects to one or \
                                                                                                 more selected bits of its input"
