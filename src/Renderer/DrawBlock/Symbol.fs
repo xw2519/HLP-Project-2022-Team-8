@@ -89,20 +89,26 @@ type Msg =
 
 //---------------------------------helper types and functions----------------//
 
-let posDiff (a: XYPos) (b: XYPos) = {X=a.X-b.X; Y=a.Y-b.Y}
+let convertDegtoRad degree = System.Math.PI * degree / 180.0 
 
 let posAdd (a: XYPos) (b: XYPos) = {X=a.X+b.X; Y=a.Y+b.Y}
 
-let posOf x y = {X=x; Y=y}
+let posDiff (a: XYPos) (b: XYPos) = {X=a.X-b.X; Y=a.Y-b.Y}
 
-let convertDegtoRad degree = System.Math.PI * degree / 180.0 
+let posOf x y = {X=x; Y=y}
 
 // Once Pos is converted to read center positions, can remove 
 let convertCoordtoCenter (symbol: Symbol) (portPos: XYPos) : XYPos =
-    {X = portPos.X-(float(symbol.Component.W) / 2.0); Y = portPos.Y-(float(symbol.Component.H) / 2.0)}
+    {       
+        X = portPos.X-(float(symbol.Component.W) / 2.0)
+        Y = portPos.Y-(float(symbol.Component.H) / 2.0)
+    }
 
 let convertCenterCoordtoOriginal (symbol: Symbol) (portPos: XYPos) : XYPos =
-    {X = portPos.X+(float(symbol.Component.W) / 2.0); Y = portPos.Y+(float(symbol.Component.H) / 2.0)}
+    {
+        X = portPos.X+(float(symbol.Component.W) / 2.0)
+        Y = portPos.Y+(float(symbol.Component.H) / 2.0)
+    }
 
 let rotatePoint degree (xyPos: XYPos) : XYPos =
     {       
@@ -116,15 +122,8 @@ let convertSymbolPointsListtoString (xyPosL: XYPos list) : string =
 
     coordinateString[0..(String.length coordinateString) - 2]   
 
-// Points that specify each symbol 
 let getSymbolPoints (symbol: Symbol) = convertSymbolPointsListtoString symbol.SymbolPoints
-// ----- helper functions for titles ----- //
 
-
-
-
-
-// Decodes the component type into component labels
 let insertCompLabel (compType: ComponentType) = 
     match compType with
     | Not | And | Or | Xor | Nand | Nor | Xnor -> "G"
@@ -150,8 +149,6 @@ let insertCompLabel (compType: ComponentType) =
 
 let init () = {Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty}, Cmd.none
 
-
-
 // Input and Output names of the ports depending on their ComponentType
 // (input port names, output port names)
 let insertPortTitle (comp: Component) = 
@@ -170,6 +167,7 @@ let insertPortTitle (comp: Component) =
     | NbitsXor _ -> (["P"; "Q"], ["Out"])
     | Custom x -> (List.map fst x.InputLabels), (List.map fst x.OutputLabels)
     |_ -> ([],[])
+
     // EXTENSION: Extra Components made that are not currently in Issie. Can be extended later by using this code as it is .
     // |Mux4 -> (["0"; "1"; "2"; "3" ;"SEL"],["OUT"])
     // |Demux4 -> (["IN"; "SEL"],["0"; "1";"2"; "3";])
@@ -198,36 +196,32 @@ let initSymbolCharacteristics (comp: Component) =
     | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> {clocked=true; inverted=false}
     | _ -> {clocked=false; inverted=false}
 
-let initSymbolPoints (comp: Component) (pos: XYPos) H W : XYPos list = 
+let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list = 
 
-    let halfW = W/2
-    let halfH = H/2
-
-    // [{X=(posX1 + posX2)/2.0; Y=posY1+6.0}; {X=(posX1 + posX2)/2.0; Y=posY1-6.0}; {X=(posX1 + posX2)/2.0 + 6.0; Y=posY1}]
-
-    match comp.Type with
+    match compType with
         | BusSelection _ | BusCompare _ -> 
-            [{X=0; Y=0}; {X=0; Y=H}; {X=(0.6*float(W)); Y=H}; {X=(0.8*float(W)); Y=(0.7*float(H))}; {X=W; Y=(0.7*float(H))}; {X=W; Y=(0.3*float(H))}; {X=(0.8*float(W)); Y=(0.3*float(H))}; {X=(0.6*float(W)); Y=0}]
+            [{X=0; Y=0}; {X=0; Y=compHeight}; {X=(0.6*compWidth); Y=compHeight}; {X=(0.8*compWidth); Y=(0.7*compHeight)}; {X=compWidth; Y=(0.7*compHeight)}; {X=compWidth; Y=(0.3*compHeight)}; {X=(0.8*compWidth); Y=(0.3*compHeight)}; {X=(0.6*compWidth); Y=0}]
         | Constant1 _ -> 
-            [{X=0; Y=comp.H}; {X=0; Y=0}; {X=halfW; Y=halfH}; {X=W; Y=halfH}]
+            [{X=0; Y=compHeight}; {X=0; Y=0}; {X=compWidth/2.0; Y=compHeight/2.0}; {X=compWidth; Y=compHeight/2.0}]
         | Demux2 -> 
-            [{X=0; Y=(float(H)*0.2)}; {X=0; Y=(float(H)*0.8)}; {X=W; Y=H}; {X=W; Y=0}]
+            [{X=0; Y=0.2*compHeight}; {X=0; Y=0.8*compHeight}; {X=compWidth; Y=compHeight}; {X=compWidth; Y=0}]
         | Input _ -> 
-            [{X=0; Y=0}; {X=0; Y=H}; {X=(float(W)*0.66); Y=H}; {X=W; Y=halfH}; {X=(float(W)*0.66); Y=0}]
+            [{X=0; Y=0}; {X=0; Y=compHeight}; {X=0.66*compWidth; Y=compHeight}; {X=compWidth; Y=compHeight/2.0}; {X=0.66*compWidth; Y=0}]
         | IOLabel ->
-            [{X=(float(W)*0.33); Y=0}; {X=0; Y=halfH}; {X=(float(W)*0.33); Y=H}; {X=(float(W)*0.66); Y=H}; {X=W; Y=halfH}; {X=(float(W)*0.66); Y=0}]
-        | Output _ | Viewer _ -> 
-            [{X=(float(W)*(0.2)); Y=0}; {X=0; Y=halfH}; {X=(float(W)*(0.2)); Y=H}; {X=W; Y=H}; {X=W; Y=0}]
+            [{X=0.33*compWidth; Y=0}; {X=0; Y=compHeight/2.0}; {X=0.33/compWidth; Y=compHeight}; {X=0.66*compWidth; Y=compHeight}; {X=compWidth; Y=compHeight/2.0}; {X=0.66*compWidth; Y=0}]
         | MergeWires -> 
-            [{X=halfW; Y=((1.0/6.0)*float(H))}; {X=halfW; Y=((5.0/6.0)*float(H))}; {X=0; Y=((5.0/6.0)*float(H))}; {X=0; Y=((1.0/6.0)*float(H))}; {X=W; Y=((1.0/2.0)*float(H))}]
-        | SplitWire _ -> 
-            [{X=halfW; Y=((1.0/6.0)*float(H))}; {X=halfW; Y=((5.0/6.0)*float(H))}; {X=0; Y=((1.0/2.0)*float(H))}; {X=W; Y=((1.0/6.0)*float(H))}; {X=W; Y=((5.0/6.0)*float(H))}]
+            [{X=compWidth/2.0; Y=((1.0/6.0)*compHeight)}; {X=compWidth/2.0; Y=((5.0/6.0)*compHeight)}; {X=0; Y=((5.0/6.0)*compHeight)}; {X=0; Y=((1.0/6.0)*compHeight)}; {X=compWidth; Y=((1.0/2.0)*compHeight)}]
         | Mux2 -> 
-            [{X=0; Y=0}; {X=W; Y=(float(H)*0.2)}; {X=W; Y=(float(H)*0.8)}; {X=0; Y=H}]
+            [{X=0; Y=0}; {X=compWidth; Y=0.2*compHeight}; {X=compWidth; Y=0.8*compHeight}; {X=0; Y=compHeight}]
+        | Output _ | Viewer _ -> 
+            [{X=0.33*compWidth; Y=0}; {X=0; Y=compHeight/2.0}; {X=0.33*compWidth; Y=compHeight}; {X=compWidth; Y=compHeight}; {X=compWidth; Y=0}]
+        | SplitWire _ -> 
+            [{X=compWidth/2.0; Y=((1.0/6.0)*compHeight)}; {X=compWidth/2.0; Y=((5.0/6.0)*compHeight)}; {X=0; Y=((1.0/2.0)*compHeight)}; {X=compWidth; Y=((1.0/6.0)*compHeight)}; {X=compWidth; Y=((5.0/6.0)*compHeight)}]
         | _ -> 
-            [{X=0; Y=H}; {X=W; Y=H}; {X=W; Y=0}; {X=0; Y=0}]
-        // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
-        // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
+            [{X=0; Y=compHeight}; {X=compWidth; Y=compHeight}; {X=compWidth; Y=0}; {X=0; Y=0}]
+
+        // EXTENSION: | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
+        // EXTENSION: | Demux4 | Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
 
 //-----------------------Skeleton Message type for symbols---------------------//
 
@@ -318,7 +312,7 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) =
       Opacity = 1.0
       Moving = false
       Rotation = 0.0
-      SymbolPoints = (initSymbolPoints comp pos comp.H comp.W)
+      SymbolPoints = (initSymbolPoints comp.Type (float(comp.H)) (float(comp.W)))
       SymbolCharacteristics = (initSymbolCharacteristics comp)
     }
 
@@ -504,59 +498,63 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
     | { clocked = true;  inverted = true  } -> addClock 0 symbol.Component.H @ addInvertor symbol.Component.X symbol.Component.Y
     | _ -> []
 
-let addSymbolLabel (symbol: Symbol) : ReactElement list = 
+let addSymbolLabel rotation W H label : ReactElement list = 
     let getSymbolLabelCoord : XYPos =
-            match symbol.Rotation with 
+            match rotation with 
             | 90.0 | 270.0 ->
-                {X = float(symbol.Component.W + 15); Y = float(symbol.Component.H/2 - 8)}
+                {X = float(W + 15); Y = float(H/2 - 8)}
             | _ -> 
-                {X = float(symbol.Component.W/2); Y = -20.0}
+                {X = float(W/2); Y = -20.0}
 
-    insertText getSymbolLabelCoord.X getSymbolLabelCoord.Y symbol.Component.Label "middle" "normal" "16px"
+    insertText getSymbolLabelCoord.X getSymbolLabelCoord.Y label "middle" "normal" "16px"
 
 let addSymbolText (comp: Component) : ReactElement list =
-    // Insert titles compatible with greater than 1 buswidth
-    let insertSymbolTitle title busWidth =  
-        if busWidth = 1 then title else title + "(" + string(busWidth-1) + "..0)"
-    
-    // Insert titles for bus select
-    let insertBusTitle busWidth lsb = 
-        if busWidth <> 1 then"(" + string(busWidth + lsb - 1) + ".." + string(lsb) +  ")" else string(lsb)
+    let compWidth = float(comp.W)
+    let compHeight = float(comp.W)
 
-    // Text to be put inside different Symbols depending on their ComponentType
-    let getSymbolTitle (comp: Component) =
+    let addTitleWithBusWidth title busWidth lsb =  
+        match comp.Type with 
+        | BusCompare (_,y) -> 
+            if busWidth <> 1 then
+                "(" + string(busWidth + lsb - 1) + ".." + string(lsb) +  ")" 
+            else 
+                string(lsb)
+        | _ ->  
+            if busWidth = 1 then 
+                title 
+            else 
+                title + "(" + string(busWidth - 1) + "..0)"
+
+    let addSymbolTitle (comp: Component) =
         match comp.Type with
         | And | Nand-> "&"
         | Or | Nor-> "≥1"
         | Xor | Xnor -> "=1"
         | Not -> "1"
         | Decode4 -> "Decode"
-        | NbitsAdder n -> insertSymbolTitle "Adder" n
-        | Register n | RegisterE n -> insertSymbolTitle "Register" n
+        | NbitsAdder n -> addTitleWithBusWidth "Adder" n 0
+        | Register n | RegisterE n -> addTitleWithBusWidth "Register" n 0
         | AsyncROM1 _ -> "Async-ROM"
         | ROM1 _ -> "Sync-ROM"
         | RAM1 _ -> "Sync-RAM"
         | AsyncRAM1 _ -> "Async-RAM"
         | DFF -> "DFF"
         | DFFE -> "DFFE"
-        | NbitsXor (x)->   insertSymbolTitle "N-bits-Xor" x
+        | NbitsXor (x)-> addTitleWithBusWidth "N-bits-Xor" x 0
         | Custom x -> x.Name
         | _ -> ""
 
-    print "addSymbolText"
-    print comp
-
     match comp.Type with 
-    | Input (x) -> 
-        (insertText (float(comp.W/2)-5.0) ((float(comp.H)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
-    | Output (x) -> 
-        (insertText (float(comp.W/2)) ((float(comp.H)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
     | BusSelection(x,y) ->
-        (insertText  (float(comp.W/2)-5.0) ((float(comp.H)/2.7)-2.0) (insertBusTitle x y) "middle" "normal" "12px")
+        insertText ((compWidth/2.0)-5.0) ((compHeight/2.7)-2.0) (addTitleWithBusWidth "" x y) "middle" "bold" "12px"
     | BusCompare (_,y) -> 
-        (insertText  (float(comp.W/2)-6.0) (float(comp.H)/2.7-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px")
+        insertText ((compWidth/2.0)-6.0) ((compHeight/2.7)-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px"
+    | Input (x) -> 
+        insertText ((compWidth/2.0)-5.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"
+    | Output (x) -> 
+        insertText (compWidth/2.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"
     | _ ->  
-        (insertText (float(comp.W/2)) (float(comp.H/2) - 7.0) (getSymbolTitle comp) "middle" "bold" "14px") 
+        insertText (compWidth/2.0) ((compHeight/2.0)-7.0) (addSymbolTitle comp) "middle" "bold" "14px"
 
 let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     let outlineColor, strokeWidth =
@@ -655,7 +653,7 @@ let drawSymbol (symbol: Symbol, colour: string, opacity: float) =
     print symbol 
 
     []
-    |> List.append (addSymbolLabel symbol)
+    |> List.append (addSymbolLabel symbol.Rotation symbol.Component.W symbol.Component.H symbol.Component.Label)
     |> List.append (addSymbolText symbol.Component)
     |> List.append (addPortText symbol.Component.InputPorts (fst(insertPortTitle symbol.Component)) symbol)
     |> List.append (addPortText symbol.Component.OutputPorts (snd(insertPortTitle symbol.Component)) symbol)      
@@ -1207,7 +1205,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
                                           InWidth0 = None
                                           InWidth1 = None
                                           Rotation = 0.0
-                                          SymbolPoints = (initSymbolPoints comp xyPos comp.H comp.W)
+                                          SymbolPoints = (initSymbolPoints comp.Type comp.H comp.W)
                                           SymbolCharacteristics = (initSymbolCharacteristics comp)
                                         }
                                         ))
