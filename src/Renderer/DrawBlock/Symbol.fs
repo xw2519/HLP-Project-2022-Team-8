@@ -402,7 +402,7 @@ let addOutlineColor (color:string) =
     match color.ToLower() with
     | "lightgray" | "lightgrey" -> "black"
     | c -> 
-        printfn $"color={color}"
+        //printfn $"color={color}"
         c
 
 let addHorizontalColorLine posX1 posX2 posY opacity (color: string) = // TODO: Line instead of polygon?
@@ -555,8 +555,8 @@ let drawSymbol
         
         | _ -> []
 
-    print symbol
-    print (getSymbolPoints symbol)
+    //print symbol
+    //print (getSymbolPoints symbol)
 
     let outlineColor, strokeWidth =
         match comp.Type with
@@ -624,7 +624,20 @@ let view (model: Model) (dispatch: Msg -> unit) =
 //------------------------GET BOUNDING BOXES FUNCS--------------------------------used by sheet.
 // Function that returns the bounding box of a symbol. It is defined by the height and the width as well as the x,y position of the symbol
 let getSymBoundingBox (sym:Symbol): BoundingBox =
-    {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.H) ; W = float(sym.Component.W)}
+    match sym.Rotation with
+    | 0.0 -> 
+        printfn $"0.0 BOUNDING BOX"
+        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.H) ; W = float(sym.Component.W)}
+    | 90.0 -> 
+        printfn $"90.0 BOUNDING BOX"
+        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(-sym.Component.W) ; W = float(sym.Component.H)}
+    | 180.0 -> 
+        printfn $"180.0 BOUNDING BOX"
+        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(-sym.Component.H) ; W = float(-sym.Component.W)}
+    | 270.0 -> 
+        printfn $"270.0 BOUNDING BOX"
+        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.W) ; W = float(-sym.Component.H)}
+    | _ -> failwithf "Invalid rotation "
 
 let getModelBoundingBoxes (model: Model): Map<ComponentId, BoundingBox> =
     Map.map (fun symId sym -> (getSymBoundingBox sym)) model.Symbols
