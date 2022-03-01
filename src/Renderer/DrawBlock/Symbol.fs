@@ -203,6 +203,8 @@ let initSymbolPoints (comp: Component) (pos: XYPos) H W : XYPos list =
     let halfW = W/2
     let halfH = H/2
 
+    // [{X=(posX1 + posX2)/2.0; Y=posY1+6.0}; {X=(posX1 + posX2)/2.0; Y=posY1-6.0}; {X=(posX1 + posX2)/2.0 + 6.0; Y=posY1}]
+
     match comp.Type with
         | BusSelection _ | BusCompare _ -> 
             [{X=0; Y=0}; {X=0; Y=H}; {X=(0.6*float(W)); Y=H}; {X=(0.8*float(W)); Y=(0.7*float(H))}; {X=W; Y=(0.7*float(H))}; {X=W; Y=(0.3*float(H))}; {X=(0.8*float(W)); Y=(0.3*float(H))}; {X=(0.6*float(W)); Y=0}]
@@ -349,8 +351,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     let index = float( List.findIndex (fun (p:Port)  -> p = port) ports )
     let gap = getPortPosEdgeGap symbol.Component.Type 
     let posY = (float(symbol.Component.H))* (( index + gap )/( float( ports.Length ) + 2.0*gap - 1.0))  // the ports are created so that they are equidistant
-
-    // Rotation logic
+    
     {X = posX; Y = posY}
     |> convertCoordtoCenter symbol
     |> rotatePoint symbol.Rotation
@@ -413,6 +414,21 @@ let drawHorizontalLine posX1 posX2 posY opacity = // TODO: Line instead of polyg
 let drawVerticalLine posY1 posY2 posX opacity = // TODO: Line instead of polygon?
     let points = (sprintf "%f,%f %f,%f" posX posY1 posX posY2)
     createPolygon "lightgray" opacity points
+
+let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidth =
+    let originalSymbolPoints = 
+        points 
+        |> List.map (convertCoordtoCenter symbol) 
+        |> List.map (rotatePoint -symbol.Rotation) 
+        |> List.map (convertCenterCoordtoOriginal symbol)
+
+    let trianglePoints =
+        [{X=(originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y=originalSymbolPoints[1].Y+6.0}; {X=(originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y=originalSymbolPoints[1].Y-6.0}; {X=(originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0 + 6.0; Y=originalSymbolPoints[1].Y}]
+        |> List.map (convertCoordtoCenter symbol)
+        |> List.map (rotatePoint symbol.Rotation) 
+        |> List.map (convertCenterCoordtoOriginal symbol)
+
+    drawBiColorPolygon (convertSymbolPointsListtoString trianglePoints) colour outlineColor opacity strokeWidth
 
 let addOutlineColor (color:string) =
     match color.ToLower() with
@@ -564,6 +580,19 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
             | _ ->
                 []
 
+    let drawDirectionalArrows : ReactElement list =
+        match symbol.Component.Type with 
+        | MergeWires -> 
+            (drawArrow symbol [{X=symbol.SymbolPoints[0].X; Y=symbol.SymbolPoints[0].Y}; {X=symbol.SymbolPoints[2].X; Y=symbol.SymbolPoints[2].Y}] colour outlineColor opacity strokeWidth)
+            |> List.append (drawArrow symbol [{X=symbol.SymbolPoints[1].X; Y=symbol.SymbolPoints[1].Y}; {X=symbol.SymbolPoints[3].X; Y=symbol.SymbolPoints[3].Y}] colour outlineColor opacity strokeWidth)
+            |> List.append (drawArrow symbol [{X=((symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0); Y=((symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0)}; {X=symbol.SymbolPoints[4].X; Y=symbol.SymbolPoints[4].Y}] colour outlineColor opacity strokeWidth)
+        | SplitWire _ -> 
+            (drawArrow symbol [{X=symbol.SymbolPoints[0].X; Y=symbol.SymbolPoints[0].Y}; {X=symbol.SymbolPoints[2].X; Y=symbol.SymbolPoints[2].Y}] colour outlineColor opacity strokeWidth)
+            |> List.append (drawArrow symbol [{X=symbol.SymbolPoints[1].X; Y=symbol.SymbolPoints[1].Y}; {X=symbol.SymbolPoints[3].X; Y=symbol.SymbolPoints[3].Y}] colour outlineColor opacity strokeWidth)
+            |> List.append (drawArrow symbol [{X=((symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0); Y=((symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0)}; {X=symbol.SymbolPoints[4].X; Y=symbol.SymbolPoints[4].Y}] colour outlineColor opacity strokeWidth)
+        | _ ->
+            []
+
     // let drawMergeSplitWires posX1 posX2 posY msb lsb =
     //     let drawBusTitle = 
     //             let text = 
@@ -595,9 +624,11 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     | MergeWires -> 
         drawBiColorPolygon (convertSymbolPointsListtoString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
         |> List.append drawSymbolLines
+        |> List.append drawDirectionalArrows
     | SplitWire _ -> 
         drawBiColorPolygon (convertSymbolPointsListtoString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
         |> List.append drawSymbolLines
+        |> List.append drawDirectionalArrows
     | _ ->
         drawBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth
         
