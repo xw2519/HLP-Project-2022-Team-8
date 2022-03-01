@@ -628,15 +628,18 @@ let view (model: Model) (dispatch: Msg -> unit) =
 
 /// Returns the bounding box of a symbol
 let getSymBoundingBox (sym:Symbol): BoundingBox =
+
+    let height = float sym.Component.H
+    let width = float sym.Component.W
+
     match sym.Rotation with
     | 0.0 | 180.0 -> 
-        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.H) ; W =  float(sym.Component.W)}
+        let topLeftCorner = {X= float(sym.Component.X); Y = float(sym.Component.Y)}
+        {X = topLeftCorner.X ; Y = topLeftCorner.Y ; H = height ; W =  width}
     | 90.0 | 270.0-> 
-        let halfW = float sym.Component.W / 2.0
-        let halfH = float sym.Component.H / 2.0
-        let topLeftCorner = {X = sym.Center.X - halfH; Y = sym.Center.Y - halfW}
-        {X = topLeftCorner.X ; Y = topLeftCorner.Y ; H = float(sym.Component.W) ; W = float(sym.Component.H)}
-    | _ -> failwithf "Invalid rotation "
+        let topLeftCorner = {X = sym.Center.X - height/2.0; Y = sym.Center.Y - width/2.0}
+        {X = topLeftCorner.X ; Y = topLeftCorner.Y ; H = width ; W = height}
+    | _ -> failwithf $"Rotation of {sym.Rotation} degrees is not allowed "
 
 /// Returns the bounding boxes of every symbol in the model
 let getModelBoundingBoxes (model: Model): Map<ComponentId, BoundingBox> =
@@ -1084,10 +1087,6 @@ let extractComponents (symModel: Model) : Component list =
 let extractSymbol(symModel: Model) (sId:ComponentId) : Symbol = 
     symModel.Symbols[sId]
 
-let extractSymbols (symModel: Model) : Symbol list =
-    symModel.Symbols
-    |> Map.toList
-    |> List.map (fun (key, _) -> extractSymbol symModel key)
 
 let updateModel(symModel: Model) (symbol: Symbol): Model = 
     let updateSymbolMapping =
