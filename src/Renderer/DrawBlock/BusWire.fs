@@ -1654,8 +1654,7 @@ let inline addPositions (pos1: XYPos) (pos:XYPos) =
 
 /// Move the End of the Nth segment according to the suplied 'mover' function
 let inline moveEnd (mover: XYPos -> XYPos) (n:int) =
-    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Vector = (mover (getEndPoint seg)) - seg.Start} else seg)  //UNSURE, but not used
-    //List.mapi (fun i (seg:Segment) -> if i = n then {seg with Vector = mover seg.Vector} else seg)
+    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Vector = (mover (getEndPoint seg)) - seg.Start} else seg)
 
 /// Move the Start of the Nth segment according to the suplied 'mover' function
 let inline moveStart (mover: XYPos -> XYPos) (n:int) =
@@ -1666,7 +1665,7 @@ let inline moveStart (mover: XYPos -> XYPos) (n:int) =
 
 /// Move both the Start and the End of the Nth segment according to the suplied 'mover' function (applied on both)
 let inline moveAll (mover: XYPos -> XYPos) (n : int) =
-    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Start = mover seg.Start} else seg)                    //No need to move the vector
+    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Start = mover seg.Start} else seg)  //No need to move the vector
 
 /// Given 2 functions and a point, apply the first one on the X coordinate of the point, and the second on the Y coordinate
 let  transformXY tX tY (pos: XYPos) =
@@ -1677,7 +1676,7 @@ let transformSeg tX tY (seg: Segment) =
     let trans = transformXY tX tY
     let transStart = trans seg.Start
     let transVector = (trans (getEndPoint seg)) - transStart
-    {seg with Start = trans seg.Start ; Vector = transVector }      //UNSURE, might have to do the transform on end and then extract new vector
+    {seg with Start = trans seg.Start ; Vector = transVector }
 
 /// Returns a tuple containing the sign of the difference of the X coordinates, and the sign of the difference of the Y coordinates
 let topology (pos1: XYPos) (pos2:XYPos) =
@@ -1692,7 +1691,7 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
     let wirePos = getEndPoint segs[0]
     // Get the previous portPos
     let portPos = segs[0].Start
-    // Keep the same clearance from the port than previously
+    // Keep the same clearance from the port than previously, and move the first segment with the port
     let newWirePos = {newPortPos with X = newPortPos.X + (abs wirePos.X - portPos.X) }
     // Get by how much the port has moved
     let (diff:XYPos) = {X=newPortPos.X-portPos.X; Y= newPortPos.Y - portPos.Y}
@@ -1700,7 +1699,6 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
     /// Returns the index of the first index that is manually routed
     let tryGetIndexOfFirstManuallyRoutedSegment =
         // Checks to see if a Segment is manually routed
-        //let isNegative (pos:XYPos) = pos.X < 0.0 || pos.Y < 0.0
         let isAutoroutedSeg seg = seg.Autorouted
         // Get the index of the last segment that was autorouted
         segs
@@ -1716,7 +1714,7 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
         let fixedPt = getAbsXY (getEndPoint seg)
         // Scale the segments by the amount needed
         let scale x fx nx wx =
-            if nx = fx then x else ((abs x - fx)*(nx-fx)/(abs wx - fx) + fx) * float (sign x)       //UNSURE if still works
+            if nx = fx then x else ((abs x - fx)*(nx-fx)/(abs wx - fx) + fx) * float (sign x)
         // Get the start of the wire that we are moving
         let startPos = if segIndex = 1 then portPos else wirePos
         let newStartPos = if segIndex = 1 then newPortPos else newWirePos
@@ -1734,24 +1732,24 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
         // If we can't, then return None to fully autoRoute everything
         | _ -> None
 
-    /// Check if we are still in the same quadrant as the other end of the wire                     //WORKS
+    /// Check if we are still in the same quadrant as the other end of the wire
     let checkTopologyChangeOption index =
         let finalPt = segs[6].Start
         let oldTop x = topology (if index = 1 then portPos else wirePos) x
         let newTop x = topology (if index = 1 then newPortPos else newWirePos) x
-        // Check if we are still in the same quadrant as the other end of the wire
-        if oldTop finalPt <> newTop finalPt then
+        // REMOVED: Check if we are still in the same quadrant as the other end of the wire
+        //if oldTop finalPt <> newTop finalPt then
             // always abandon manual routing if we are not
-            None 
+        //None 
+        //else
+        let manualSegmentEndpoint = getEndPoint segs[index]
+        let oldT = oldTop manualSegmentEndpoint
+        let newT = newTop manualSegmentEndpoint
+        // Check if we are still in the same quadrant as the end of the manually routed segment
+        if oldT = newT then
+            Some index
         else
-            let manualSegmentEndpoint = getEndPoint segs[index]
-            let oldT = oldTop manualSegmentEndpoint
-            let newT = newTop manualSegmentEndpoint
-            // Check if we are still in the same quadrant as the end of the manually routed segment
-            if oldT = newT then
-                Some index
-            else
-                None
+            None
 
     tryGetIndexOfFirstManuallyRoutedSegment      //Get index: None if all segments are autorouted
     |> Option.bind checkTopologyChangeOption    //Checks: None if we change quadrants (either between two ends of wire, or between moving endpoint and first manually fixed end)
@@ -1771,8 +1769,8 @@ let moveWire (wire : Wire) (diff : XYPos) =
     // Translates a segment by a vector 'diff' 
     let translateSegment seg = 
         {seg with
+            //Just update the start, as we don't need to update the vector
             Start = addToPosAndKeepRoutingMode seg.Start diff
-            //End = addToPosAndKeepRoutingMode seg.End diff         //not needed for vectors
         }
     // Translate all the segments of the wire
     let newSegs = List.map translateSegment wire.Segments
