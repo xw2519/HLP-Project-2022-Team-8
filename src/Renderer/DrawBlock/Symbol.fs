@@ -267,11 +267,11 @@ let initialiseComponent (pos: XYPos) (compType: ComponentType) (compId: string) 
         | DFFE -> ( 2  , 1, 3*GridSize  , 3*GridSize) 
         | Register (a) -> ( 1 , 1, 3*GridSize  , 4*GridSize )
         | RegisterE (a) -> ( 2 , 1, 3*GridSize  , 4*GridSize) 
-        | AsyncROM1 (a)  -> (  1 , 1, 3*GridSize  , 4*GridSize) 
-        | ROM1 (a) -> (   1 , 1, 3*GridSize  , 4*GridSize) 
-        | RAM1 (a) | AsyncRAM1 a -> ( 3 , 1, 3*GridSize  , 4*GridSize) 
-        | NbitsXor (n) -> (  2 , 1, 3*GridSize  , 4*GridSize) 
-        | NbitsAdder (n) -> (  3 , 2, 3*GridSize  , 4*GridSize) 
+        | AsyncROM1 (a) -> (1,1 , 3*GridSize,5*GridSize) 
+        | ROM1 (a) -> (1,1 , 3*GridSize,5*GridSize) 
+        | RAM1 (a) | AsyncRAM1 a -> (3,1 , 3*GridSize,5*GridSize) 
+        | NbitsXor (n) -> (2, 1, (3*GridSize), (5*GridSize)) 
+        | NbitsAdder (n) -> (3, 2, (3*GridSize), (5*GridSize)) 
         | Custom x -> 
             let h = GridSize + GridSize * (List.max [List.length x.InputLabels; List.length x.OutputLabels])
             let maxInLength, maxOutLength = cutToLength x.InputLabels, cutToLength x.OutputLabels
@@ -543,7 +543,7 @@ let addSymbolText (comp: Component) : ReactElement list =
     | BusCompare (_,y) -> 
         (insertText  (float(comp.W/2)-6.0) (float(comp.H)/2.7-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px")
     | _ ->  
-        (insertText (float(comp.W/2)) (+5.0) (getSymbolTitle comp) "middle" "bold" "14px") 
+        (insertText (float(comp.W/2)) (float(comp.H/2) - 7.0) (getSymbolTitle comp) "middle" "bold" "14px") 
         |> List.append (insertText (float(comp.W/2)) (-20.0) comp.Label "middle" "normal" "16px")
 
 let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
