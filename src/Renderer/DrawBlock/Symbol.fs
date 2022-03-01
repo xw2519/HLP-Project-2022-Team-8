@@ -1068,6 +1068,16 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let newSymbols = Map.add compId { symbol with Component = newComp } model.Symbols
         
         { model with Symbols = newSymbols }, Cmd.none
+    | RotateSymbols compIds ->
+
+        let rotateSelectedCmps selectedComponents cmpId symbol  =
+            match List.contains cmpId selectedComponents with
+            | true -> rotateSymbol symbol
+            | false -> symbol
+
+        let rotatedSymbols = Map.map (rotateSelectedCmps compIds) model.Symbols
+        {model with Symbols = rotatedSymbols}, Cmd.none
+
         
 
 
