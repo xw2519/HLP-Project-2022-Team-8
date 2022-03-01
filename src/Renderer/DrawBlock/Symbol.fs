@@ -245,7 +245,7 @@ let initialiseComponent (pos: XYPos) (compType: ComponentType) (compId: string) 
     
     // match statement for each component type. the output is a 4-tuple that is used as an input to make component (see below)
     // 4-tuple of the form ( number of input ports, number of output ports, Height, Width)
-    let args = 
+    let symbolShapeSize = 
         match compType with
         | ROM _ | RAM _ | AsyncROM _ -> 
             failwithf "What? Legacy RAM component types should never occur"
@@ -299,7 +299,7 @@ let initialiseComponent (pos: XYPos) (compType: ComponentType) (compId: string) 
             W = width
         }
 
-    makeComponent args compLabel
+    makeComponent symbolShapeSize compLabel
    
 // Function to generate a new symbol
 // TODO: Change to component ID
@@ -504,6 +504,16 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
     | { clocked = true;  inverted = true  } -> addClock 0 symbol.Component.H @ addInvertor symbol.Component.X symbol.Component.Y
     | _ -> []
 
+let addSymbolLabel (symbol: Symbol) : ReactElement list = 
+    let getSymbolLabelCoord : XYPos =
+            match symbol.Rotation with 
+            | 90.0 | 270.0 ->
+                {X = float(symbol.Component.W + 15); Y = float(symbol.Component.H/2 - 8)}
+            | _ -> 
+                {X = float(symbol.Component.W/2); Y = -20.0}
+
+    insertText getSymbolLabelCoord.X getSymbolLabelCoord.Y symbol.Component.Label "middle" "normal" "16px"
+
 let addSymbolText (comp: Component) : ReactElement list =
     // Insert titles compatible with greater than 1 buswidth
     let insertSymbolTitle title busWidth =  
@@ -533,18 +543,20 @@ let addSymbolText (comp: Component) : ReactElement list =
         | Custom x -> x.Name
         | _ -> ""
 
+    print "addSymbolText"
+    print comp
+
     match comp.Type with 
     | Input (x) -> 
-        (insertText  (float(comp.W/2)-5.0) ((float(comp.H)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
+        (insertText (float(comp.W/2)-5.0) ((float(comp.H)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
     | Output (x) -> 
-        (insertText  (float(comp.W/2)) ((float(comp.H)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
+        (insertText (float(comp.W/2)) ((float(comp.H)/2.7)-3.0) (insertSymbolTitle "" x) "middle" "normal" "12px")
     | BusSelection(x,y) ->
         (insertText  (float(comp.W/2)-5.0) ((float(comp.H)/2.7)-2.0) (insertBusTitle x y) "middle" "normal" "12px")
     | BusCompare (_,y) -> 
         (insertText  (float(comp.W/2)-6.0) (float(comp.H)/2.7-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px")
     | _ ->  
         (insertText (float(comp.W/2)) (float(comp.H/2) - 7.0) (getSymbolTitle comp) "middle" "bold" "14px") 
-        |> List.append (insertText (float(comp.W/2)) (-20.0) comp.Label "middle" "normal" "16px")
 
 let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     let outlineColor, strokeWidth =
@@ -643,13 +655,14 @@ let drawSymbol (symbol: Symbol, colour: string, opacity: float) =
     print symbol 
 
     []
+    |> List.append (addSymbolLabel symbol)
+    |> List.append (addSymbolText symbol.Component)
+    |> List.append (addPortText symbol.Component.InputPorts (fst(insertPortTitle symbol.Component)) symbol)
+    |> List.append (addPortText symbol.Component.OutputPorts (snd(insertPortTitle symbol.Component)) symbol)      
     |> List.append (drawPorts symbol.Component.OutputPorts symbol.ShowOutputPorts symbol)
     |> List.append (drawPorts symbol.Component.InputPorts symbol.ShowInputPorts symbol)
-    |> List.append (addPortText symbol.Component.InputPorts (fst(insertPortTitle symbol.Component)) symbol)
-    |> List.append (addPortText symbol.Component.OutputPorts (snd(insertPortTitle symbol.Component)) symbol)  
-    |> List.append (addSymbolText symbol.Component)
-    |> List.append (drawSymbolCharacteristics symbol colour opacity)
     |> List.append (drawSymbolShape symbol opacity colour)
+    |> List.append (drawSymbolCharacteristics symbol colour opacity)
 
 //----------------------------View Function for Symbols----------------------------//
 
