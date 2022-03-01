@@ -204,15 +204,26 @@ let initSymbolPoints (comp: Component) (pos: XYPos) H W : XYPos list =
     let halfH = H/2
 
     match comp.Type with
-        | BusSelection _ | BusCompare _ -> [{X=0; Y=0}; {X=0; Y=H}; {X=(0.6*float(W)); Y=H}; {X=(0.8*float(W)); Y=(0.7*float(H))}; {X=W; Y=(0.7*float(H))}; {X=W; Y=(0.3*float(H))}; {X=(0.8*float(W)); Y=(0.3*float(H))}; {X=(0.6*float(W)); Y=0}]
-        | Constant1 _ -> [{X=0; Y=comp.H}; {X=halfW; Y=halfH}; {X=0; Y=0}]
-        | Demux2 -> [{X=0; Y=(float(H)*0.2)}; {X=0; Y=(float(H)*0.8)}; {X=W; Y=H}; {X=W; Y=0}]
-        | Input _ -> [{X=0; Y=0}; {X=0; Y=H}; {X=(float(W)*0.66); Y=H}; {X=W; Y=halfH}; {X=(float(W)*0.66); Y=0}]
-        | IOLabel -> [{X=(float(W)*0.33); Y=0}; {X=0; Y=halfH}; {X=(float(W)*0.33); Y=H}; {X=(float(W)*0.66); Y=H}; {X=W; Y=halfH}; {X=(float(W)*0.66); Y=0}]
-        | Output _ | Viewer _ -> [{X=(float(W)*(0.2)); Y=0}; {X=0; Y=halfH}; {X=(float(W)*(0.2)); Y=H}; {X=W; Y=H}; {X=W; Y=0}]
-        | MergeWires | SplitWire _ -> [{X=halfW; Y=((1.0/6.0)*float(H))}; {X=halfW; Y=((5.0/6.0)*float(H))}]
-        | Mux2 -> [{X=0; Y=0}; {X=W; Y=(float(H)*0.2)}; {X=W; Y=(float(H)*0.8)}; {X=0; Y=H}]
-        | _ -> [{X=0; Y=H}; {X=W; Y=H}; {X=W; Y=0}; {X=0; Y=0}]
+        | BusSelection _ | BusCompare _ -> 
+            [{X=0; Y=0}; {X=0; Y=H}; {X=(0.6*float(W)); Y=H}; {X=(0.8*float(W)); Y=(0.7*float(H))}; {X=W; Y=(0.7*float(H))}; {X=W; Y=(0.3*float(H))}; {X=(0.8*float(W)); Y=(0.3*float(H))}; {X=(0.6*float(W)); Y=0}]
+        | Constant1 _ -> 
+            [{X=0; Y=comp.H}; {X=0; Y=0}; {X=halfW; Y=halfH}; {X=W; Y=halfH}]
+        | Demux2 -> 
+            [{X=0; Y=(float(H)*0.2)}; {X=0; Y=(float(H)*0.8)}; {X=W; Y=H}; {X=W; Y=0}]
+        | Input _ -> 
+            [{X=0; Y=0}; {X=0; Y=H}; {X=(float(W)*0.66); Y=H}; {X=W; Y=halfH}; {X=(float(W)*0.66); Y=0}]
+        | IOLabel ->
+            [{X=(float(W)*0.33); Y=0}; {X=0; Y=halfH}; {X=(float(W)*0.33); Y=H}; {X=(float(W)*0.66); Y=H}; {X=W; Y=halfH}; {X=(float(W)*0.66); Y=0}]
+        | Output _ | Viewer _ -> 
+            [{X=(float(W)*(0.2)); Y=0}; {X=0; Y=halfH}; {X=(float(W)*(0.2)); Y=H}; {X=W; Y=H}; {X=W; Y=0}]
+        | MergeWires -> 
+            [{X=halfW; Y=((1.0/6.0)*float(H))}; {X=halfW; Y=((5.0/6.0)*float(H))}; {X=0; Y=((5.0/6.0)*float(H))}; {X=0; Y=((1.0/6.0)*float(H))}; {X=W; Y=((1.0/2.0)*float(H))}]
+        | SplitWire _ -> 
+            [{X=halfW; Y=((1.0/6.0)*float(H))}; {X=halfW; Y=((5.0/6.0)*float(H))}; {X=0; Y=((1.0/2.0)*float(H))}; {X=W; Y=((1.0/6.0)*float(H))}; {X=W; Y=((5.0/6.0)*float(H))}]
+        | Mux2 -> 
+            [{X=0; Y=0}; {X=W; Y=(float(H)*0.2)}; {X=W; Y=(float(H)*0.8)}; {X=0; Y=H}]
+        | _ -> 
+            [{X=0; Y=H}; {X=W; Y=H}; {X=W; Y=0}; {X=0; Y=0}]
         // EXTENSION: |Mux4|Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
         // EXTENSION: | Demux4 |Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
 
@@ -360,7 +371,7 @@ let private drawPortCircle x y =
     [makeCircle x y portCircle]
 
 // Print the name of each port 
-let private insertPortText (portList: Port List) (listOfNames: string List) (symbol: Symbol) = 
+let private addPortText (portList: Port List) (listOfNames: string List) (symbol: Symbol) = 
     // Define the name of each port 
     let addPortName x y name portType=
         let xPos = if portType = PortType.Output then x - 5. else x + 5.
@@ -395,8 +406,12 @@ let drawBiColorPolygon points colour strokeColor opacity strokeWidth =
     else   
         [makePolygon points {defaultPolygon with Fill = colour; FillOpacity = opacity; StrokeWidth = strokeWidth}]
 
-let addHorizontalLine posX1 posX2 posY opacity = // TODO: Line instead of polygon?
+let drawHorizontalLine posX1 posX2 posY opacity = // TODO: Line instead of polygon?
     let points = (sprintf "%i,%f %i,%f" posX1 posY posX2 posY)
+    createPolygon "lightgray" opacity points
+
+let drawVerticalLine posY1 posY2 posX opacity = // TODO: Line instead of polygon?
+    let points = (sprintf "%f,%f %f,%f" posX posY1 posX posY2)
     createPolygon "lightgray" opacity points
 
 let addOutlineColor (color:string) =
@@ -406,10 +421,16 @@ let addOutlineColor (color:string) =
         printfn $"color={color}"
         c
 
-let addHorizontalColorLine posX1 posX2 posY opacity (color: string) = // TODO: Line instead of polygon?
+let drawHorizontalColorLine posX1 posX2 posY opacity (color: string) = // TODO: Line instead of polygon?
     let points = (sprintf "%i,%f %i,%f" posX1 posY posX2 posY)
     let olColor = addOutlineColor color
     [makePolygon points {defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity}]
+
+let drawVerticalColorLine posY1 posY2 posX opacity (color: string) = // TODO: Line instead of polygon?
+    let points = (sprintf "%f,%f %f,%f" posX posY1 posX posY2)
+    let olColor = addOutlineColor color
+    [makePolygon points {defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity}]
+
 
 let rotateSymbol (symbol: Symbol) = 
     // For debugging purposes: Get next rotation
@@ -450,7 +471,7 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
         |> List.map (rotatePoint symbol.Rotation)
         |> List.map (convertCenterCoordtoOriginal symbol)
         |> convertSymbolPointsListtoString
-        |> (createPolygon colour opacity)
+        |> createPolygon colour opacity
         |> List.append (insertText clockLabelPos.X clockLabelPos.Y "clk" "start" "normal" "12px")
         
     match symbol.SymbolCharacteristics with 
@@ -501,78 +522,101 @@ let addSymbolText (comp: Component) : ReactElement list =
         (insertText (float(comp.W/2)) (+5.0) (getSymbolTitle comp) "middle" "bold" "14px") 
         |> List.append (insertText (float(comp.W/2)) (-20.0) comp.Label "middle" "normal" "16px")
 
+// let drawBiColorPolygon points colour strokeColor opacity strokeWidth = 
+//     if strokeColor <> "black" then 
+//         [makePolygon points {defaultPolygon with Fill = colour; Stroke = strokeColor; FillOpacity = opacity; StrokeWidth=strokeWidth}]
+//     else   
+//         [makePolygon points {defaultPolygon with Fill = colour; FillOpacity = opacity; StrokeWidth = strokeWidth}]
+
+let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
+    let outlineColor, strokeWidth =
+            match symbol.Component.Type with
+            | SplitWire _ | MergeWires -> addOutlineColor colour, "2.0"
+            | _ -> "black", "1.0"
+    
+    let drawSymbolLines = 
+        if symbol.Rotation = 90.0 || symbol.Rotation = 270.0 then 
+            match symbol.Component.Type with 
+            | Constant1 (_,_,txt) -> 
+                (drawVerticalLine symbol.SymbolPoints[2].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity)
+            | MergeWires -> 
+                drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].Y symbol.SymbolPoints[2].X opacity colour
+                |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity colour)
+                |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[4].Y symbol.SymbolPoints[4].X opacity colour)
+            | SplitWire _ -> 
+                drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].Y symbol.SymbolPoints[2].X opacity colour
+                |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity colour)
+                |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[4].Y symbol.SymbolPoints[4].X opacity colour)
+            | _ ->
+                []
+        else
+            match symbol.Component.Type with 
+            | Constant1 (_,_,txt) -> 
+                (drawHorizontalLine (int(symbol.SymbolPoints[2].X)) (int(symbol.SymbolPoints[3].X)) symbol.SymbolPoints[3].Y opacity)
+            | MergeWires -> 
+                drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[2].X)) symbol.SymbolPoints[2].Y opacity colour
+                |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[3].X)) symbol.SymbolPoints[3].Y opacity colour)
+                |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[4].X)) symbol.SymbolPoints[4].Y opacity colour)
+            | SplitWire _ -> 
+                drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[2].X)) symbol.SymbolPoints[2].Y opacity colour
+                |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[3].X)) symbol.SymbolPoints[3].Y opacity colour)
+                |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[4].X)) symbol.SymbolPoints[4].Y opacity colour)
+            | _ ->
+                []
+
+    // let drawMergeSplitWires posX1 posX2 posY msb lsb =
+    //     let drawBusTitle = 
+    //             let text = 
+    //                 match msb = lsb, msb >= lsb with
+    //                 | _, false -> ""
+    //                 | true, _ -> sprintf $"({msb})"
+    //                 | false, _ -> sprintf $"({msb}:{lsb})"
+                
+    //             insertText (float (posX1 + posX2)/2.0) (posY*float(symbol.Component.H)-11.0) text "middle" "bold" "15px"
+        
+    //     drawHorizontalColorLine posX1 posX2 (posY*float(symbol.Component.H)) opacity colour @ drawBusTitle
+
+    // let drawLines = 
+    //     match symbol.Component.Type with
+    //         | SplitWire mid -> 
+    //             let msb, mid' = match symbol.InWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
+    //             let midb = mid'
+    //             let midt = mid'-1
+    //             drawMergeSplitWires (symbol.Component.W/2) symbol.Component.W (1.0/6.0) midt 0 @ 
+    //             drawMergeSplitWires (symbol.Component.W/2) symbol.Component.W (5.0/6.0) msb midb @ 
+    //             drawMergeSplitWires 0 (symbol.Component.W/2) 0.5 msb 0
+    //         | _ -> []
+    
+    match symbol.Component.Type with
+    | Constant1 (_,_,txt) -> 
+        drawBiColorPolygon (convertSymbolPointsListtoString symbol.SymbolPoints[0..2]) colour outlineColor opacity strokeWidth
+        |> List.append drawSymbolLines
+        |> List.append (insertText (float (symbol.Component.W/2)-5.0) (float(symbol.Component.H)-8.0) txt "middle" "normal" "12px")
+    | MergeWires -> 
+        drawBiColorPolygon (convertSymbolPointsListtoString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
+        |> List.append drawSymbolLines
+    | SplitWire _ -> 
+        drawBiColorPolygon (convertSymbolPointsListtoString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
+        |> List.append drawSymbolLines
+    | _ ->
+        drawBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth
+        
+
 let flipSymbol (symbol: Symbol) = 
     print "Flip Triggered"
 
 /// --------------------------------------- SYMBOL DRAWING ------------------------------------------------------ ///   
-let drawSymbol 
-    (
-        symbol: Symbol,
-        comp: Component,
-        colour: string,
-        showInputPorts: bool,
-        showOutputPorts: bool,
-        opacity: float
-    ) = 
+let drawSymbol (symbol: Symbol, colour: string, opacity: float) = 
+    print symbol 
 
-    let h = comp.H
-    let w = comp.W
-    let halfW = comp.W/2
-    let halfH = (comp.H)/2
-
-    let mergeSplitLine posX1 posX2 posY msb lsb =
-        let text = 
-            match msb = lsb, msb >= lsb with
-            | _, false -> ""
-            | true, _ -> sprintf $"({msb})"
-            | false, _ -> sprintf $"({msb}:{lsb})"
-        addHorizontalColorLine posX1 posX2 (posY*float(h)) opacity colour @
-        insertText (float (posX1 + posX2)/2.0) (posY*float(h)-11.0) text "middle" "bold" "9px"
-
-    // Helper function to add certain characteristics on specific symbols (inverter, enables, clocks)
-    let additions = 
-        match comp.Type with
-        // Write Custom Name
-        | Constant1 (_,_,txt) -> (addHorizontalLine halfW w (float(halfH)) opacity @ insertText (float (halfW)-5.0) (float(h)-8.0) txt "middle" "normal" "12px") 
-
-        | MergeWires -> 
-            let lo, hi = 
-                match symbol.InWidth0, symbol.InWidth1  with 
-                | Some n, Some m  -> n, m
-                | _ -> -1,-1
-            let msb = hi + lo - 1
-            let midb = lo
-            let midt = lo - 1
-            mergeSplitLine 0 halfW (1.0/6.0) midt 0 @ 
-            mergeSplitLine 0 halfW (10.0/6.0) msb midb @ 
-            mergeSplitLine halfW w 0.5 msb 0
-        | SplitWire mid -> 
-            let msb, mid' = match symbol.InWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
-            let midb = mid'
-            let midt = mid'-1
-            mergeSplitLine halfW w (1.0/6.0) midt 0 @ 
-            mergeSplitLine halfW w (5.0/6.0) msb midb @ 
-            mergeSplitLine 0 halfW 0.5 msb 0
-        
-        | _ -> []
-
-    print symbol
-    print (getSymbolPoints symbol)
-
-    let outlineColor, strokeWidth =
-        match comp.Type with
-        | SplitWire _ | MergeWires -> addOutlineColor colour, "2.0"
-        | _ -> "black", "1.0"
-   
-    // Put everything together 
-    (drawPorts comp.OutputPorts showOutputPorts symbol)
-    |> List.append (drawPorts comp.InputPorts showInputPorts symbol)
-    |> List.append (insertPortText comp.InputPorts (fst(insertPortTitle comp)) symbol)
-    |> List.append (insertPortText comp.OutputPorts (snd(insertPortTitle comp)) symbol)  
-    |> List.append (additions)
-    |> List.append (addSymbolText comp)
+    []
+    |> List.append (drawPorts symbol.Component.OutputPorts symbol.ShowOutputPorts symbol)
+    |> List.append (drawPorts symbol.Component.InputPorts symbol.ShowInputPorts symbol)
+    |> List.append (addPortText symbol.Component.InputPorts (fst(insertPortTitle symbol.Component)) symbol)
+    |> List.append (addPortText symbol.Component.OutputPorts (snd(insertPortTitle symbol.Component)) symbol)  
+    |> List.append (addSymbolText symbol.Component)
     |> List.append (drawSymbolCharacteristics symbol colour opacity)
-    |> List.append (drawBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth)
+    |> List.append (drawSymbolShape symbol opacity colour)
 
 //----------------------------View Function for Symbols----------------------------//
 
@@ -589,7 +633,7 @@ let private renderSymbol =
         fun (props: RenderSymbolProps) ->
             let symbol = props.Symbol
             let ({X=fX; Y=fY}: XYPos) = {X=float(symbol.Component.X); Y=float(symbol.Component.Y)}
-            g ([ Style [ Transform(sprintf "translate(%fpx, %fpx)" fX fY) ] ]) (drawSymbol(props.Symbol, props.Symbol.Component, symbol.Colour, symbol.ShowInputPorts, symbol.ShowOutputPorts, symbol.Opacity))
+            g ([ Style [ Transform(sprintf "translate(%fpx, %fpx)" fX fY) ] ]) (drawSymbol(props.Symbol, symbol.Colour, symbol.Opacity))
             
         , "Symbol"
         , equalsButFunctions
