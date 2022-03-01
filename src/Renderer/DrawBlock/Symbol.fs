@@ -1093,18 +1093,3 @@ let extractComponents (symModel: Model) : Component list =
 
 
 
-
-let extractSymbol(symModel: Model) (sId:ComponentId) : Symbol = 
-    symModel.Symbols[sId]
-
-
-let updateModel(symModel: Model) (symbol: Symbol): Model = 
-    let updateSymbolMapping =
-        symModel.Symbols
-        |> Map.change (symbol.ComponentId) ( fun x ->
-                                               match x with
-                                               | Some s -> Some symbol
-                                               | None -> None
-                                           )
-
-    {symModel with CopiedSymbols = symModel.CopiedSymbols; Ports = symModel.Ports; Symbols = updateSymbolMapping;}
