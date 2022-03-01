@@ -624,6 +624,12 @@ let view (model: Model) (dispatch: Msg -> unit) =
 
 
 
+//-----------------------------------------------------------------------------------------------------------------------------//
+//---------------------------------------------------LG519 CODE STARTS---------------------------------------------------------//
+//-----------------------------------------------------------------------------------------------------------------------------//
+
+
+
 //----------------------------------------------GET BOUNDING BOXES FUNCTIONS---------------------------------------------------//
 
 /// Returns the bounding box of a symbol
@@ -704,8 +710,7 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
     
-
-///Generates the label for a given cmpType
+///Generates the label for a given ComponentType
 let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
     ///Genertates the number of the component label (i.e. the number 1 from IN1 or XOR1)
     let genCmpIndex model cmpType = 
@@ -718,7 +723,7 @@ let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
     | IOLabel -> label
     | _ -> label.ToUpper() + (genCmpIndex model cmpType)
 
-
+///Updates the model's SymbolsCount by increasing the count associated with cmpType
 let addSymToSymbolsCount cmpType model  =
     match Map.tryFindKey (fun cType cCount -> cType = cmpType) model.SymbolsCount with
         | Some cmp -> 
@@ -728,13 +733,13 @@ let addSymToSymbolsCount cmpType model  =
             // Add new componentType to map with count of 1
             Map.add cmpType 1 model.SymbolsCount
 
-let getCmpIndex (str : string) = 
-    let index = Regex.Match(str, @"\d+$")
-    match index with
-    | null -> 0
-    | _ -> int index.Value
-
+// Updates the model's SymbolsCount by decreasing the count associated with cmpIds
 let removeSymsFromSymbolsCount cmpIds model =
+    let getCmpIndex (str : string) = 
+        let index = Regex.Match(str, @"\d+$")
+        match index with
+        | null -> 0
+        | _ -> int index.Value
     let removeSym model symbolCount cmpId =
             let cmpType = model.Symbols[cmpId].Component.Type
             let cmpIndex = getCmpIndex model.Symbols[cmpId].Component.Label
