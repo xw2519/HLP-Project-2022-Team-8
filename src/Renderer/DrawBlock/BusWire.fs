@@ -1516,6 +1516,13 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
                     {seg.Vector with Y = (seg.Vector.Y)},       
                     {nextSeg.Start with Y = ((getEndPoint seg).Y + distance')},
                     {nextSeg.Vector with Y = (nextSeg.Vector.Y - distance')}
+                | _ -> 
+                    // Wild card: don't change anything
+                    prevSeg.Vector,
+                    seg.Start,
+                    seg.Vector,
+                    nextSeg.Start,
+                    nextSeg.Vector
             
             // Compile the new segments with updated XYPos Starts and Ends
             let newPrevSeg = {prevSeg with Vector = newPrevVector}
@@ -1611,7 +1618,7 @@ let autorouteWire (model : Model) (wire : Wire) : Wire =
 /// this function is self-inverse
 let revSegments (segs:Segment list) =
     List.rev segs
-    |> List.map (fun seg -> {seg with Start = (getEndPoint seg) ; Vector = {X = - seg.Vector.X ; Y = seg.Vector.Y}}) // Not needed when using Absolute Segments
+    |> List.map (fun seg -> {seg with Start = (getEndPoint seg) ; Vector = {X = - seg.Vector.X ; Y = - seg.Vector.Y}})
 
 //
 //  ====================================================================================================================
@@ -1647,12 +1654,15 @@ let inline addPositions (pos1: XYPos) (pos:XYPos) =
 
 /// Move the End of the Nth segment according to the suplied 'mover' function
 let inline moveEnd (mover: XYPos -> XYPos) (n:int) =
-    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Vector = mover seg.Vector} else seg)                  //UNSURE, but not used
+    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Vector = (mover (getEndPoint seg)) - seg.Start} else seg)  //UNSURE, but not used
     //List.mapi (fun i (seg:Segment) -> if i = n then {seg with Vector = mover seg.Vector} else seg)
 
 /// Move the Start of the Nth segment according to the suplied 'mover' function
 let inline moveStart (mover: XYPos -> XYPos) (n:int) =
-    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Start = mover seg.Start} else seg)
+    List.mapi (fun i (seg:Segment) -> 
+            let prevEnd = getEndPoint seg
+            if i = n then {seg with Start = mover seg.Start ; Vector = (prevEnd - mover seg.Start)} else seg
+        )
 
 /// Move both the Start and the End of the Nth segment according to the suplied 'mover' function (applied on both)
 let inline moveAll (mover: XYPos -> XYPos) (n : int) =
@@ -1696,7 +1706,7 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
         segs
         |> List.takeWhile isAutoroutedSeg
         |> List.length
-        |> (fun n -> if n > 5 then None else Some (n + 1))  //Return the first manually routed segment's index
+        |> (fun n -> if n > 5 then None else Some (n))  //Return the first manually routed segment's index
 
     /// Scale all the segments between the end of seg[0] and the end of the last manually routed segment.
     let scaleAutoroutedSegments segIndex =
@@ -1724,7 +1734,7 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
         // If we can't, then return None to fully autoRoute everything
         | _ -> None
 
-    /// Check if we are still in the same quadrant as the other end of the wire
+    /// Check if we are still in the same quadrant as the other end of the wire                     //WORKS
     let checkTopologyChangeOption index =
         let finalPt = segs[6].Start
         let oldTop x = topology (if index = 1 then portPos else wirePos) x
