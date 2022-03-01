@@ -476,19 +476,27 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
         |> (createPolygon colour opacity)
 
     let addClock posX posY =
-        let clockLabelPos = 
-            {X=posX+10.0; Y=posY-13.0}
-            |> convertCoordtoCenter symbol
-            |> rotatePoint symbol.Rotation
-            |> convertCenterCoordtoOriginal symbol
-            
-        [{X=posX; Y=posY-1.0}; {X=(posX+8.0); Y=posY-7.0}; {X=posX; Y=(posY-13.0)}]
-        |> List.map (convertCoordtoCenter symbol)
-        |> List.map (rotatePoint symbol.Rotation)
-        |> List.map (convertCenterCoordtoOriginal symbol)
+        let clockPoints = 
+            [{X=posX; Y=posY-1.0}; {X=posX; Y=posY-13.0}; {X=posX+8.0; Y=posY-7.0}]
+            |> List.map (convertCoordtoCenter symbol)
+            |> List.map (rotatePoint symbol.Rotation)
+            |> List.map (convertCenterCoordtoOriginal symbol)
+        
+        let addClockText = 
+            match symbol.Rotation with 
+            | 90.0 ->
+                insertText (clockPoints[2].X) (clockPoints[2].Y) "clk" "middle" "normal" "12px"
+            | 180.0 ->
+                insertText (clockPoints[2].X - 10.0) (clockPoints[2].Y - 6.0) "clk" "middle" "normal" "12px"
+            | 270.0 ->
+                insertText (clockPoints[2].X) (clockPoints[2].Y - 13.0) "clk" "middle" "normal" "12px"
+            | _ -> 
+                insertText (clockPoints[2].X + 2.0) (clockPoints[2].Y - 7.0) "clk" "start" "normal" "12px"
+
+        clockPoints
         |> convertSymbolPointsListtoString
         |> createPolygon colour opacity
-        |> List.append (insertText clockLabelPos.X clockLabelPos.Y "clk" "start" "normal" "12px")
+        |> List.append addClockText
         
     match symbol.SymbolCharacteristics with 
     | { clocked = false; inverted = true  } -> addInvertor (float(symbol.Component.W)) (float(symbol.Component.H) / 2.0)
@@ -537,12 +545,6 @@ let addSymbolText (comp: Component) : ReactElement list =
     | _ ->  
         (insertText (float(comp.W/2)) (+5.0) (getSymbolTitle comp) "middle" "bold" "14px") 
         |> List.append (insertText (float(comp.W/2)) (-20.0) comp.Label "middle" "normal" "16px")
-
-// let drawBiColorPolygon points colour strokeColor opacity strokeWidth = 
-//     if strokeColor <> "black" then 
-//         [makePolygon points {defaultPolygon with Fill = colour; Stroke = strokeColor; FillOpacity = opacity; StrokeWidth=strokeWidth}]
-//     else   
-//         [makePolygon points {defaultPolygon with Fill = colour; FillOpacity = opacity; StrokeWidth = strokeWidth}]
 
 let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     let outlineColor, strokeWidth =
