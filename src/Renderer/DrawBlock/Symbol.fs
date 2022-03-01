@@ -653,52 +653,52 @@ let getCmpBoundingBox (model: Model) (compId: ComponentId ): BoundingBox =
 
 //------------------------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS -------------------------------------//
 
-///Returns the port associated with a given portId
+///Returns the port associated with portId
 let getPort (model: Model) (portId: string) =
     model.Ports[portId]
 
-///Returns all the port locations of the given components   
-let getCmpsPortLocations (model: Model) (symIds: ComponentId list) = 
+///Returns the Input Ports and Output Ports locations associated with componentIds
+let getCmpsPortLocations (model: Model) (componentIds: ComponentId list) = 
     let getInputPortsPositionMap (model: Model) (symbols: Symbol list)  = 
         symbols
-        |> List.collect (fun sym -> List.map (fun p -> sym,p) sym.Component.InputPorts)
+        |> List.collect (fun sym -> List.map (fun port -> sym,port) sym.Component.InputPorts)
         |> List.map (fun (sym,port) -> (InputPortId port.Id, posAdd (getModelPortPos model port) ({X= sym.Component.X; Y=sym.Component.Y})))
         |> Map.ofList
 
 
-    let getOutputPortsPositionMap (model: Model) (symbols: Symbol list)  = //These function add the coordinates of the symbol too
+    let getOutputPortsPositionMap (model: Model) (symbols: Symbol list)  = 
         symbols
-        |> List.collect (fun sym -> List.map (fun p -> sym,p) sym.Component.OutputPorts)
+        |> List.collect (fun sym -> List.map (fun port -> sym,port) sym.Component.OutputPorts)
         |> List.map (fun (sym,port) -> (OutputPortId port.Id , posAdd (getModelPortPos model port) ({X= sym.Component.X; Y=sym.Component.Y})))
         |> Map.ofList
 
-    let syms = 
+    let symbols = 
         model.Symbols 
-        |> Map.filter (fun sId sym  -> List.contains sId symIds)
+        |> Map.filter (fun sId sym  -> List.contains sId componentIds)
         |> Map.toList
         |> List.map snd
         
-    let getInputPortMap = getInputPortsPositionMap model syms
-    let getOutputPortMap = getOutputPortsPositionMap model syms
+    let InputPortsPositions = getInputPortsPositionMap model symbols
+    let OutputPortsPositions = getOutputPortsPositionMap model symbols
        
-    getInputPortMap , getOutputPortMap
+    InputPortsPositions , OutputPortsPositions
 
-///Returns the location of an input portId  
+///Returns the location of the input port associated with inPortId  
 let getInputPortLocation (model:Model) (inPortId: InputPortId)  =     
     match inPortId with
     | InputPortId(str) -> 
         let inPort = Map.find str model.Ports
-        let sym = Map.find (ComponentId(inPort.HostId)) model.Symbols
-        posAdd (getModelPortPos model inPort) {X= sym.Component.X; Y=sym.Component.Y}
+        let symbol = Map.find (ComponentId(inPort.HostId)) model.Symbols
+        posAdd (getModelPortPos model inPort) {X= symbol.Component.X; Y=symbol.Component.Y}
     
     
-//Returns the location of an output portId
+//Returns the location of the output port associated with outPortId
 let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
     match outPortId with
     | OutputPortId(str) -> 
         let outPort = Map.find str model.Ports
-        let sym = Map.find (ComponentId(outPort.HostId)) model.Symbols
-        posAdd (getModelPortPos model outPort) {X= sym.Component.X; Y=sym.Component.Y}
+        let symbol = Map.find (ComponentId(outPort.HostId)) model.Symbols
+        posAdd (getModelPortPos model outPort) {X= symbol.Component.X; Y=symbol.Component.Y}
 
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
