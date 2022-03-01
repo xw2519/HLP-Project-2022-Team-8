@@ -621,31 +621,36 @@ let view (model: Model) (dispatch: Msg -> unit) =
     |> ofList
     |> TimeHelpers.instrumentInterval "SymbolView" start
 
-//------------------------GET BOUNDING BOXES FUNCS--------------------------------used by sheet.
-// Function that returns the bounding box of a symbol. It is defined by the height and the width as well as the x,y position of the symbol
+
+
+
+//----------------------------------------------GET BOUNDING BOXES FUNCTIONS---------------------------------------------------//
+
+/// Returns the bounding box of a symbol
 let getSymBoundingBox (sym:Symbol): BoundingBox =
     match sym.Rotation with
-    | 0.0 -> 
-        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.H) ; W = float(sym.Component.W)}
-    | 90.0 -> 
-        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(-sym.Component.W) ; W = float(sym.Component.H)}
-    | 180.0 -> 
-        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(-sym.Component.H) ; W = float(-sym.Component.W)}
-    | 270.0 -> 
-        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.W) ; W = float(-sym.Component.H)}
+    | 0.0 | 180.0 -> 
+        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.H) ; W =  float(sym.Component.W)}
+    | 90.0 | 270.0-> 
+        let halfW = float sym.Component.W / 2.0
+        let halfH = float sym.Component.H / 2.0
+        let topLeftCorner = {X = sym.Center.X - halfH; Y = sym.Center.Y - halfW}
+        {X = topLeftCorner.X ; Y = topLeftCorner.Y ; H = float(sym.Component.W) ; W = float(sym.Component.H)}
     | _ -> failwithf "Invalid rotation "
 
+/// Returns the bounding boxes of every symbol in the model
 let getModelBoundingBoxes (model: Model): Map<ComponentId, BoundingBox> =
     Map.map (fun symId sym -> (getSymBoundingBox sym)) model.Symbols
-    
-let getCmpBoundingBox (model: Model) (compid: ComponentId ): BoundingBox =
-    let sym = Map.find compid model.Symbols
+
+/// Returns the bounding box of the symbol associated with compId
+let getCmpBoundingBox (model: Model) (compId: ComponentId ): BoundingBox =
+    let sym = Map.find compId model.Symbols
     getSymBoundingBox sym
 
 
-//--------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS-------------------------------
+//------------------------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS -------------------------------------//
 
-///Returns the port object associated with a given portId
+///Returns the port associated with a given portId
 let getPort (model: Model) (portId: string) =
     model.Ports[portId]
 
