@@ -628,16 +628,10 @@ let getSymBoundingBox (sym:Symbol): BoundingBox =
     | 0.0 -> 
         {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.H) ; W = float(sym.Component.W)}
     | 90.0 -> 
-        printfn $"90.0 BOUNDING BOX"
-        let symbolCorner = {X = sym.Center.X - float sym.Component.W/2.0; Y = sym.Center.Y + float sym.Component.H/2.0}
-        printfn $"symbolCenter is {sym.Center} and symCorner is {symbolCorner}" 
-        printfn $"bounding box corners are {(symbolCorner.X,symbolCorner.Y)}, {(symbolCorner.X+float sym.Component.H,symbolCorner.Y)}, {(symbolCorner.X,symbolCorner.Y-float sym.Component.W)}, {(symbolCorner.X + float sym.Component.H,symbolCorner.Y-float sym.Component.W)} "
-        {X = float(symbolCorner.X) ; Y = float(symbolCorner.Y) ; H = float(-sym.Component.W) ; W = float(sym.Component.H)}
+        {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(-sym.Component.W) ; W = float(sym.Component.H)}
     | 180.0 -> 
-        printfn $"180.0 BOUNDING BOX"
         {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(-sym.Component.H) ; W = float(-sym.Component.W)}
     | 270.0 -> 
-        printfn $"270.0 BOUNDING BOX"
         {X = float(sym.Component.X) ; Y = float(sym.Component.Y) ; H = float(sym.Component.W) ; W = float(-sym.Component.H)}
     | _ -> failwithf "Invalid rotation "
 
