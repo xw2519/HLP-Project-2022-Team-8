@@ -720,7 +720,7 @@ let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
 
     let label = insertCompLabel cmpType
     match cmpType with
-    | IOLabel -> label
+    | IOLabel | MergeWires | SplitWire(_) -> label
     | _ -> label.ToUpper() + (genCmpIndex model cmpType)
 
 ///Updates the model's SymbolsCount by increasing the count associated with cmpType
