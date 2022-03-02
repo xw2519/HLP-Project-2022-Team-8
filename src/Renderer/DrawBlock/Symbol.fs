@@ -773,7 +773,7 @@ let getCopiedSymbolsIds (model: Model) : (ComponentId list) =
 let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
     
     /// folder function used to update the State (Model, list of pasted symbols) with a list of copied symbols
-    let genPastedSyms (referencePos: XYPos) ((currModel, pastedIds) : Model * ComponentId List) (copiedSym: Symbol): Model * ComponentId List =
+    let genPastedSym (referencePos: XYPos) ((currModel, pastedIds) : Model * ComponentId List) (copiedSym: Symbol): Model * ComponentId List =
         // generate pastedSymbol
         let id = JSHelpers.uuid()
         let offsetFromReferencePos = posDiff copiedSym.Center referencePos
@@ -810,14 +810,14 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
     match copiedSymsSorted with
     | referenceSymbol :: _ ->
         let referencePos = referenceSymbol.Center 
-        let updatedModel, pastedSymbolsIds = ((model, []), copiedSyms) ||> List.fold (genPastedSyms referencePos)
+        let updatedModel, pastedSymbolsIds = ((model, []), copiedSyms) ||> List.fold (genPastedSym referencePos)
         updatedModel, pastedSymbolsIds
     | [] -> model, []
 
     
 
 
-/// Returns the pasted ports associated with copiedInputPortId and copiedOutputPortId
+/// Returns the pasted ports Ids associated with copiedInputPortId and copiedOutputPortId
 let getPastedPortsIdsFromCopiedPortsIds (model: Model) (copiedCmpIds) (pastedCmpIds) (InputPortId copiedInputPortId, OutputPortId copiedOutputPortId) =
     let tryFindPastedPorts copiedCmpId pastedCmpId =
 
@@ -856,7 +856,7 @@ let getPastedPortsIdsFromCopiedPortsIds (model: Model) (copiedCmpIds) (pastedCmp
  
 
 /// Returns a new Symbol who's Component number of bits expected in a port is set according to bits
-let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (bits : int) =   
+let updateCmpBits (model:Model) (cmpId:ComponentId) (bits : int) =   
     let sym = Map.find cmpId model.Symbols
     let updatedCmpType = 
         match sym.Component.Type with
@@ -876,7 +876,7 @@ let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (bits : int) =
     {sym with Component = updatedCmp}
 
 /// Returns a new Symbol who's Component number of bits expected in the LSB a port is set according to lsb
-let updateLSBNumOfBits (model:Model) (cmpId:ComponentId) (lsb:int64) =
+let updateCmpLsbBits (model:Model) (cmpId:ComponentId) (lsb:int64) =
     let sym = Map.find cmpId model.Symbols
     let updatedCmpType = 
         match sym.Component.Type with
@@ -988,12 +988,12 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         { model with Symbols = newSymbols }, Cmd.none 
     
     | ChangeNumberOfBits (compId, newBits) ->
-        let newSymbol = updateCmpNumOfBits model compId newBits
+        let newSymbol = updateCmpBits model compId newBits
         let newSymbols = Map.add compId newSymbol model.Symbols
         { model with Symbols = newSymbols }, Cmd.none
     
     | ChangeLsb (compId, newLsb) -> 
-        let newSymbol = updateLSBNumOfBits model compId newLsb
+        let newSymbol = updateCmpLsbBits model compId newLsb
         let newSymbols = Map.add compId newSymbol model.Symbols
         { model with Symbols = newSymbols }, Cmd.none
 
