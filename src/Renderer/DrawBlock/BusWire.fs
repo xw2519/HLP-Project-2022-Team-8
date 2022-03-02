@@ -4,7 +4,6 @@ Moving symbols causes the corresponding wires to move.
 Wires are read and written from Issie as lists of wire vertices, whatever teh internal representation is.
 *)
 
-
 module BusWire
 
 open CommonTypes
@@ -20,7 +19,7 @@ let minSegLen = 5.
 //------------------------------BusWire Types-----------------------------//
 //------------------------------------------------------------------------//
 
-///
+/// 1 of 2 Orientations of a Wire (wires can only be horizontal or vertical in ISSIE)
 type Orientation =  Horizontal | Vertical | Point
 
 ///
@@ -34,14 +33,13 @@ type RenderJumpSegmentType = Before | InBetween | After | NoJump
 
 type Modes = OldFashionedCircuit | ModernCircuit | Radiussed
 
-
+/// Absolute-based segment, but with relative vectors denoting length and direction
 type Segment = 
     {
         Id : SegmentId
         Index: int
         Start: XYPos
         Vector: XYPos
-        //Dir: Orientation
         HostId: ConnectionId
         /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
         JumpCoordinateList: list<float>
@@ -49,6 +47,8 @@ type Segment =
         Draggable : bool
     }
 
+/// Rotation-invariant representation of a segment: we know that all consecutive segments are perpendicular to each other
+/// So no need to store individual orientations
 type RotationInvariantSeg = 
     {
         Id : SegmentId
@@ -61,9 +61,7 @@ type RotationInvariantSeg =
     }
 
 
-
-
-///
+/// Absolute Wire type using the redefined Segment type
 type Wire =
     {
         Id: ConnectionId 
@@ -76,6 +74,7 @@ type Wire =
 
     with static member stickLength = 16.0
 
+/// Rotation-invariant Wire type using RISegments with an initial Start position and Start direction
 type RotationInvariantWire =
      {
          Id: ConnectionId 
@@ -88,35 +87,9 @@ type RotationInvariantWire =
          Segments: list<RotationInvariantSeg>
      }
     with static member stickLength = 16.0
-    
-
-// type AbsoluteSeg = {
-//     Id : SegmentId
-//     Index: int
-//     Start: XYPos
-//     Length: float
-//     Dir: Orientation
-//     HostId: ConnectionId
-//     IsManuallyRouted: bool
-//     /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
-//     JumpCoordinateList: list<float * SegmentId>
-//     Draggable : bool
-// }
-
-// type AbsoluteWire =
-//     {
-//         Id: ConnectionId 
-//         InputPort: InputPortId
-//         OutputPort: OutputPortId
-//         Color: HighLightColor
-//         Width: int
-//         Segments: list<AbsoluteSeg>
-//     }
-
-//     with static member stickLength = 16.0
 
 
-///
+/// Type that contains all elements regarding the current BusWire model
 type Model =
     {
         Symbol: Symbol.Model
@@ -134,7 +107,7 @@ type Model =
 
 //----------------------------Message Type-----------------------------------//
 
-///
+/// Message type to send updates accross the different component of Issie
 type Msg =
     | Symbol of Symbol.Msg
     | AddWire of (InputPortId * OutputPortId)
@@ -153,18 +126,22 @@ type Msg =
     | ChangeMode // For Issie Integration
 
 //-------------------------Helper Functions---------------------------------//
+
+/// Returns the XYPos of the end of a Segment
 let getEndPoint (segment: Segment) =
     {X=(segment.Start.X + segment.Vector.X);Y=(segment.Start.Y + segment.Vector.Y)}
 
+/// Gets the orientation of a Segment
 let getOrientation (segment : Segment) =
     if (segment.Vector.Y = 0) && (segment.Vector.X = 0) then Point 
     elif (segment.Vector.Y = 0) then Horizontal
     else Vertical
 
+/// Converts a list of RI segments to regular segments
 let convertRISegsToSegments (hostId: ConnectionId)(startPos: XYPos) (startDir: int) (riSegs: RotationInvariantSeg list) : Segment list =
     
     let firstVector:XYPos = if (startDir = 90) || (startDir = 270) then {X=1;Y=0}
-                            else {X=0;Y=1}                                                          //TODO: To check
+                            else {X=0;Y=1}
     
     let firstSeg:Segment = {Id= SegmentId(JSHelpers.uuid())
                             Index = -1
@@ -176,6 +153,7 @@ let convertRISegsToSegments (hostId: ConnectionId)(startPos: XYPos) (startDir: i
                             Draggable = false
                             }
 
+    // Folder used to convert a RI segment into a regular Segment
     let convertToSeg (oldState:Segment) (element:RotationInvariantSeg):Segment  =
         // Current index of the segment
         let index = oldState.Index + 1
@@ -197,7 +175,8 @@ let convertRISegsToSegments (hostId: ConnectionId)(startPos: XYPos) (startDir: i
         let newDraggable = if(oldState.Index + 1 = 0) || (oldState.Index + 1 = riSegs.Length - 1) 
                            then false
                            else true 
-
+        
+        //Assemble the new Segment
         {
             Id = element.Id
             Index = oldState.Index + 1
@@ -209,17 +188,16 @@ let convertRISegsToSegments (hostId: ConnectionId)(startPos: XYPos) (startDir: i
             Draggable = newDraggable
         }
         
-
+    // Apply the folder to the list, and keep track of the changes
     let (segmentList:Segment list) = ((firstSeg, riSegs) ||> List.scan convertToSeg)
+    // Return all but the head of the list
     match segmentList with
     | hd::tl -> tl
     | _ -> []
 
+/// Converts a RotationInvariant Wire into a regular Wire
 let convertToWire (riWire:RotationInvariantWire) : Wire =
     let (segmentList:Segment list) = convertRISegsToSegments riWire.Id riWire.Start riWire.StartDir riWire.Segments
-    let newSegs = match segmentList with
-                    | hd::tl -> tl
-                    | _ -> []
 
     {
         Id= riWire.Id
@@ -227,9 +205,10 @@ let convertToWire (riWire:RotationInvariantWire) : Wire =
         OutputPort= riWire.OutputPort
         Color= riWire.Color
         Width= riWire.Width
-        Segments= newSegs
+        Segments= segmentList
     }
 
+/// Converts a regular Wire into a RotationInvariant Wire
 let convertToRIwire (wire:Wire) : RotationInvariantWire =
 
     let convertToSeg (element:Segment):RotationInvariantSeg  =
@@ -684,13 +663,6 @@ let segmentIntersectsSegment ((p1, q1) : (XYPos * XYPos)) ((p2, q2) : (XYPos * X
 
     //true
     
-    
-    
-    
-    
-    
-    
-
 
     let p1,q1,p2,q2= getAbsXY p1, getAbsXY q1, getAbsXY p2, getAbsXY q2
     // Find the four orientations needed for general and 
@@ -1411,6 +1383,14 @@ let view (model : Model) (dispatch : Dispatch<Msg>) =
 //END RENDER AND VIEW
 
 
+
+
+//------------------------------------------------------------------------------------//
+//----------------------TLP19 CODE SECTION STARTS-------------------------------------//
+//------------------------------------------------------------------------------------//
+
+
+
 /// This function is given two couples of
 /// points that define two line segments and it returns:
 /// - Some (x, y) if the two segments intersect;
@@ -1580,10 +1560,9 @@ let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (dist
     | _ -> 
         distance
 
-// TODO: rewrite and fix this function
 /// Adjust wire (input type is Segment list) so that two adjacent horizontal segments that are in opposite directions
 /// get eliminated
-let removeRedundantSegments  (segs: Segment list) =
+let removeRedundantSegments  (segs: Segment list) =                                 // TODO: rewrite and fix this function
 /// Set the absolute value of X (keeping the previously assigned sign)
 (*let setAbsX x (pos: XYPos) =
     let x = if pos.X < 0.0 then - abs x else abs x
@@ -1799,9 +1778,6 @@ let revSegments (segs:Segment list) =
 //
 // To determine adjustment on End change we just reverse the segment and apply the Start change algorithm
 // Adjustment => reverse list of segments, swap Start and End, and alter the sign of all coordinates
-// For simplicity, due to the encoding of manual changes into coordinates by negating them (yuk!)
-// we do not alter coordinate sign. Instead we invert all numeric comparisons.
-// There are no constants used in the algorithm (if there were, they would need to be negated)
 //
 // ======================================================================================================================
 
@@ -1956,6 +1932,16 @@ let updateWire (model : Model) (wire : Wire) (inInputPort : InOut) =
     |> Option.map (fun segs -> {wire with Segments = segs})
     // Otherwise, if it didn't work, re-autoRoute fully the wire
     |> Option.defaultValue (autorouteWire model wire)
+
+
+
+
+
+//----------------------------------------------------------------------------------//
+//----------------------TLP19 CODE SECTION ENDS-------------------------------------//
+//----------------------------------------------------------------------------------//
+
+
 
 
 /// Updates the JumpCoordinateList component of every segment in the model
