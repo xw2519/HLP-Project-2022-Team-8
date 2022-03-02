@@ -155,8 +155,7 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
                    PortType = portType
                    HostId = compId }])
 
-    let roundToNth (precision : int) (x : int) = 
-        x + abs((x % precision) - precision)
+    let roundToNth (precision : int) (x : int) = x + abs((x % precision) - precision)
 
     let getSymbolShapeSize = 
         match compType with
@@ -352,38 +351,26 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
         let xPos = 
             if portType = PortType.Output then 
                 match symbol.Rotation with
-                | 90.0 | 270.0 ->   
-                    x 
-                | 180.0 ->  
-                    x + 8.0
-                | _ ->
-                    x - 8.0
+                | 90.0 | 270.0 -> x 
+                | 180.0 -> x + 8.0
+                | _ -> x - 8.0
             else 
                 match symbol.Rotation with
-                | 90.0 | 270.0 ->   
-                    x 
-                | 180.0 ->  
-                    x - 10.0
-                | _ ->
-                    x + 8.0
+                | 90.0 | 270.0 -> x 
+                | 180.0 -> x - 10.0
+                | _ -> x + 8.0
 
         let yPos = 
             if portType = PortType.Output then 
                 match symbol.Rotation with
-                | 90.0 ->   
-                    y - 20.0
-                | 270.0 ->
-                    y + 5.0
-                | _ ->
-                    y - 5.0
+                | 90.0 -> y - 20.0
+                | 270.0 -> y + 5.0
+                | _ -> y - 5.0
             else 
                 match symbol.Rotation with
-                | 90.0 ->   
-                    y + 8.0
-                | 270.0 ->
-                    y - 20.0
-                | _ ->
-                    y - 5.0
+                | 90.0 -> y + 8.0
+                | 270.0 -> y - 20.0
+                | _ -> y - 5.0
         
         let alignment = 
             match (portType, symbol.Rotation) with
@@ -399,7 +386,8 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
         then  []
         else 
             [0..(portList.Length-1)]
-            |> List.map2 (fun name x -> (addPortName (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y name (portList.Head.PortType))) listOfNames 
+            |> List.map2 (fun name x -> 
+                            addPortName (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y name portList.Head.PortType) listOfNames 
             |> List.collect id
 
 let addPortTitle (comp: Component) = 
