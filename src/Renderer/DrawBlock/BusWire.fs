@@ -1396,8 +1396,8 @@ let tryCoordinatesIfIntersection ((startSeg1, endSeg1) : (XYPos * XYPos)) ((star
     // Check if the two intersect
     if (segmentIntersectsSegment (startSeg1, endSeg1) (startSeg2, endSeg2)) then                                        
         // Extract their coordinates
-        let x1, y1, x2, y2 = abs startSeg1.X, abs startSeg1.Y, abs endSeg1.X, abs endSeg1.Y
-        let x3, y3, x4, y4 = abs startSeg2.X, abs startSeg2.Y, abs endSeg2.X, abs endSeg2.Y
+        let x1, y1, x2, y2 = startSeg1.X, startSeg1.Y, endSeg1.X, endSeg1.Y
+        let x3, y3, x4, y4 = startSeg2.X, startSeg2.Y, endSeg2.X, endSeg2.Y
         // How far from the start on seg1 the intersection happens (between 0 and 1)
         // (diffXseg2 * diffYstarts - diffYseg2 * diffXstarts ) / (diffYseg2 * diffXseg1 - diffXseg2 * diffYseg1)
         let uA = ((x4-x3)*(y1-y3) - (y4-y3)*(x1-x3)) / ((y4-y3)*(x2-x1) - (x4-x3)*(y2-y1))
@@ -1469,9 +1469,9 @@ let isSegmentIntersectingBoundingBox (seg : Segment) (bb : BoundingBox) : bool =
 /// This function is given a point and a segment
 /// and it returns the distance between them.
 let distanceFromPointToSegment (point : XYPos) (segment : Segment) : float = 
-    let x0, y0 = point.X, abs point.Y
+    let x0, y0 = point.X, point.Y
     let segmentEnd = getEndPoint segment
-    let x1, y1, x2, y2 = abs segment.Start.X, abs segment.Start.Y, abs segmentEnd.X, abs segmentEnd.Y
+    let x1, y1, x2, y2 = segment.Start.X, segment.Start.Y, segmentEnd.X, segmentEnd.Y
     // If the segment if only horizontal or vertical
     if (x1 = x2) then abs (x1 - x0)
     elif (y1 = y2) then abs (y1 - y0)
