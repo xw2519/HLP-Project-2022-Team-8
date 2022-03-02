@@ -682,7 +682,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
         |> List.append drawDirectionalArrows
     | _ -> drawBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth
 
-/// --------------------------------------- SYMBOL DRAWING ------------------------------------------------------ ///   
+//--------------------------------- Symbol Drawing ---------------------------------//  
 
 let drawSymbol (symbol: Symbol, colour: string, opacity: float) = 
     addSymbolLabel symbol.Rotation symbol.Component.W symbol.Component.H symbol.Component.Label
@@ -697,50 +697,44 @@ let drawSymbol (symbol: Symbol, colour: string, opacity: float) =
 //----------------------------View Function for Symbols----------------------------//
 
 type private RenderSymbolProps =
-    {
-        Symbol : Symbol 
-        Dispatch : Dispatch<Msg>
-        key: string 
-    }
+    { Symbol : Symbol 
+      Dispatch : Dispatch<Msg>
+      key: string }
 
-/// View for one symbol. Using FunctionComponent.Of to improve efficiency (not printing all symbols but only those that are changing)
 let private renderSymbol =
     FunctionComponent.Of(
         fun (props: RenderSymbolProps) ->
-            let symbol = props.Symbol
-            let ({X=fX; Y = fY}: XYPos) = {X=float(symbol.Component.X); Y = float(symbol.Component.Y)}
-            g ([ Style [ Transform($"translate(%f{fX}px, %f{fY}px)") ] ]) (drawSymbol(props.Symbol, symbol.Colour, symbol.Opacity))
-            
+            let ({ X = fX; Y = fY }: XYPos) = 
+                { X = float(props.Symbol.Component.X); Y = float(props.Symbol.Component.Y) }
+
+            g ([ Style [ Transform($"translate(%f{fX}px, %f{fY}px)") ] ]) (drawSymbol(props.Symbol, props.Symbol.Colour, props.Symbol.Opacity)) 
         , "Symbol"
-        , equalsButFunctions
-        )
+        , equalsButFunctions )
     
-/// View function for symbol layer of SVG
 let convertMapsIntoLists map =
     let listMoving = 
         Map.filter (fun _ sym -> not sym.Moving) map
         |> Map.toList
         |> List.map snd
+
     let listNotMoving =
         Map.filter (fun _ sym -> sym.Moving) map
         |> Map.toList
         |> List.map snd
+
     listMoving @ listNotMoving
 
 let view (model: Model) (dispatch: Msg -> unit) = 
-    let start = TimeHelpers.getTimeMs()
+    let startTime = TimeHelpers.getTimeMs()
     model.Symbols
     |> convertMapsIntoLists
     |> List.map (fun ({ComponentId = ComponentId id} as symbol) ->
         renderSymbol
-            {
-                Symbol = symbol
-                Dispatch = dispatch
-                key = id
-            }
-    )
+            { Symbol = symbol
+              Dispatch = dispatch
+              key = id })
     |> ofList
-    |> TimeHelpers.instrumentInterval "SymbolView" start
+    |> TimeHelpers.instrumentInterval "SymbolView" startTime
 
 //------------------------GET BOUNDING BOXES FUNCS--------------------------------used by sheet.
 // Function that returns the bounding box of a symbol. It is defined by the height and the width as well as the x,y position of the symbol
