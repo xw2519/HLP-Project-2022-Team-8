@@ -38,9 +38,9 @@ as extra lines in this file. See sample file in [README](https://github.com/tomc
 
 Section 3 on my file is lines : 1906-2474
 I am also responsible for lines:
-- 87 [adding keyBoardMsg](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/Sheet.fs#L87)
-- 913 : 915 [Defining keyBoardMsg associated with Ctrl+M](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/Sheet.fs#L913-L915)
-- 177 [editMenu dispatch](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/Renderer.fs#L177)
+- 87 [adding keyBoardMsg](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/Sheet.fs#L87) in Sheet.fs
+- 913 : 915 [Defining keyBoardMsg associated with Ctrl+M](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/Sheet.fs#L913-L915) in Sheet.fs
+- 177 [editMenu dispatch](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/Renderer.fs#L177) in Renderer.fs
 
 Anything else you need to say about what you are or are not responsible for.
 
