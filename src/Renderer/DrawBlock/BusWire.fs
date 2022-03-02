@@ -1482,24 +1482,16 @@ let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (dist
 /// Adjust wire (input type is Segment list) so that two adjacent horizontal segments that are in opposite directions
 /// get eliminated
 let removeRedundantSegments  (segs: Segment list) =
-    /// Get difference in X along a segment
-    let xDelta seg = 
-        let segEnd = getEndPoint seg
-        segEnd.X - seg.Start.X
-
     /// Set the X comp of the Start of the segment to 'x', keeping the sign
     let setStartX x (seg:Segment) = {seg with Start = {X = x ; Y = seg.Start.Y}}
 
     /// Set the X comp of the End of the segment to 'x', keeping the sign
-    let setEndX x (seg:Segment) = 
-        let segEnd = getEndPoint seg
-        let newSegEnd = {segEnd with X=x}
-        {seg with Vector = {X = (newSegEnd.X - seg.Start.X) ; Y = (newSegEnd.Y - seg.Start.Y)}}
+    let setEndX x (seg:Segment) = {seg with Vector = {X = (x - seg.Start.X) ; Y = seg.Vector.Y}}
 
     /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
     let adjust seg1 seg2 =
         // Get their direction
-        let xDirection1, xDirection2 = xDelta seg1, xDelta seg2
+        let xDirection1, xDirection2 = seg1.Vector.X, seg2.Vector.X
         // If they are horizontal and of opposite direction
         if (getOrientation seg1) = Horizontal && 
            (getOrientation seg2) = Horizontal && 
