@@ -2,17 +2,6 @@
 
 ## Instructions
 
-
-* The repo you use **must have your marker added as collaborator** (github login is on indiv assessment spreadsheet page)
-
-Keep the headings and **replace the admin section links and notes with correct ones**.
-
-* Add any changes to my section code allocations. This must be consistent with what has been 
-recorded in your team's file in my Team contributions repo](https://github.com/tomcl/hlp22docs/blob/main/README.md)  
-main branch ./TeamN.md (N = 1 - 9) file. The team contrib repo is as official record. This file will be 
-used marking and should have line numbers for easy access. Expect to be marked down if your marker
-cannot easily find everything via links from this README.
-
 ## Team Shared Team.md
 
 [Team Contribution Repo](https://github.com/xw2519/HLP-Project-2022-Team-8.git)
@@ -23,19 +12,18 @@ cannot easily find everything via links from this README.
 *link to your teamN.md file*
 [Common repo TeamN file](https://github.com/xw2519/hlp22docs/blob/main/Team8.md)
 
-[Symbol (section 2)]([src/Renderer/DrawBlock/Symbol.fs](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-lg519/src/Renderer/DrawBlock/Symbol.fs))
+[Symbol (section 2)](src/Renderer/DrawBlock/Symbol.fs](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-lg519/src/Renderer/DrawBlock/Symbol.fs))
 
 Section 2 on my file is lines : 627- 1104
 
-I am also responsible for lines 850-851 in [Sheet](src/Renderer/DrawBlock/Sheet.fs) (Rotation of symbols pressing key R).
-xw2519 implemented R keypress to rotate symbols initially as a functionality to test his code (27 Feb: Line 824 - 1112: Sheet.fs: update - xw2519).
-I simplified the logic, removed redundant functions and modified xw2519 code to comply with Elmish MVU guidelines. I have also added functionality to rotate multiple symbols.
+I am responsible for the Rotaton and Center field of Symbol (together with xw2519). Lines 41 and 51
 
-I am also responsible for the Rotaton and Center field of Symbol (together with xw2519). Lines 41 and 51
+I am responsible for the SymbolsCount field of model. Line 59
 
-I am also responsible for the SymbolsCount field of model. Line 59
-
-
+I am responsible for lines 850-851 in [Sheet](src/Renderer/DrawBlock/Sheet.fs) (Rotation of symbols pressing key R).
+For the extension "UI to rotate selected symbols by pressing R key" it should be noted that:
+- Xw2519 implemented R keypress to rotate symbols initially as a functionality to test his code.
+- I then simplified the logic, removed redundant functions and modified xw2519 code heavily to comply with Elmish MVU guidelines. I have also added functionality to rotate multiple symbols. 
 
 
 ## Code Quality
@@ -43,7 +31,7 @@ I am also responsible for the SymbolsCount field of model. Line 59
 
 - added a new Symbol field **Center** to substitute the redundant Pos field. This new field allows us to implement rotation easily because the center of a symbol is rotation invariant
 
-- added a new Model field **SymbolsCount** that is used to label symbols. This allows us to get rid of the highly unreadable getCompList match statement and facilitates code mantainance. It makes it easier to add new types as they will not have to be included manually in SymbolsCount. It also allows us to implement a new extension in the project work: having specific gate names and counts for the Not,And,Or... components which are currently all labeled with G`index` where `index` is the number of components on the screen
+- added a new Model field **SymbolsCount** that is used to label symbols. This allows us to get rid of the highly unreadable getCompList match statement and facilitates code mantainance. It makes it easier to add new types as they will not have to be included manually in getCompList. It also allows us to implement a new extension in the project work: having specific gate names and counts for the Not,And,Or... components which are currently all labeled with G`index` where `index` is the number of components on the screen
   
 - Improved efficiency of getInputPortLocation and getOutputPortLocation which now look up the port from Model.Ports. This allows to get rid of other functions (reduces code complexity) and makes the code easier to mantain because all of the info about ports is looked up from Model.Ports.
 
@@ -140,7 +128,7 @@ All of the code and the extensions are currently working. Some compatibility iss
     - Msg type in Symbol.fs was extended by adding extra type RotateSymbols of ComponentId list. 
     - Update function in Symbol.fs was modifed by adding an extra entry RotateSymbols. 
     - Update function in Sheet.fs was modified to forward message to symbol. 
-    - EditMenu in Renderer.fs was modified by adding an extra entry "Rotate" "R"
+    - EditMenu in Renderer.fs was modified by adding an extra entry "Rotate" "R" (this was done by xw2519 when he was testing his extension)
 
 3. Make bounding box work with rotation
    - getSymBoundingBox was modified by taking into account the Rotation field of Symbol 
