@@ -904,10 +904,10 @@ let updateConstant (model:Model) (cmpId:ComponentId) (constantVal:int64) (consta
 /// Update function which displays symbols
 let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
     match msg with
-    | DeleteSymbols compList ->
-        let newSymbols = List.fold (fun prevModel sId -> Map.remove sId prevModel) model.Symbols compList
-        let newSymbolCount = removeSymsFromSymbolsCount compList model
-        { model with Symbols = newSymbols; SymbolsCount = newSymbolCount }, Cmd.none //filters out symbol with a specified id
+    | DeleteSymbols compIds ->
+        let newSymbols = List.fold (fun prevModel sId -> Map.remove sId prevModel) model.Symbols compIds
+        let newSymbolCount = removeSymsFromSymbolsCount compIds model
+        { model with Symbols = newSymbols; SymbolsCount = newSymbolCount }, Cmd.none 
 
     | AddSymbol (pos,compType, lbl) ->
         let (newModel, _) = addSymToModel model pos compType lbl
@@ -927,20 +927,21 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
 
     | DeleteAllPorts ->
         { model with Symbols = Map.map (fun _ sym -> {sym with ShowInputPorts = false; ShowOutputPorts = false}) model.Symbols },
-        Cmd.none //demo
+        Cmd.none 
 
-    | ShowPorts compList -> //show ports of one component (shown in demo for a random component, sheet gives list in group phace)  find showPorts in other interfaces (above)
+    | ShowPorts compIds -> 
         let resetSymbols = Map.map (fun _ sym -> {sym with ShowInputPorts = false; ShowOutputPorts = false}) model.Symbols
         let newSymbols =
-            (List.fold (fun prevSymbols sId -> Map.add sId {resetSymbols[sId] with ShowInputPorts = true; ShowOutputPorts = true} prevSymbols) resetSymbols compList)
+            (List.fold (fun prevSymbols sId -> Map.add sId {resetSymbols[sId] with ShowInputPorts = true; ShowOutputPorts = true} prevSymbols) resetSymbols compIds)
         { model with Symbols = newSymbols }, Cmd.none
 
-    | MoveSymbols (compList, move) -> 
+    | MoveSymbols (compIds, move) -> 
         let resetSymbols = Map.map (fun _ sym -> { sym with Moving = false}) model.Symbols
+        let moveSym prevSymbols cmpId =
+            let newCmp = {model.Symbols[cmpId].Component with X = model.Symbols[cmpId].Component.X + int move.X ;Y = model.Symbols[cmpId].Component.Y +  int move.Y }
+            Map.add cmpId {model.Symbols[cmpId] with Moving = true; Center = {X = float (newCmp.X + newCmp.W/2); Y = float (newCmp.Y + newCmp.H/2)} ; Component = newCmp} prevSymbols
         let newSymbols =
-            (List.fold (fun prevSymbols sId ->
-                let (newCmp: Component) = {model.Symbols[sId].Component with X = model.Symbols[sId].Component.X + int move.X ;Y = model.Symbols[sId].Component.Y +  int move.Y }
-                Map.add sId {model.Symbols[sId] with Moving = true; Center = {X = float (newCmp.X + newCmp.W/2); Y = float (newCmp.Y + newCmp.H/2)} ; Component = newCmp} prevSymbols) resetSymbols compList)
+            (List.fold moveSym resetSymbols compIds)
         { model with Symbols = newSymbols }, Cmd.none
 
     | SymbolsHaveError compList ->

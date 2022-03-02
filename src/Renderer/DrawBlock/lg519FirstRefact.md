@@ -101,7 +101,7 @@ times it is displayed in the current model
 - renamed to updateCmpNumOfBits
   
 **changeLsbf**
-- renamed to updateLSB
+- renamed to updateLSBNumOfBits
 
 **changeConstantf**
 - renamed to updateConstant
