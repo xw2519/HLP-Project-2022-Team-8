@@ -215,10 +215,10 @@ Your code will all be assessed anyway, so this is optional.
      Once we have definied the grid containing all pairs, we are going to iterate throught all the possibilities verifying two conditions:
      do they have the say OutputPort and if they have, do they have different InputPort. The pairs satisfying both conditions go to the next stages filtering out both the ones not having Split wires and the pairs of same wires.
 
-     * `findCircle`
-     Converting the List to sequences and then zipping them allows us to reduce the size of the biggest to the smallest segment list of the two wires, avoiding lenght issues while zipping. This creates a sequence of Segment pairs.
-     We then use the function Seq.tryFind to get the first segment pair which has the same Starting but not the same Ending coordinates.
-     Finally, in order to get the coordinate of the splitting point we iterate through all the cases, using the directions of the segment's vector. Either giving back the start Position of the segments if opposite directions, else the end position of the shortest vector distance of the given segments.
+     * `findCircle`:
+      *Converting the List to sequences and then zipping them allows us to reduce the size of the biggest to the smallest segment list of the two wires, avoiding lenght issues while zipping. This creates a sequence of Segment pairs.
+      *We then use the function Seq.tryFind to get the first segment pair which has the same Starting but not the same Ending coordinates.
+      *Finally, in order to get the coordinate of the splitting point we iterate through all the cases, using the directions of the segment's vector. Either giving back the start Position of the segments if opposite directions, else the end position of the shortest vector distance of the given segments.
 
 
           
