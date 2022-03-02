@@ -131,7 +131,29 @@ Your code will all be assessed anyway, so this is optional.
 
 * The old version of this function was using "for loops" and mutable data opposite to F# directories, as well as being very messy and hard to understand.
 
-* The new function uses pipeline (Array.map, Array.fold...) by creating a Grid, making an array of all possible pairs of wires in the model and iterates through those to check intersection.
+* The new function uses pipeline (Array.map, Array.fold...) by creating a Grid, making an array of all possible pairs of wires in the model and iterating through those to check intersection. It then updates the given model with the modified Map<ConnectionId,Wire>. This is much more readable and agrees with F# guidelines.
+
+* `makeHoriVertiGrid`: creates an array of Segment pairs. Those pairs are composed of an horizontal and a Vertical Segment.
+* `registerAllJumps`: extracts an array of SegmentId and float out of the Grid, when the two segments in the pairs intersect.
+* `changeSegment`: iterate through all the segments in the model and checks if their ids are included in the jump array obtained before. If yes then we update its JumpCoordinateList component else we set it to an empty list.
+
+[`updateOrResetWireSegmentJumps`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2102-L2109)
+
+* This function takes in a model as well as a ConnectionID List and returns a new model. This function allows you to update or Reset the Jump components of a given model.
+
+* The old version of this function was divided into two parts one for update and the other one for reset. This method was quite unpracticle as it was requiring the same arguments and calling the same function, hard setting for the Update one the ConnectionID List to an empty List. 
+
+* The new function combined the two functions by instead assigning the ConnectionID List to an empty list in the case of Update. This allowed for clearer and less redondant code.
+
+[`updateWires`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2116-L2134)
+
+* This function takes in a model, a ConnectionID List and an XYPos returning a new model. This function updates the model by updating its characteristics when something is changed/moved. It needs to check which type of wire it needs to update, in order to call the right function.
+
+* The old version was composed of an if else statement, which wasn't clear enough.
+
+* The new function now operates a match statement and makes more readable code when dealing with carried if else statements.
+
+
 
 
 ### Issues in Existing Code
