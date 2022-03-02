@@ -6,9 +6,9 @@
 
 [Buswire (section 2)](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-tlp19/src/Renderer/DrawBlock/BusWire.fs)
 
-Section 2 on my file is lines : **1310-1825** - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L1310)
+Section 2 on my file is lines : **1315-1830** - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L1315)
 
-I am also responsible for lines **325-410** (functions `xyVerticesToSegments`, `makeInitialSegmentsList`) - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L325)
+I am also responsible for lines **325-415** (functions `xyVerticesToSegments`, `makeInitialSegmentsList`) - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L325)
 
 I have also worked on implementing the Extension for BusWire section 2, which is to implement AutoRouting for rotated Symbols. This part of my code is in the file Autorouted.fs - [Link to file](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-tlp19/src/Renderer/DrawBlock/Autorouted.fs) - but is currently not included in the compile script, as adding it in caused the following error when compiling: [Link to EdStem Post](https://edstem.org/us/courses/17809/discussion/1222697). I am hoping this part of my code can also be assessed, as a basis for coding style (even though it does not work).
  

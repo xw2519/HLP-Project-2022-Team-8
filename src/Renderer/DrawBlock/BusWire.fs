@@ -321,6 +321,9 @@ let pp segs (model: Model)=
 
 //-------------------------------Implementation code----------------------------//
 
+//----------------------------------------------------------------------------------//
+//--------------------TLP19 CODE SECTION STARTS-------------------------------------//
+//----------------------------------------------------------------------------------//
 
 // Turns a list of vertices into a list of Segments
 let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos list) =
@@ -409,6 +412,10 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
                 
     xyVerticesToSegments connId isLeftToRight vertlist
 
+
+//--------------------------------------------------------------------------------//
+//--------------------TLP19 CODE SECTION ENDS-------------------------------------//
+//--------------------------------------------------------------------------------//
 
 let inferDirectionfromVertices (xyVerticesList: XYPos list) =
     if xyVerticesList.Length <> 8 then 
@@ -1302,12 +1309,9 @@ let view (model : Model) (dispatch : Dispatch<Msg>) =
 //END RENDER AND VIEW
 
 
-
-
 //------------------------------------------------------------------------------------//
 //----------------------TLP19 CODE SECTION STARTS-------------------------------------//
 //------------------------------------------------------------------------------------//
-
 
 
 /// This function is given two couples of
@@ -1823,13 +1827,9 @@ let updateWire (model : Model) (wire : Wire) (inInputPort : InOut) =
 
 
 
-
-
 //----------------------------------------------------------------------------------//
 //----------------------TLP19 CODE SECTION ENDS-------------------------------------//
 //----------------------------------------------------------------------------------//
-
-
 
 
 
