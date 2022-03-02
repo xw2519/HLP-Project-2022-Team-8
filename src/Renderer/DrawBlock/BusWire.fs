@@ -44,10 +44,22 @@ type Segment =
         //Dir: Orientation
         HostId: ConnectionId
         /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
-        JumpCoordinateList: list<float * SegmentId>
+        JumpCoordinateList: list<float>
         Autorouted : bool
         Draggable : bool
     }
+
+type RotationInvariantSeg = 
+    {
+        Id : SegmentId
+        Length: float
+        HostId: ConnectionId
+        /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
+        JumpCoordinateList: float list
+        Draggable : bool
+        Autorouted : bool
+    }
+
 
 
 
@@ -64,6 +76,20 @@ type Wire =
 
     with static member stickLength = 16.0
 
+type RotationInvariantWire =
+     {
+         Id: ConnectionId 
+         InputPort: InputPortId
+         OutputPort: OutputPortId
+         Start: XYPos
+         StartDir: int
+         Color: HighLightColor
+         Width: int
+         Segments: list<RotationInvariantSeg>
+     }
+    with static member stickLength = 16.0
+    
+
 // type AbsoluteSeg = {
 //     Id : SegmentId
 //     Index: int
@@ -77,15 +103,6 @@ type Wire =
 //     Draggable : bool
 // }
 
-// type RotationInvariantSeg = {
-//     Id : SegmentId
-//     Length: float
-//     HostId: ConnectionId
-//     /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
-//     JumpCoordinateList: list<float * SegmentId>
-//     Draggable : bool
-// }
-
 // type AbsoluteWire =
 //     {
 //         Id: ConnectionId 
@@ -94,19 +111,6 @@ type Wire =
 //         Color: HighLightColor
 //         Width: int
 //         Segments: list<AbsoluteSeg>
-//     }
-
-//     with static member stickLength = 16.0
-
-// type RotationInvariantWire =
-//     {
-//         Id: ConnectionId 
-//         InputPort: InputPortId
-//         OutputPort: OutputPortId
-//         Start: XYPos
-//         Color: HighLightColor
-//         Width: int
-//         Segments: list<RotationInvariantSeg>
 //     }
 
 //     with static member stickLength = 16.0
@@ -148,14 +152,108 @@ type Msg =
     | LoadConnections of list<Connection>
     | ChangeMode // For Issie Integration
 
-//Helper Functions
+//-------------------------Helper Functions---------------------------------//
 let getEndPoint (segment: Segment) =
     {X=(segment.Start.X + segment.Vector.X);Y=(segment.Start.Y + segment.Vector.Y)}
 
 let getOrientation (segment : Segment) =
-    if (segment.Vector.Y = 0) && (segment.Vector.X = 0) then Point
+    if (segment.Vector.Y = 0) && (segment.Vector.X = 0) then Point 
     elif (segment.Vector.Y = 0) then Horizontal
     else Vertical
+
+let convertToWire (riWire:RotationInvariantWire) : Wire =
+
+    let vector:XYPos = if (riWire.StartDir = 90) || (riWire.StartDir = 270) then {X=0;Y=1}
+                       else {X=1;Y=0}
+    
+
+    let firstSeg:Segment = {Id= SegmentId(JSHelpers.uuid())
+                            Index = -1
+                            Start = riWire.Start
+                            Vector = vector
+                            HostId = riWire.Id
+                            JumpCoordinateList = []
+                            Autorouted = true
+                            Draggable = false
+                            }
+    let convertToSeg (oldState:Segment) (element:RotationInvariantSeg):Segment  =
+        let newStart = if ((oldState.Index + 1) = 0) then oldState.Start
+                       else oldState.Start + oldState.Vector
+
+        let newVector = if (oldState.Vector.X > 0)
+                        then {X=0;Y=element.Length}
+                        else {X=element.Length;Y=0}
+        
+        let newDraggable = if(oldState.Index + 1 = 0) || (oldState.Index + 1 = 6) 
+                           then false
+                           else true 
+
+        {
+            Id = element.Id
+            Index = oldState.Index + 1
+            Start = newStart
+            Vector = newVector
+            HostId = riWire.Id
+            JumpCoordinateList = element.JumpCoordinateList
+            Autorouted = true
+            Draggable = newDraggable
+        }
+        
+
+    let (segmentList:Segment list) = ((firstSeg, riWire.Segments) ||> List.scan convertToSeg)
+    let newSegs = match segmentList with
+                    | hd::tl -> tl
+                    | _ -> []
+
+    {
+        Id= riWire.Id
+        InputPort = riWire.InputPort
+        OutputPort= riWire.OutputPort
+        Color= riWire.Color
+        Width= riWire.Width
+        Segments= newSegs
+    }
+
+let convertToRIwire (wire:Wire) : RotationInvariantWire =
+
+    let convertToSeg (element:Segment):RotationInvariantSeg  =
+        let newLenth = if element.Vector.X = 0 
+                       then element.Vector.Y
+                       else element.Vector.X
+
+        {
+            Id = element.Id
+            Length= newLenth
+            HostId= wire.Id
+            /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
+            JumpCoordinateList= element.JumpCoordinateList
+            Draggable = element.Draggable
+            Autorouted = true
+        }
+        
+
+    let (segmentList:RotationInvariantSeg list) = wire.Segments |> List.map convertToSeg
+
+    let newSegs = match segmentList with
+                    | hd::tl -> tl
+                    | _ -> []
+
+    let vector = wire.Segments[0].Vector
+    let StartDirection = if (vector.X > 0 && vector.Y = 0) then 0
+                         elif (vector.X = 0 && vector.Y > 0) then 90
+                         elif (vector.X < 0 && vector.Y = 0) then 180
+                         else 270
+
+    {
+         Id = wire.Id
+         InputPort = wire.InputPort
+         OutputPort = wire.OutputPort
+         Start = wire.Segments[0].Start
+         StartDir = StartDirection
+         Color = wire.Color
+         Width = wire.Width
+         Segments = newSegs
+     }
 
 
 //-------------------------Debugging functions---------------------------------//
@@ -201,7 +299,7 @@ let ppMaps (model:Model) =
         model.WX
         |> Map.toList
         |> List.map (fun (wId,w) ->
-            sprintf $"Wire: {w.Segments |> List.collect (fun seg -> seg.JumpCoordinateList |> List.map (fun (f, sid) -> ppSId sid))}")
+            sprintf $"Wire: {w.Segments |> List.collect (fun seg -> seg.JumpCoordinateList |> List.map (fun (f) -> ppSId))}")
             
     printfn $"\n------------------\nMapHV:\n {m1} \n MapVH\n{m2} \nJumps:\n {jumps}\n------------------\n"
 
@@ -234,6 +332,8 @@ let pp segs (model: Model)=
 /// wire vertices
 /// 
 /// 
+
+
 
 let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
     let xs, ys, Xt, Yt = snd(portCoords).X, snd(portCoords).Y, fst(portCoords).X, fst(portCoords).Y
@@ -1057,12 +1157,10 @@ let renderOldFashionedorModernWire (segmentList: Segment List) (colour : string)
                     match displayMode with 
                                                 | OldFashionedCircuit ->  if (segment.Start.X > (getEndPoint segment).X) then
                                                                             seg.JumpCoordinateList
-                                                                            |> List.map fst
                                                                             |> List.sortDescending
                                                 
                                                                           else
                                                                             seg.JumpCoordinateList
-                                                                            |> List.map fst
                                                                             |> List.sort
                                                 | ModernCircuit -> []
 
@@ -1194,29 +1292,29 @@ let singleWireView =
     )
 
 ///
-let MapToSortedList map : Wire list = 
+let MapToSortedList (map: Map<ConnectionId,Wire>) : Wire list = 
     let listSelected = 
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Purple) map
+        Map.filter (fun id (wire:Wire) -> wire.Color = HighLightColor.Purple) map
         |> Map.toList
         |> List.map snd
     let listErrorSelected =
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Brown) map
+        Map.filter (fun id (wire:Wire) -> wire.Color = HighLightColor.Brown) map
         |> Map.toList
         |> List.map snd
     let listErrorUnselected =
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Red) map
+        Map.filter (fun id (wire:Wire) -> wire.Color = HighLightColor.Red) map
         |> Map.toList
         |> List.map snd
     let listUnSelected = 
-        Map.filter (fun id wire -> wire.Color = HighLightColor.DarkSlateGrey) map
+        Map.filter (fun id (wire:Wire) -> wire.Color = HighLightColor.DarkSlateGrey) map
         |> Map.toList
         |> List.map snd
     let listCopied = 
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Thistle) map
+        Map.filter (fun id (wire:Wire) -> wire.Color = HighLightColor.Thistle) map
         |> Map.toList
         |> List.map snd
     let listWaves = 
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Blue) map
+        Map.filter (fun id (wire:Wire) -> wire.Color = HighLightColor.Blue) map
         |> Map.toList
         |> List.map snd
 
@@ -1394,18 +1492,19 @@ let getClickedSegment (model:Model) (wireId: ConnectionId) (pos: XYPos) : Segmen
 /// Called for segments 1, 2, 3, 4, 5 - if they are vertical and move horizontally.
 /// The function returns distance reduced, if it needs to be, to prevent wires from moving into components.
 // Note: approx equality test is safer tehn exact equality - but probably not needed.
-let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (seg6:Segment) (distance:float) =
-    /// Check if 2 floats are equal according to some threshold
-    let areFloatsEquals (x: float) (y: float) : bool =
+let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (distance:float) =
+    /// Check if 2 floats are notEqual according to some threshold
+    let areFloatsNotEquals (x: float) (y: float) : bool =
         abs (abs x - abs y) > 0.0001
 
     let segEnd = getEndPoint seg
-    let seg6End = getEndPoint seg6
+    let segLastEnd = getEndPoint segLast
 
     // Define a smaller shrink factor if the segment is not in the middle of the wire
     let shrink = match seg.Index with 
                  | 1 | 2 | 4 | 5 -> 0.5 
-                 | 3 | _ -> 1.0      
+                 | 3 | _ -> 1.0 
+                     
     // Then, according to the index
     match seg.Index with
     | 1 | 2 ->   
@@ -1413,40 +1512,45 @@ let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (seg6:Segment) (distanc
         let minDistance = (seg0.Start.X + Wire.stickLength * shrink) - abs segEnd.X
         max minDistance distance
     | 4 | 5 ->
-        let maxDistance = seg6End.X -  Wire.stickLength * shrink - abs seg.Start.X
+        let maxDistance = segLastEnd.X -  Wire.stickLength * shrink - abs seg.Start.X
         min maxDistance distance
-    | 3 when distance < 0.0 && (areFloatsEquals seg0.Start.Y seg.Start.Y) ->    // If Seg3 is not merged with Seg0, can do anything
+    | 3 when distance < 0.0 && (areFloatsNotEquals seg0.Start.Y seg.Start.Y) ->    // If Seg3 is not merged with Seg0, can do anything
         distance
-    | 3 when distance > 0.0 && (areFloatsEquals seg6.Start.Y segEnd.Y) ->      // If Seg3 is not merged with Seg6, can do anything
+    | 3 when distance > 0.0 && (areFloatsNotEquals segLast.Start.Y segEnd.Y) ->      // If Seg3 is not merged with last Seg, can do anything
         distance
     | 3 ->
         let minDistance = abs seg0.Start.X + Wire.stickLength * shrink - abs seg.Start.X
-        let maxDistance = abs seg6End.X -  Wire.stickLength * shrink - abs seg.Start.X
+        let maxDistance = abs segLastEnd.X -  Wire.stickLength * shrink - abs seg.Start.X
         distance
         |> max minDistance
         |> min maxDistance
     | _ -> 
         distance
 
-        
+// TODO: rewrite and fix this function
 /// Adjust wire (input type is Segment list) so that two adjacent horizontal segments that are in opposite directions
 /// get eliminated
 let removeRedundantSegments  (segs: Segment list) =
-    /// Set the absolute value of X (keeping the previously assigned sign)
-    let setAbsX x (pos: XYPos) =
-        let x = if pos.X < 0.0 then - abs x else abs x
-        {pos with X = x}
+/// Set the absolute value of X (keeping the previously assigned sign)
+(*let setAbsX x (pos: XYPos) =
+    let x = if pos.X < 0.0 then - abs x else abs x
+    {pos with X = x}
+*)
     /// Get difference in X along a segment
     let xDelta seg = 
         let segEnd = getEndPoint seg
-        abs segEnd.X - abs seg.Start.X
-    /// Set the X comp of the Start of the segment to 'x', keeping the sign
-    let setStartX x (seg:Segment) = {seg with Start = setAbsX x seg.Start}
+        segEnd.X - seg.Start.X //abs segEnd.X - abs seg.Start.X
 
-    /// Set the X comp of the End of the segment to 'x', keeping the sign               //UNSURE
+    /// Set the X comp of the Start of the segment to 'x', keeping the sign
+    let setStartX x (seg:Segment) = {seg with Start = {X = x ; Y = seg.Start.Y}}
+
+    /// Set the X comp of the End of the segment to 'x', keeping the sign
     let setEndX x (seg:Segment) = 
-        let newX = x - seg.Start.X
-        {seg with Vector = setAbsX newX seg.Vector}
+        //let newX = x - seg.Start.X
+        //{seg with Vector = setAbsX newX seg.Vector}
+        let segEnd = getEndPoint seg
+        let newSegEnd = {segEnd with X=x}
+        {seg with Vector = {X = (newSegEnd.X - seg.Start.X) ; Y = (newSegEnd.Y - seg.Start.Y)}}
 
     /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
     let adjust seg1 seg2 =
@@ -1469,7 +1573,7 @@ let removeRedundantSegments  (segs: Segment list) =
             [seg1;seg2]
     
     // Adjust the first two, and last two, segments of a Wire's segments list
-    adjust segs[0] segs[1] @  segs[2..4] @ adjust segs[5] segs[6]
+    adjust segs[0] segs[1] @  segs[2..4] @ adjust segs[5] segs[6]               //TODO: use segs[segs.Length - 1] etc 
     
     
 // MANUAL ROUTING: ENTRY POINT TO THIS CODE SECTION
@@ -1482,7 +1586,7 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
     let wire = model.WX[seg.HostId]
     // Retrieve the position of the segment in the segment list of the wire
     let index = seg.Index
-    // Check if the segment has a valid index, and is not Segment[0] or Segment[6]
+    // Check if the segment has a valid index, and is neither the first, nor the last segment
     if index <= 0 || index >= wire.Segments.Length - 1 then
         failwithf $"Buswire segment index {index} out of range in moveSegment in wire length {wire.Segments.Length}"
     // Get the previous and next segments
@@ -1495,7 +1599,7 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
     else
         //runTestFable()
         distance      
-        |> getSafeDistanceForMove seg wire.Segments[0] wire.Segments[6]   
+        |> getSafeDistanceForMove seg wire.Segments[0] wire.Segments[6]             //TODO: use wire.Segments[wire.Segments.Length - 1]
         |> (fun distance' ->
             // Define the updated coordinates of the segments based on the orientation of the segment being moved
             let newPrevVector, newSegStart, newSegVector, newNextStart, newNextVector = 
@@ -1665,7 +1769,7 @@ let inline moveStart (mover: XYPos -> XYPos) (n:int) =
 
 /// Move both the Start and the End of the Nth segment according to the suplied 'mover' function (applied on both)
 let inline moveAll (mover: XYPos -> XYPos) (n : int) =
-    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Start = mover seg.Start} else seg)  //No need to move the vector
+    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Start = mover seg.Start} else seg)    //No need to move the vector
 
 /// Given 2 functions and a point, apply the first one on the X coordinate of the point, and the second on the Y coordinate
 let  transformXY tX tY (pos: XYPos) =
@@ -1699,7 +1803,7 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
     /// Returns the index of the first index that is manually routed
     let tryGetIndexOfFirstManuallyRoutedSegment =
         // Checks to see if a Segment is manually routed
-        let isAutoroutedSeg seg = seg.Autorouted
+        let isAutoroutedSeg (seg:Segment) = seg.Autorouted
         // Get the index of the last segment that was autorouted
         segs
         |> List.takeWhile isAutoroutedSeg
@@ -1734,14 +1838,15 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
 
     /// Check if we are still in the same quadrant as the other end of the wire
     let checkTopologyChangeOption index =
-        let finalPt = segs[6].Start
+        let finalPt = segs[segs.Length - 1].Start
         let oldTop x = topology (if index = 1 then portPos else wirePos) x
         let newTop x = topology (if index = 1 then newPortPos else newWirePos) x
-        // REMOVED: Check if we are still in the same quadrant as the other end of the wire
-        //if oldTop finalPt <> newTop finalPt then
+        // Not necessary: Check if we are still in the same quadrant as the other end of the wire
+        (*
+        if oldTop finalPt <> newTop finalPt then
             // always abandon manual routing if we are not
-        //None 
-        //else
+            None 
+        else        *)
         let manualSegmentEndpoint = getEndPoint segs[index]
         let oldT = oldTop manualSegmentEndpoint
         let newT = newTop manualSegmentEndpoint
@@ -1767,7 +1872,7 @@ let addToPosAndKeepRoutingMode (pos : XYPos) (diff : XYPos) : XYPos =
 ///Moves a wire by a specified amount by adding a XYPos to each start and end point of each segment
 let moveWire (wire : Wire) (diff : XYPos) = 
     // Translates a segment by a vector 'diff' 
-    let translateSegment seg = 
+    let translateSegment (seg:Segment) = 
         {seg with
             //Just update the start, as we don't need to update the vector
             Start = addToPosAndKeepRoutingMode seg.Start diff
@@ -1800,20 +1905,25 @@ let updateWire (model : Model) (wire : Wire) (inInputPort : InOut) =
     |> Option.defaultValue (autorouteWire model wire)
 
 
+/// Updates the JumpCoordinateList component of every segment in the model
+/// To do so, it creates a grid of all possible wire combinations and check for intersection
+/// If it locates one, it will update the list
+/// While dragged, the jumps of the wire will be reset to 0 and recomputed when released
 let makeAllJumps (wiresWithNoJumps: ConnectionId list) (model: Model) =
     // Arrays are faster to check than lists
     let wiresWithNoJumpsA = List.toArray wiresWithNoJumps
 
-    // Returns an array of: arrays of segments for all wires in Model.WX
+    // Gather all segments of the Model in an Array
     let segs =
         model.WX
         |> Map.toArray
-        |> Array.map (fun (_, w) -> List.toArray w.Segments)   
+        |> Array.map (fun (_, w) -> List.toArray w.Segments)
+        |> Array.concat
 
-
-
+   
+    // Split the array of all segments into two arrays: one for all Horizontals and one for all Verticals
     let splithorizontalVertical allSegs=
-        let isSegInJumpList seg =
+        let isSegInJumpList (seg:Segment) =
             not (Array.contains seg.HostId wiresWithNoJumpsA)
             
         let horizontal (seg:Segment) =
@@ -1826,17 +1936,19 @@ let makeAllJumps (wiresWithNoJumps: ConnectionId list) (model: Model) =
             | Vertical -> true
             | _ -> false 
 
-        let collectedSegments = allSegs
-                                |> Array.concat                // Collect all segments into a big array
-                                |> Array.filter isSegInJumpList
+        let horizontalArray = allSegs                
+                              |> Array.filter isSegInJumpList
+                              |> Array.filter horizontal
 
-        let horizontalArray = Array.filter horizontal collectedSegments
-        let verticalArray = Array.filter vertical collectedSegments
+        let verticalArray = allSegs                
+                            |> Array.filter isSegInJumpList
+                            |> Array.filter vertical
 
         (horizontalArray, verticalArray)
 
 
-
+    // Create a Gird associating all elements of the two arrays 
+    // It will result in an array of all possible combination of Horizontal and Vertical segments
     let makeHoriVertiGrid (horizontalVerticalSegs: Segment array * Segment array) =
         let horizontalArray = fst horizontalVerticalSegs
         let verticalArray = snd horizontalVerticalSegs
@@ -1851,9 +1963,11 @@ let makeAllJumps (wiresWithNoJumps: ConnectionId list) (model: Model) =
     
 
 
-    /// If horizontal and Vertical segments intersect then append to the list of Jumps
-    let registerAllJumps hvGrid=
-        let checkCrossing (segHrz, segVrt) =
+    // Check if the elements in each pair intersect, while respecting the condition (</> 5)
+    // If they do, append to the list of Jumps a tuple of the HorizontalId and the distance
+    // to the start the intersection occurs
+    let registerAllJumps (hvGrid:(Segment*Segment) array)=
+        let checkCrossing ((segHrz:Segment), (segVrt:Segment)) =
             let vrtX = abs segVrt.Start.X
             let hrzY = abs segHrz.Start.Y 
 
@@ -1864,24 +1978,31 @@ let makeAllJumps (wiresWithNoJumps: ConnectionId list) (model: Model) =
             let (yhi, ylo) = maxMin (abs segVrt.Start.Y) (abs (getEndPoint segVrt).Y)
            
             if vrtX < xhi - 5.0 && vrtX > xlo + 5.0 && hrzY < yhi - 5.0 && hrzY > ylo + 5.0 then
-                [|(segHrz.Id,(vrtX, segVrt.Id))|]
+                [|(segHrz.Id,vrtX)|]
             else [||]
 
         Array.map checkCrossing hvGrid
             |> Array.collect id 
 
 
-
-    let changeJumps (model: Model) (jumps: (SegmentId * (float * SegmentId)) array) =       //(WX:Map<ConnectionId,Wire>)
+    // Take in an array of jumps and iterate through every Wires and then every segments in 
+    // the model. If the segment id is contained in the Jump key array, then we update its 
+    // JumpCoordinateList component otherwise we reset the component as it no longer/doesn't
+    // have any segments intersecting itself
+    // Moreover, we check that the Value array of Jump contains distinct elements in order to
+    // render it correctly on the Convas.
+    let changeJumps (model: Model) (jumps: (SegmentId * float ) array) =   
         let WX = model.WX
         let jumpHorizontalId = Array.toList (Array.map fst jumps)
+
         let changeSegment (segs: Segment list) =
             List.map (fun (x:Segment) -> if not (List.contains x.Id jumpHorizontalId) then { x with JumpCoordinateList = []}     // Reinitialise it every time we change the concerned wire
                                          else 
-                                            let contains (lst:(SegmentId * (float * SegmentId))) =
+                                            let contains (lst:(SegmentId * float)) =
                                                 x.Id = (fst lst)
                                             let jumpIdList = Array.filter contains jumps
                                             let jumpList = Array.toList (Array.map snd jumpIdList)
+                                                            |> List.distinct
                                             { x with JumpCoordinateList = jumpList} ) segs
 
         let iterateWire connectionId =
@@ -1901,25 +2022,16 @@ let makeAllJumps (wiresWithNoJumps: ConnectionId list) (model: Model) =
     { model with WX = newWX }
 
 
-/// Function used to reset the JumpCoordinate part of the Model when changing modes
-let resetJumpsTo0 (WX:Map<ConnectionId,Wire>) =
-    let changeSegment (segs: Segment list) =
-        List.map (fun (x:Segment) -> {x with JumpCoordinateList = []}) segs    // Reinitialise it every time we change the concerned wire
-                                    
-    let iterateWire connectionId =
-        let updateSeg = changeSegment (WX[connectionId].Segments)
-        {WX[connectionId] with Segments = updateSeg}
-
-    let keyList = List.map fst (Map.toList WX)
-    List.zip keyList (List.map iterateWire keyList)
-    |> Map.ofList
-
-
-///
+/// Computes the Coordinates of the Splitting points for wires.
+/// When two wires have the same OutputPort id but different InputPort id, in Modern Mode, we have to
+/// compute the coordinate representing the separation of the two wires. We first create a grid of all 
+/// wires in the model. We then check if they satisfy the Portid situation. If so, we iterate through
+/// all the segment pairs and find the first pair where they don't have the same Vector and outputs it. 
 let computeWireSplitCoord (model:Model) =
 
     let WX = model.WX
 
+    // Create a Grid of all possible combination of Wires in the Model
     let makeWireGrid (wireList:(ConnectionId*Wire) list) =
         let makePair a b =
             (a,b)
@@ -1929,22 +2041,33 @@ let computeWireSplitCoord (model:Model) =
         List.map (makeColumn wireList) wireList
             |> List.concat  
  
-
+    // Finds the cicle coordinates by iterating through all the segments and finding the
+    // the separation. The return value will depend on the structure:
+    // if the Vectors are of opposite direction then we give out the origin point
+    // if the are pointing in the same direction, we render the end point of the shortest vector
     let findCircle (segs1: Segment list) (segs2: Segment list) =
         let pairList = Seq.zip (List.toSeq segs1) (List.toSeq segs2)
         let circleSeg = Seq.tryFind (fun ((x:Segment),(y:Segment)) ->  (x.Start.X = y.Start.X) && (x.Start.Y = y.Start.Y) 
                                                                         && not (((getEndPoint x).X = (getEndPoint y).X) 
                                                                         && ((getEndPoint x).Y = (getEndPoint y).Y)))
                                                                         pairList
-    
+        let isSameDir (x:float) (y:float) =
+            match (x < 0 && y<0) || (x>0 && y>0) with
+            | true -> true
+            | _ -> false
+
         match circleSeg with
-        | Some (a,b) -> if (( sqrt (((getEndPoint a).X - a.Start.X)**2 + ((getEndPoint a).Y - a.Start.Y)**2)) 
-                            <= sqrt (((getEndPoint b).X - b.Start.X)**2 + ((getEndPoint b).Y - b.Start.Y)**2))
-                        then Some (getEndPoint a)
-                        else Some (getEndPoint b)
+        | Some (a,b) -> if isSameDir (a.Vector.X + a.Vector.Y) (b.Vector.X + b.Vector.Y)
+                        then if (( sqrt (((getEndPoint a).X - a.Start.X)**2 + ((getEndPoint a).Y - a.Start.Y)**2)) 
+                                <= sqrt (((getEndPoint b).X - b.Start.X)**2 + ((getEndPoint b).Y - b.Start.Y)**2))
+                             then Some (getEndPoint a)
+                             else Some (getEndPoint b)
+                        else Some (a.Start)
+                                
         | None -> None
 
-
+    // Takes a pair of wires and check out if they have the same OutputPort id but different InputPort id
+    // The second test is to avoid the case where we have twice the same wire and thus no splitting point
     let getPorts ((wireSeq1:(ConnectionId * Wire)),(wireSeq2:ConnectionId * Wire)) =
         
         let wire1 = snd wireSeq1
@@ -1962,17 +2085,13 @@ let computeWireSplitCoord (model:Model) =
         | true -> findCircle (wire1.Segments: Segment list) (wire2.Segments: Segment list)
 
 
-    let makeGrid (WX: (ConnectionId*Wire) list)=
-        let grid = makeWireGrid WX
-        List.map getPorts grid 
-
-    // remove all none from the option list and convert to list & keep all distinct some values
-    let XYPos = makeGrid (Map.toList WX) 
+    // remove all none from the option list & keep all distinct some values
+    let XYPos = makeWireGrid (Map.toList WX) 
+               |> List.map getPorts
                |> List.choose id 
                |> List.distinct
     
-    { model with SplitWireList= XYPos
-                 WX = resetJumpsTo0 WX }
+    { model with SplitWireList= XYPos }
 
 
 // Update at said interval the jumps arrays
@@ -1985,10 +2104,8 @@ let updateOrResetWireSegmentJumps (wireList: ConnectionId list) (wModel: Model) 
     let startT = TimeHelpers.getTimeMs()                // StartT is not an interval
     let model = match wModel.Mode with
                 | OldFashionedCircuit -> makeAllJumps wireList wModel
-                | Radiussed -> { wModel with WX = resetJumpsTo0 wModel.WX }
-                | ModernCircuit -> let model = computeWireSplitCoord wModel
-                                   printfn $"{model.SplitWireList}"
-                                   model
+                | Radiussed -> wModel
+                | ModernCircuit -> computeWireSplitCoord wModel   
     TimeHelpers.instrumentTime "UpdateJumps" startT     // print interval
     model
 
@@ -2052,7 +2169,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
     | BusWidths ->
 
         let processConWidths (connWidths: ConnectionsWidth) =
-            let addWireWidthFolder (wireMap: Map<ConnectionId, Wire>) _ wire  =
+            let addWireWidthFolder (wireMap: Map<ConnectionId, Wire>) _ (wire:Wire)  =
                 let width =
                     match connWidths[wire.Id] with
                     | Some a -> a
@@ -2171,6 +2288,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                     match getOrientation seg with
                     | Horizontal -> mouse.Pos.Y - abs seg.Start.Y
                     | Vertical -> mouse.Pos.X - abs seg.Start.X
+                    | Point -> 0.0
 
                 let newWire = moveSegment seg distanceToMove model
                 let newWX = Map.add seg.HostId newWire model.WX
