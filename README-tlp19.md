@@ -28,7 +28,7 @@ cannot easily find everything via links from this README.
 
 ***-- UPDATE THIS AT THE END: WITH MAIN SECTION AND TRADED FUNCTIONS IN SECTION 1 --***
 
-[Common repo TeamN file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
+[Common repo Team8 file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
 [Buswire (section 2)](./src/Renderer/DrawBlock/BusWire.fs)
 
@@ -99,20 +99,28 @@ Highlights:
 * *A good way to show code works is to explain how it differs from existing working code and how existing*
 *functionality is preserved.*
 
-1. `moveWire` and `moveSegment` - Moving a wire manually
+  *** FILL THIS IN ***
+
+1. Function `moveWire` - Detecting which segment is clicked
     - `moveWire`
         - abc
     - `moveSegment`
         - abc
 
-2. `updateWire` - Partial Routing
+1. Functions `moveWire` and `moveSegment` - Moving a wire manually
+    - `moveWire`
+        - abc
+    - `moveSegment`
+        - abc
+
+1. Function `updateWire` - Partial Routing
     -
     - 
     -
 
-3. `autorouteWire` - AutoRouting
+1. Function `autorouteWire` - AutoRouting
 
-  *** FILL THIS IN ***
+
 
 # Extensions
 

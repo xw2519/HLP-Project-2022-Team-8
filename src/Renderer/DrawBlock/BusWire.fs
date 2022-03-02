@@ -1658,8 +1658,7 @@ let getWiresConnectedToPorts (wModel : Model) (compIds : list<ComponentId>) =
             |> List.distinct
 
         // Return the three list in a tuple
-        (inputWires, outputWires, fullyConnected)
-        //{| InputWires = inputWires ; OutputWires = outputWires ; FullyConnectedWires = fullyConnected |}
+        {| InputWires = inputWires ; OutputWires = outputWires ; FullyConnectedWires = fullyConnected |}
 
 
 // AUTOMATIC FULL AUTOROUTE
@@ -2076,7 +2075,10 @@ let updateOrResetWireSegmentJumps (wireList: ConnectionId list) (wModel: Model) 
 let updateWires (model : Model) (compIdList : ComponentId list) (diff : XYPos) =
 
     ///Returns a tuple of: wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
-    let (inputWires, outputWires, InOutConnected) = getWiresConnectedToPorts model compIdList
+    let wiresConnectedToPorts = getWiresConnectedToPorts model compIdList
+    let inputWires = wiresConnectedToPorts.InputWires
+    let outputWires = wiresConnectedToPorts.OutputWires
+    let InOutConnected = wiresConnectedToPorts.FullyConnectedWires
 
     let newWires = 
         model.WX
