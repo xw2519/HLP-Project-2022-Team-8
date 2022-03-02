@@ -1749,20 +1749,32 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
     
     /// Returns the index of the first index that is manually routed
     let tryGetIndexOfFirstManuallyRoutedSegment =
-        // Checks to see if a Segment is manually routed
-        let isAutoroutedSeg (seg:Segment) = seg.Autorouted
-        // Get the index of the last segment that was autorouted
         segs
-        |> List.takeWhile isAutoroutedSeg
+        |> List.takeWhile (fun seg -> seg.Autorouted)   // Checks to see if a Segment is autorouted
         |> List.length
-        |> (fun n -> if n > 5 then None else Some (n))  //Return the first manually routed segment's index
+        |> (fun n -> if n > 5 then None else Some (n))
+
+    /// Check if we are still in the same quadrant as the other end of the wire
+    let checkTopologyChangeOption index =
+        // Get the end coordinates of the manually routed segment
+        let manualSegmentEndpoint = getEndPoint segs[index]
+        // Compute the topology between the OLD position of the port with the end of the manually fixed wire
+        let oldTop = topology (if index = 1 then portPos else wirePos) manualSegmentEndpoint
+        // Compute the topology between the NEW position of the port with the end of the manually fixed wire
+        let newTop = topology (if index = 1 then newPortPos else newWirePos) manualSegmentEndpoint
+        // Not necessary: Check if we are still in the same quadrant as the other end of the wire
+        // Check if we are still in the same quadrant as the end of the manually routed segment
+        if oldTop = newTop then
+            Some index
+        else
+            None
 
     /// Scale all the segments between the end of seg[0] and the end of the last manually routed segment.
     let scaleAutoroutedSegments segIndex =
         // Get the first segment that is manually routed (its End is fixed)
         let seg = segs[segIndex]
         // Get its fixed End's coordinates
-        let fixedPt = getAbsXY (getEndPoint seg)
+        let fixedPt = getEndPoint seg
         // Scale the segments by the amount needed
         let scale x fx nx wx =
             if nx = fx then x else ((abs x - fx)*(nx-fx)/(abs wx - fx) + fx) * float (sign x)
@@ -1783,28 +1795,9 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
         // If we can't, then return None to fully autoRoute everything
         | _ -> None
 
-    /// Check if we are still in the same quadrant as the other end of the wire
-    let checkTopologyChangeOption index =
-        let finalPt = segs[segs.Length - 1].Start
-        let oldTop x = topology (if index = 1 then portPos else wirePos) x
-        let newTop x = topology (if index = 1 then newPortPos else newWirePos) x
-        // Not necessary: Check if we are still in the same quadrant as the other end of the wire
-        (*
-        if oldTop finalPt <> newTop finalPt then
-            // always abandon manual routing if we are not
-            None 
-        else        *)
-        let manualSegmentEndpoint = getEndPoint segs[index]
-        let oldT = oldTop manualSegmentEndpoint
-        let newT = newTop manualSegmentEndpoint
-        // Check if we are still in the same quadrant as the end of the manually routed segment
-        if oldT = newT then
-            Some index
-        else
-            None
 
     tryGetIndexOfFirstManuallyRoutedSegment      //Get index: None if all segments are autorouted
-    |> Option.bind checkTopologyChangeOption    //Checks: None if we change quadrants (either between two ends of wire, or between moving endpoint and first manually fixed end)
+    |> Option.bind checkTopologyChangeOption    //Check: None if we change quadrants (between moving endpoint and first manually fixed end)
     |> Option.bind scaleAutoroutedSegments
 
 
