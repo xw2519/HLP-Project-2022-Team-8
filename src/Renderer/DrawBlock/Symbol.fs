@@ -285,7 +285,7 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol=
     let id = JSHelpers.uuid()
     let comp = initComponent pos comptype id label
 
-    { Pos = {X = pos.X - float(comp.W)/2.0; Y = pos.Y - float(comp.H)/2.0}
+    { Pos = { X = pos.X - float(comp.W)/2.0; Y = pos.Y - float(comp.H)/2.0 }
       ShowInputPorts = false
       ShowOutputPorts = false
       InWidth0 = None // set by BusWire
@@ -512,12 +512,12 @@ let addOutlineColor (color:string) =
         c
 
 let private createPolygon colour opacity points  = 
-    [makePolygon points {defaultPolygon with Fill = colour; FillOpacity = opacity}]
+    [makePolygon points { defaultPolygon with Fill = colour; FillOpacity = opacity }]
 
 let drawBiColorPolygon points colour strokeColor opacity strokeWidth = 
     if strokeColor <> "black" then 
         let polygonFormatting = 
-            { defaultPolygon with Fill = colour; Stroke = strokeColor; FillOpacity = opacity; StrokeWidth = strokeWidth}
+            { defaultPolygon with Fill = colour; Stroke = strokeColor; FillOpacity = opacity; StrokeWidth = strokeWidth }
         
         [makePolygon points polygonFormatting]
     else   
@@ -533,7 +533,7 @@ let drawHorizontalLine posX1 posX2 posY opacity =
 let drawHorizontalColorLine posX1 posX2 posY opacity (color: string) = 
     let points = $"%f{posX1},%f{posY} %f{posX2},%f{posY}"
     let olColor = addOutlineColor color
-    [makePolygon points {defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity}]
+    [makePolygon points { defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity }]
 
 let private drawPortCircle x y = 
     [makeCircle x y portCircle]
@@ -544,14 +544,15 @@ let drawVerticalLine posY1 posY2 posX opacity =
 
 let drawVerticalColorLine posY1 posY2 posX opacity (color: string) = 
     let points = $"%f{posX},%f{posY1} %f{posX},%f{posY2}"
-    let olColor = addOutlineColor color
-    [makePolygon points {defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity}]
+    let olColor = addOutlineColor color /// Fill Colour
+    [makePolygon points { defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity }]
 
 //--------------------------------- Symbol Draw Functions ---------------------------------//
 
 let private drawPorts (portList: Port List) (printPorts: bool) (symbol: Symbol) = 
     if (portList.Length > 0) && printPorts then 
-        [0..(portList.Length-1)] |> List.collect (fun x -> (drawPortCircle (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y))
+        [0..(portList.Length-1)] 
+        |> List.collect (fun x -> (drawPortCircle (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y))
     else 
         []
 
@@ -563,9 +564,9 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
         |> List.map (convertRelativeToTopLeft symbol)
 
     let trianglePoints =
-        [ { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y = originalSymbolPoints[1].Y+6.0}
-          { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y = originalSymbolPoints[1].Y-6.0}
-          { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0 + 6.0; Y = originalSymbolPoints[1].Y} ]
+        [ { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y = originalSymbolPoints[1].Y+6.0 }
+          { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y = originalSymbolPoints[1].Y-6.0 }
+          { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0 + 6.0; Y = originalSymbolPoints[1].Y } ]
         |> List.map (convertRelativeToSymbolCenter symbol)
         |> List.map (rotatePoint symbol.Rotation) 
         |> List.map (convertRelativeToTopLeft symbol)
@@ -574,7 +575,7 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
 
 let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement list =
     let addInvertor posX posY =
-        [{ X = posX; Y = posY}; { X = (posX+9.0); Y = posY}; { X = posX; Y = (posY-8.0)}]
+        [{ X = posX; Y = posY }; { X = posX+9.0; Y = posY }; { X = posX; Y = posY-8.0 }]
         |> List.map (convertRelativeToSymbolCenter symbol)
         |> List.map (rotatePoint symbol.Rotation)
         |> List.map (convertRelativeToTopLeft symbol)
@@ -583,7 +584,7 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
 
     let addClock posX posY =
         let clockPoints = 
-            [{ X = posX; Y = posY-1.0}; { X = posX; Y = posY-13.0}; { X = posX+8.0; Y = posY-7.0}]
+            [{ X = posX; Y = posY-1.0}; { X = posX; Y = posY-13.0}; { X = posX+8.0; Y = posY-7.0 }]
             |> List.map (convertRelativeToSymbolCenter symbol)
             |> List.map (rotatePoint symbol.Rotation)
             |> List.map (convertRelativeToTopLeft symbol)
@@ -657,9 +658,9 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
             |> List.append (drawArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
         | SplitWire _ -> 
             let arrowLines = 
-                [ [{ X = symbol.SymbolPoints[0].X; Y = symbol.SymbolPoints[0].Y}; { X = symbol.SymbolPoints[2].X; Y = symbol.SymbolPoints[2].Y}]
-                  [{ X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[3].X; Y = symbol.SymbolPoints[3].Y}]
-                  [{ X = (symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0; Y = (symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0}; { X = symbol.SymbolPoints[4].X; Y = symbol.SymbolPoints[4].Y}]]
+                [ [{ X = symbol.SymbolPoints[0].X; Y = symbol.SymbolPoints[0].Y}; { X = symbol.SymbolPoints[2].X; Y = symbol.SymbolPoints[2].Y }]
+                  [{ X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[3].X; Y = symbol.SymbolPoints[3].Y }]
+                  [{ X = (symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0; Y = (symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0}; { X = symbol.SymbolPoints[4].X; Y = symbol.SymbolPoints[4].Y }]]
 
             drawArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
             |> List.append (drawArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
