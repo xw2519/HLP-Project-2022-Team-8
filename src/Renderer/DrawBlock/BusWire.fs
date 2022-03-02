@@ -1538,18 +1538,18 @@ let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (dist
     match seg.Index with
     | 1 | 2 ->   
         //max distance you can do = X coordinate that you can't pass - where you are   (moving towards negative/smaller numbers)
-        let minDistance = (seg0.Start.X + Wire.stickLength * shrink) - abs segEnd.X
+        let minDistance = (seg0.Start.X + Wire.stickLength * shrink) - segEnd.X
         max minDistance distance
     | 4 | 5 ->
-        let maxDistance = segLastEnd.X -  Wire.stickLength * shrink - abs seg.Start.X
+        let maxDistance = segLastEnd.X -  Wire.stickLength * shrink - seg.Start.X
         min maxDistance distance
     | 3 when distance < 0.0 && (areFloatsNotEquals seg0.Start.Y seg.Start.Y) ->    // If Seg3 is not merged with Seg0, can do anything
         distance
     | 3 when distance > 0.0 && (areFloatsNotEquals segLast.Start.Y segEnd.Y) ->      // If Seg3 is not merged with last Seg, can do anything
         distance
     | 3 ->
-        let minDistance = abs seg0.Start.X + Wire.stickLength * shrink - abs seg.Start.X
-        let maxDistance = abs segLastEnd.X -  Wire.stickLength * shrink - abs seg.Start.X
+        let minDistance = seg0.Start.X + Wire.stickLength * shrink - seg.Start.X
+        let maxDistance = segLastEnd.X -  Wire.stickLength * shrink - seg.Start.X
         distance
         |> max minDistance
         |> min maxDistance
