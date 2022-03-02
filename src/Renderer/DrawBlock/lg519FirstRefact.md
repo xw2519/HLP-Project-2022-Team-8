@@ -152,7 +152,7 @@ TODO:
 - refactored heavily and commented to facilitate understanding. Used new type Center to make the funciton simpler
 
 **getEquivalentCopiedPorts**
-- renamed to getEquivalentPorts and commented to facilitate understanding.
+- renamed to getPastedPortsIdsFromCopiedPortsIds and commented to facilitate understanding.
 
 **getCompList**
 - removed

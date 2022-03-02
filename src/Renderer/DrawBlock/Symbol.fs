@@ -817,68 +817,64 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
     
 
 
-
-/// Given the current model and two componentId list of same length, find the equivalent ports of copiedInputPort and copiedOutputPort
-/// An equivalent port between component A and component B is a port that is found at the same index in either
-/// A.InputPorts and B.InputPorts or A.OutputPorts and B.Outputports. Component A and component B must have the same type.
-let getEquivalentPorts (model: Model) (copiedCmpIds) (pastedCmpIds) (InputPortId copiedInputPort, OutputPortId copiedOutputPort) =
-    
-    /// Try to find equivalent port of copiedInputPort and copiedOutputPort in pastedCmpId.
-    let tryFindEquivalentPorts copiedCmpId pastedCmpId =
+/// Returns the pasted ports associated with copiedInputPortId and copiedOutputPortId
+let getPastedPortsIdsFromCopiedPortsIds (model: Model) (copiedCmpIds) (pastedCmpIds) (InputPortId copiedInputPortId, OutputPortId copiedOutputPortId) =
+    let tryFindPastedPorts copiedCmpId pastedCmpId =
 
         let copiedComponent = model.CopiedSymbols[copiedCmpId].Component
         let pastedComponent = model.Symbols[pastedCmpId].Component 
         
-        /// Find targetPort in copiedPorts. If found in copiedPorts, return equivalent port in pastedPorts
-        let tryFindEquivalentPort (copiedPorts: Port list) (pastedPorts: Port list) targetPort =
+        /// Returns the pasted port associated with copiedPort
+        let tryFindPastedPort (copiedPorts: Port list) (pastedPorts: Port list) copiedPort =
             if copiedPorts.Length = 0 || pastedPorts.Length = 0
             then None
             else
-                let foundIndex = List.tryFindIndex ( fun (port: Port) -> port.Id = targetPort ) copiedPorts
-                match foundIndex with
+                let index = List.tryFindIndex ( fun (port: Port) -> port.Id = copiedPort ) copiedPorts
+                match index with
                 | Some portIndex -> 
-                    Some pastedPorts[portIndex].Id // Get the equivalent port in pastedPorts. Assumes ports at the same index are the same (should be the case unless copy pasting went wrong).
+                    Some pastedPorts[portIndex].Id 
                 | _ -> None
         
-        let pastedInputPortId = tryFindEquivalentPort copiedComponent.InputPorts pastedComponent.InputPorts copiedInputPort
-        let pastedOutputPortId = tryFindEquivalentPort copiedComponent.OutputPorts pastedComponent.OutputPorts copiedOutputPort
+        let pastedInputPortId = tryFindPastedPort copiedComponent.InputPorts pastedComponent.InputPorts copiedInputPortId
+        let pastedOutputPortId = tryFindPastedPort copiedComponent.OutputPorts pastedComponent.OutputPorts copiedOutputPortId
     
         pastedInputPortId, pastedOutputPortId
         
     let foundPastedPorts =
         List.zip copiedCmpIds pastedCmpIds
-        |> List.map (fun (copiedCmpId, pastedCmpId) -> tryFindEquivalentPorts copiedCmpId pastedCmpId)
+        |> List.map (fun (copiedCmpId, pastedCmpId) -> tryFindPastedPorts copiedCmpId pastedCmpId)
     
-    let foundPastedInputPort = List.collect (function | Some a, _ -> [a] | _ -> []) foundPastedPorts
-    let foundPastedOutputPort = List.collect (function | _, Some b -> [b] | _ -> []) foundPastedPorts
+    let foundPastedInputPortId = List.collect (function | Some a, _ -> [a] | _ -> []) foundPastedPorts
+    let foundPastedOutputPortId = List.collect (function | _, Some b -> [b] | _ -> []) foundPastedPorts
     
-    match foundPastedInputPort, foundPastedOutputPort with 
-    | [pastedInputPort], [pastedOutputPort] -> Some (pastedInputPort, pastedOutputPort) 
-    | _ -> None // If either of source or target component of the wire was not copied then we discard the wire
+    match foundPastedInputPortId, foundPastedOutputPortId with 
+    | [pastedInputPortId], [pastedOutputPortId] -> Some (pastedInputPortId, pastedOutputPortId) 
+    | _ -> 
+        // If either of source or target component of the wire was not copied then we discard the wire
+        None 
   
  
 
-// Helper function to change the number of bits expected in a port of each component type
-let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (newBits : int) =
+/// Returns a new Symbol who's Component number of bits expected in a port is set according to bits
+let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (bits : int) =
     
-    let symbol = Map.find cmpId model.Symbols
-    let newcompotype = 
-        match symbol.Component.Type with
-        | Input _ -> Input newBits
-        | Output _ -> Output newBits
-        | Viewer _ -> Viewer newBits
-        | NbitsAdder _ -> NbitsAdder newBits
-        | NbitsXor _ -> NbitsXor newBits
-        | Register _ -> Register newBits
-        | RegisterE _ -> RegisterE newBits
-        | SplitWire _ -> SplitWire newBits
-        | BusSelection (_,b) -> BusSelection (newBits,b)
-        | BusCompare (_,b) -> BusCompare (newBits,b)
-        | Constant1 (_,b,txt) -> Constant1 (newBits,b,txt)
+    let sym = Map.find cmpId model.Symbols
+    let updatedCmpType = 
+        match sym.Component.Type with
+        | Input _ -> Input bits
+        | Output _ -> Output bits
+        | Viewer _ -> Viewer bits
+        | NbitsAdder _ -> NbitsAdder bits
+        | NbitsXor _ -> NbitsXor bits
+        | Register _ -> Register bits
+        | RegisterE _ -> RegisterE bits
+        | SplitWire _ -> SplitWire bits
+        | BusSelection (_,b) -> BusSelection (bits,b)
+        | BusCompare (_,b) -> BusCompare (bits,b)
+        | Constant1 (_,b,txt) -> Constant1 (bits,b,txt)
         | c -> c
-
-    let newcompo = {symbol.Component with Type = newcompotype}
-    {symbol with Component = newcompo}
+    let updatedCmp = {sym.Component with Type = updatedCmpType}
+    {sym with Component = updatedCmp}
 
 // Helper function to change the number of bits expected in the LSB port of BusSelection and BusCompare
 let updateLSB (symModel:Model) (compId:ComponentId) (newLsb:int64) =
@@ -906,7 +902,7 @@ let updateConstant (symModel:Model) (compId:ComponentId) (constantVal:int64) (co
 //---------------------------------- UPDATE FUNCTION -------------------------------//
 
 
-/// update function which displays symbols
+/// Update function which displays symbols
 let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
     match msg with
     | DeleteSymbols compList ->

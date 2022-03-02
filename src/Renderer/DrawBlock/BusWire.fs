@@ -1511,7 +1511,7 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
         let createNewWire (oldWire : Wire) : list<Wire> =
             let newId = ConnectionId(JSHelpers.uuid())
     
-            match Symbol.getEquivalentPorts wModel.Symbol oldCompIds newCompIds (oldWire.InputPort, oldWire.OutputPort) with
+            match Symbol.getPastedPortsIdsFromCopiedPortsIds wModel.Symbol oldCompIds newCompIds (oldWire.InputPort, oldWire.OutputPort) with
             | Some (newInputPort, newOutputPort) ->
                 let portOnePos, portTwoPos = Symbol.getInputPortLocation wModel.Symbol (InputPortId newInputPort), Symbol.getOutputPortLocation wModel.Symbol (OutputPortId newOutputPort)
                 let segmentList = makeInitialSegmentsList newId (portOnePos, portTwoPos)
