@@ -44,7 +44,7 @@ type Symbol =
         InWidth1: int option      
         Moving: bool
         Opacity: float
-        Pos: XYPos // Changed to reflect center position
+        Pos: XYPos
         Rotation: float
         ShowInputPorts: bool
         ShowOutputPorts: bool        
@@ -106,9 +106,9 @@ let flipSymbol (symbol: Symbol) =
 
 let getSymbolPoints (symbol: Symbol) = convertSymbolPointsToString symbol.SymbolPoints
 
-let posAdd (a: XYPos) (b: XYPos) = { X = a.X+b.X; Y = a.Y+b.Y}
+let posAdd (a: XYPos) (b: XYPos) = { X = a.X+b.X; Y = a.Y+b.Y }
 
-let posDiff (a: XYPos) (b: XYPos) = { X = a.X-b.X; Y = a.Y-b.Y}
+let posDiff (a: XYPos) (b: XYPos) = { X = a.X-b.X; Y = a.Y-b.Y }
 
 let posOf x y = { X = x; Y = y}
 
@@ -135,8 +135,6 @@ let rotateSymbol (symbol: Symbol) =
 //--------------------------------- Skeleton Model Type for Symbols and Components ---------------------------------//
 
 let init () = { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty }, Cmd.none
-
-
 
 let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compLabel: string) : Component =
     let cutToLength (lst: (string * int) list) =
@@ -221,63 +219,63 @@ let initSymbolCharacteristics (comp: Component) =
 let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list = 
     match compType with
         | BusSelection _ | BusCompare _ -> 
-            [ { X = 0; Y = 0}; { X = 0; Y = compHeight}
-              { X = (0.6*compWidth); Y = compHeight}
-              { X = (0.8*compWidth); Y = (0.7*compHeight)}
-              { X = compWidth; Y = (0.7*compHeight)}
-              { X = compWidth; Y = (0.3*compHeight)}
-              { X = (0.8*compWidth); Y = (0.3*compHeight)}
-              { X = (0.6*compWidth); Y = 0} ]
+            [ { X = 0; Y = 0 }; { X = 0; Y = compHeight }
+              { X = (0.6*compWidth); Y = compHeight }
+              { X = (0.8*compWidth); Y = (0.7*compHeight) }
+              { X = compWidth; Y = (0.7*compHeight) }
+              { X = compWidth; Y = (0.3*compHeight) }
+              { X = (0.8*compWidth); Y = (0.3*compHeight) }
+              { X = (0.6*compWidth); Y = 0 } ]
         | Constant1 _ -> 
-            [ { X = 0; Y = compHeight} 
-              { X = 0; Y = 0}
-              { X = compWidth/2.0; Y = compHeight/2.0}
-              { X = compWidth; Y = compHeight/2.0} ]
+            [ { X = 0; Y = compHeight } 
+              { X = 0; Y = 0 }
+              { X = compWidth/2.0; Y = compHeight/2.0 }
+              { X = compWidth; Y = compHeight/2.0 } ]
         | Demux2 -> 
-            [ { X = 0; Y = 0.2*compHeight}
-              { X = 0; Y = 0.8*compHeight}
-              { X = compWidth; Y = compHeight}
-              { X = compWidth; Y = 0} ]
+            [ { X = 0; Y = 0.2*compHeight }
+              { X = 0; Y = 0.8*compHeight }
+              { X = compWidth; Y = compHeight }
+              { X = compWidth; Y = 0 } ]
         | Input _ -> 
-            [ { X = 0; Y = 0}
-              { X = 0; Y = compHeight}
-              { X = 0.66*compWidth; Y = compHeight}
-              { X = compWidth; Y = compHeight/2.0}
-              { X = 0.66*compWidth; Y = 0} ]
+            [ { X = 0; Y = 0 }
+              { X = 0; Y = compHeight }
+              { X = 0.66*compWidth; Y = compHeight }
+              { X = compWidth; Y = compHeight/2.0 }
+              { X = 0.66*compWidth; Y = 0 } ]
         | IOLabel ->
-            [ { X = 0.33*compWidth; Y = 0}
-              { X = 0; Y = compHeight/2.0}
-              { X = 0.33/compWidth; Y = compHeight}
-              { X = 0.66*compWidth; Y = compHeight}
-              { X = compWidth; Y = compHeight/2.0}
-              { X = 0.66*compWidth; Y = 0} ]
+            [ { X = 0.33*compWidth; Y = 0 }
+              { X = 0; Y = compHeight/2.0 }
+              { X = 0.33/compWidth; Y = compHeight }
+              { X = 0.66*compWidth; Y = compHeight }
+              { X = compWidth; Y = compHeight/2.0 }
+              { X = 0.66*compWidth; Y = 0 } ]
         | MergeWires -> 
-            [ { X = compWidth/2.0; Y = ((1.0/6.0)*compHeight)}
-              { X = compWidth/2.0; Y = ((5.0/6.0)*compHeight)}
-              { X = 0; Y = ((5.0/6.0)*compHeight)}
-              { X = 0; Y = ((1.0/6.0)*compHeight)}
-              { X = compWidth; Y = ((1.0/2.0)*compHeight)} ]
+            [ { X = compWidth/2.0; Y = ((1.0/6.0)*compHeight) }
+              { X = compWidth/2.0; Y = ((5.0/6.0)*compHeight) }
+              { X = 0; Y = ((5.0/6.0)*compHeight) }
+              { X = 0; Y = ((1.0/6.0)*compHeight) }
+              { X = compWidth; Y = ((1.0/2.0)*compHeight) } ]
         | Mux2 -> 
-            [ { X = 0; Y = 0}; { X = compWidth; Y = 0.2*compHeight}
-              { X = compWidth; Y = 0.8*compHeight}
-              { X = 0; Y = compHeight} ]
+            [ { X = 0; Y = 0 }; { X = compWidth; Y = 0.2*compHeight }
+              { X = compWidth; Y = 0.8*compHeight }
+              { X = 0; Y = compHeight } ]
         | Output _ | Viewer _ -> 
-            [ { X = 0.33*compWidth; Y = 0}
-              { X = 0; Y = compHeight/2.0}
-              { X = 0.33*compWidth; Y = compHeight}
-              { X = compWidth; Y = compHeight}
-              { X = compWidth; Y = 0} ]
+            [ { X = 0.33*compWidth; Y = 0 }
+              { X = 0; Y = compHeight/2.0 }
+              { X = 0.33*compWidth; Y = compHeight }
+              { X = compWidth; Y = compHeight }
+              { X = compWidth; Y = 0 } ]
         | SplitWire _ -> 
-            [ { X = compWidth/2.0; Y = ((1.0/6.0)*compHeight)}
-              { X = compWidth/2.0; Y = ((5.0/6.0)*compHeight)}
-              { X = 0; Y = ((1.0/2.0)*compHeight)}
-              { X = compWidth; Y = ((1.0/6.0)*compHeight)}
-              { X = compWidth; Y = ((5.0/6.0)*compHeight)} ]
+            [ { X = compWidth/2.0; Y = ((1.0/6.0)*compHeight) }
+              { X = compWidth/2.0; Y = ((5.0/6.0)*compHeight) }
+              { X = 0; Y = ((1.0/2.0)*compHeight) }
+              { X = compWidth; Y = ((1.0/6.0)*compHeight) }
+              { X = compWidth; Y = ((5.0/6.0)*compHeight) } ]
         | _ -> 
-            [ { X = 0; Y = compHeight}
-              { X = compWidth; Y = compHeight}
-              { X = compWidth; Y = 0}
-              { X = 0; Y = 0} ]
+            [ { X = 0; Y = compHeight }
+              { X = compWidth; Y = compHeight }
+              { X = compWidth; Y = 0 }
+              { X = 0; Y = 0 } ]
 
         // EXTENSION:
         // | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
@@ -552,7 +550,9 @@ let drawVerticalColorLine posY1 posY2 posX opacity (color: string) =
 //--------------------------------- Symbol Draw Functions ---------------------------------//
 
 let private drawPorts (portList: Port List) (printPorts: bool) (symbol: Symbol) = 
-    if (portList.Length < 1) && printPorts then 
+    print printPorts
+    print portList.Length
+    if (portList.Length > 0) && printPorts then 
         [0..(portList.Length-1)] |> List.collect (fun x -> (drawPortCircle (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y))
     else 
         []
