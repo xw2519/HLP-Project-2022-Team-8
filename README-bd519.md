@@ -116,9 +116,9 @@ writing which can be found if need be in individual cases.
 
 This will be assessed based on the code. You can **but do not have to** highlight here things you are particularly proud of and want markers to look at (up to 3) as short bullet points:
 
-* Refactoring of the function [`makeAllJumps`](https://github.com/xw2519/HLP-Project-2022-Team_8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L1906-L2016) to removing mutable variables
-* Implementation of the extension [`computeWireSplitCoord`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2024-L2088)
-* Merged two functions and implemented the Model Mode [`updateOrResetWireSegmentJumps`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2102-L2109)
+* Refactored the function [`makeAllJumps`](https://github.com/xw2519/HLP-Project-2022-Team_8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L1906-L2016) to remove mutable variables.
+* Implementated the extension [`computeWireSplitCoord`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2024-L2088) to return the Split-Wire coordinates.
+* Merged two functions and implemented the Model Mode selection system [`updateOrResetWireSegmentJumps`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2102-L2109).
 
 
 Your code will all be assessed anyway, so this is optional.
