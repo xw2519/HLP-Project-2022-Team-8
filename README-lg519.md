@@ -16,7 +16,7 @@
 
 Section 2 on my file is lines : 627- 1104
 
-I am responsible for the Rotaton and Center field of Symbol (together with xw2519). Lines 41 and 51
+I am responsible for the Center field of Symbol . Line 41 
 
 I am responsible for the SymbolsCount field of model. Line 59
 
