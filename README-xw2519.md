@@ -23,47 +23,20 @@ cannot easily find everything via links from this README.
 
 [Team Contribution Repo](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
-* A file in this repo file is common to the team contains who is responsible for which parts of code
-* Fork and clone it
-* Any team member can make agreed by team commits. First commit before Wed 23 Fen 16:00. 
-* Changes in who does what are recorded by altering list of functions AND 
-as extra lines in this file. See sample file in [README](https://github.com/tomcl/hlp22docs/blob/main/README.md)
-
 ## Admin and quick access links
 
 [Common repo Team 8 file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
 [Symbols (Section 1)]([src/renderer/drawblock/buswire.fs](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-xw2519/src/Renderer/DrawBlock/Symbol.fs))
 
-Section 1 on my file is lines : 22 - 695
-
-Anything else you need to say about what you are or are not responsible for.  
-
-## Note on assessment
-
-The aim of assessment if that the first two sections should be fairly straightforward and demonstrate basic knowledge
-of how to write FP code. They can achieve overall marks up to 70% without extension work. Those working on 
-significant  extensions should put extra effort into these and not complex analysis section since the 
-analysis marks can accept well-written code supporting extensions as evidence of understanding. 
-The aim of this is so that you get marks for good code, 
-if you can write signiifcant good code without being motivated to write reports.
-
-There are signiifcant differences between different code sections, and also things which 
-change dependning on what your base types are and how ambitious your code rewrite it. Ask early
-if you are concerned about how this assessment will impact you. There will be ways to reward code 
-writing which can be found if need be in individual cases.
+Section 1 on my file is lines : 22 - 737
 
 ## Code Quality
 
 This will be assessed based on the code. You can **but do not have to** highlight here things you are particularly proud of and want markers to look at (up to 3) as short bullet points:
 
-* Naming of `myGoodName`, `myWonderfulLongName`
-* New function boundaries: `topfun` -> `firstfun`, `topfun` -> `secondFun`
-* New types: MyGoodType
-* Helper function `myHelper` which is higher order and really helpful
-* I cleaned up all the sprintf and printf statements to use interpolated strings
-
-Your code will all be assessed anyway, so this is optional.
+1. Reactoring of original function `drawSymbol` into `createSymbol` which divides the function into: Drawing and Adding text
+2. Addition of new `Symbol` attribute `SymbolPoints` which stores the coordinates of shapes which are all initialised at the beginning in the function `initSymbolPoints` 
 
 ## Analysis
 
@@ -110,24 +83,6 @@ interview.
 functionality is preserved.
 
 # Extensions
-
-Extensions are required for mark > 70 and optional for mark below 70. High marks on 
-the first two sections cannot boost extensions mark if this is lower than them.
-
-$baseMark = \min (70, code * 20/35 + analysis * 15/35)$
-
-$extendedMark = code * 20/50 + analysis * 15/50  + extensions * 15/50$
-
-$overallMark = \max (baseMark, extendedMark)$
-
-* This section can be missing if you have not done significant extension work.
-* Extension code, if well documented (in the code) and clearly written, can be assessed without working 
-  (if it is demonstrated it depends on other people's code not yet written). 
-* Don't bother writing this section unless you have significant extension work, because the mark here 
-  will usually not be counted in that case (see the marking scheme). Marks for extensions will be awarded 
-only for work of C level or above.
-
-* delete the above comemnts and add your satement of extensions as below*
 
 1.  List as numbered points the extensions (features) your code will support
 

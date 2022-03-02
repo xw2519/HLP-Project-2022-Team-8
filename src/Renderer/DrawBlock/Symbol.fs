@@ -20,44 +20,36 @@ let GridSize = 30
 //--------------------------------- Symbol Types ---------------------------------//
 
 type SymbolCharacteristics =
-    {
-        clocked: bool 
-        inverted: bool
-    }
+    { clocked: bool 
+      inverted: bool }
 
 type SymbolTitles = 
-    { 
-        fontSize: string
-        fontWeight: string
-        posX: float
-        posY: float
-        text: string
-        textAlignment: string
-    }
+    { fontSize: string
+      fontWeight: string
+      posX: float
+      posY: float
+      text: string
+      textAlignment: string }
 
 type Symbol =
-    {
-        Colour: string
-        ComponentId : ComponentId       
-        Component : Component
-        InWidth0: int option
-        InWidth1: int option      
-        Moving: bool
-        Opacity: float
-        Pos: XYPos
-        Rotation: float
-        ShowInputPorts: bool
-        ShowOutputPorts: bool        
-        SymbolCharacteristics: SymbolCharacteristics
-        SymbolPoints: XYPos list
-    }
+    { Colour: string
+      ComponentId : ComponentId       
+      Component : Component
+      InWidth0: int option
+      InWidth1: int option      
+      Moving: bool
+      Opacity: float
+      Pos: XYPos
+      Rotation: float
+      ShowInputPorts: bool
+      ShowOutputPorts: bool        
+      SymbolCharacteristics: SymbolCharacteristics
+      SymbolPoints: XYPos list }
 
 type Model = 
-    {   
-        CopiedSymbols: Map<ComponentId, Symbol>
-        Ports: Map<string, Port> // string since it's for both input and output ports
-        Symbols: Map<ComponentId, Symbol>
-    }
+    { CopiedSymbols: Map<ComponentId, Symbol>
+      Ports: Map<string, Port> // string since it's for both input and output ports
+      Symbols: Map<ComponentId, Symbol> }
 
 type Msg =
     | MouseMsg of MouseT
@@ -684,7 +676,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
 
 //--------------------------------- Symbol Drawing ---------------------------------//  
 
-let drawSymbol (symbol: Symbol, colour: string, opacity: float) = 
+let createSymbol (symbol: Symbol, colour: string, opacity: float) = 
     addSymbolLabel symbol.Rotation symbol.Component.W symbol.Component.H symbol.Component.Label
     |> List.append (addSymbolText symbol.Component symbol.InWidth0 symbol.InWidth1)
     |> List.append (addPortText symbol symbol.Component.InputPorts (fst(addPortTitle symbol.Component)))
@@ -707,7 +699,7 @@ let private renderSymbol =
             let ({ X = fX; Y = fY }: XYPos) = 
                 { X = float(props.Symbol.Component.X); Y = float(props.Symbol.Component.Y) }
 
-            g ([ Style [ Transform($"translate(%f{fX}px, %f{fY}px)") ] ]) (drawSymbol(props.Symbol, props.Symbol.Colour, props.Symbol.Opacity)) 
+            g ([ Style [ Transform($"translate(%f{fX}px, %f{fY}px)") ] ]) (createSymbol(props.Symbol, props.Symbol.Colour, props.Symbol.Opacity)) 
         , "Symbol"
         , equalsButFunctions )
     
