@@ -78,7 +78,7 @@ Highlights:
 
 1. The function `moveWire` has a big part of computation inside of the type instanciation. This should be done outside, in the function body, to make the function cleaner.
 
-1. The function `updateWire` has a very cryptic boolean parameter called `inOut` that suggests that the wire in connected to an output, on the contrary, this boolean is used to denote that a wire is connected to an Input port, and should therefore be renamed to `isInInputPort`
+1. The function `updateWire` has a very cryptic boolean parameter called `inOut` that suggests that the wire in connected to an output, on the contrary, this boolean is used to denote that a wire is connected to an Input port, and should therefore be renamed to `inInputPort`
 
 
 #### Other problems
@@ -109,7 +109,7 @@ Highlights:
         - The function `getSafeDistanceForMove` is used to restrict the distance that a segment can be moved by, according to if it is going to collide with either one of the Symbols on the ends of the wire.
         - In parallel of the segments being moved, `removeRedundantSegments` is called to adjust any two segments going in opposite direction and canceling each other.
     - `moveWire`, on the other hand, gets called whenever a whole wire is selected by a click-and-drag form the user, and simply translates all segments of the selected wire in the direction and distance of the mouse-drag.
-        - The local function `translateSegment` is called, and it simply operates the translation on the start of each segment, as their end is defined relative to their start using their `Segment.Vector` component. This is different from the previous segment type, where both the start and end of a segment had to be translated by the function.
+        - The local function `translateSegment` is called, and it simply operates the translation on the start of each segment, as their end is defined relative to their start using their `Segment.Vector` component. This is different from the previous segment type, where both the start and end of a segment had to be translated by the function. Changing the type of Segment to include a `Autorouted` boolean component allows this function to be greatly simplified, as we no longer need to operate on the absolute values of the coordinates of the segment. 
 
 1. Function `updateWire` - **Partial Routing**
     -
@@ -117,6 +117,7 @@ Highlights:
     -
 
 1. Function `autorouteWire` - **AutoRouting**
+    - 
 
 
 
