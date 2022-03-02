@@ -17,9 +17,6 @@ let print x = printfn "%A" x
 let GridSize = 30 
 
 /// ---------- SYMBOL TYPES ---------- ///
-// TODO: ComponentID removed
-// TODO: POS centered
-
 type SymbolCharacteristics =
     {
         clocked: bool 
@@ -28,41 +25,37 @@ type SymbolCharacteristics =
 
 type SymbolTitles = 
     { 
+        fontSize: string
+        fontWeight: string
         posX: float
         posY: float
         text: string
         textAlignment: string
-        fontWeight: string
-        fontSize: string 
     }
 
 type Symbol =
     {
-        Pos: XYPos // Changed to reflect center position
-        InWidth0: int option
-        InWidth1: int option
-        ComponentId : ComponentId       
-        Component : Component                 
         Colour: string
-        ShowInputPorts: bool
-        ShowOutputPorts: bool
-        Opacity: float
+        ComponentId : ComponentId       
+        Component : Component
+        InWidth0: int option
+        InWidth1: int option      
         Moving: bool
-
+        Opacity: float
+        Pos: XYPos // Changed to reflect center position
         Rotation: float
-        SymbolPoints: XYPos list
+        ShowInputPorts: bool
+        ShowOutputPorts: bool        
         SymbolCharacteristics: SymbolCharacteristics
-        // SymbolTitles: SymbolTitles list
+        SymbolPoints: XYPos list
     }
 
 type Model = 
-    {
-        Symbols: Map<ComponentId, Symbol>
+    {   
         CopiedSymbols: Map<ComponentId, Symbol>
-        Ports: Map<string, Port>                            // string since it's for both input and output ports
+        Ports: Map<string, Port> // string since it's for both input and output ports
+        Symbols: Map<ComponentId, Symbol>
     }
-
-//----------------------------Message Type-----------------------------------//
 
 type Msg =
     | MouseMsg of MouseT
@@ -72,7 +65,7 @@ type Msg =
     | ShowAllInputPorts | ShowAllOutputPorts | DeleteAllPorts 
     | MoveSymbols of compList: ComponentId list * move: XYPos
     | ShowPorts of ComponentId list
-    | SelectSymbols of ComponentId list// Issie interface
+    | SelectSymbols of ComponentId list
     | SymbolsHaveError of sIds: ComponentId list
     | ChangeLabel of sId : ComponentId * newLabel : string
     | PasteSymbols of sIds: ComponentId list
@@ -81,13 +74,13 @@ type Msg =
     | ChangeNumberOfBits of compId:ComponentId * NewBits:int 
     | ChangeLsb of compId: ComponentId * NewBits:int64 
     | ChangeConstant of compId: ComponentId * NewBits:int64 * NewText:string
-    | ResetModel // For Issie Integration
-    | LoadComponents of  Component list // For Issie Integration
-    | WriteMemoryLine of ComponentId * int64 * int64 // For Issie Integration 
+    | ResetModel
+    | LoadComponents of  Component list 
+    | WriteMemoryLine of ComponentId * int64 * int64
     | WriteMemoryType of ComponentId * ComponentType
     | RotateSymbols of ComponentId list
 
-//---------------------------------helper types and functions----------------//
+//--------------------------------- Helper types and functions ----------------//
 
 let convertDegtoRad degree = System.Math.PI * degree / 180.0 
 
@@ -97,30 +90,29 @@ let posDiff (a: XYPos) (b: XYPos) = {X=a.X-b.X; Y=a.Y-b.Y}
 
 let posOf x y = {X=x; Y=y}
 
-// Once Pos is converted to read center positions, can remove 
 let convertCoordtoCenter (symbol: Symbol) (portPos: XYPos) : XYPos =
     {       
-        X = portPos.X-(float(symbol.Component.W) / 2.0)
-        Y = portPos.Y-(float(symbol.Component.H) / 2.0)
+        X = portPos.X-(float(symbol.Component.W)/2.0)
+        Y = portPos.Y-(float(symbol.Component.H)/2.0)
     }
 
 let convertCenterCoordtoOriginal (symbol: Symbol) (portPos: XYPos) : XYPos =
     {
-        X = portPos.X+(float(symbol.Component.W) / 2.0)
-        Y = portPos.Y+(float(symbol.Component.H) / 2.0)
+        X = portPos.X+(float(symbol.Component.W)/2.0)
+        Y = portPos.Y+(float(symbol.Component.H)/2.0)
     }
 
 let rotatePoint degree (xyPos: XYPos) : XYPos =
     {       
-        X = (xyPos.Y * -System.Math.Sin(convertDegtoRad degree) + xyPos.X * System.Math.Cos(convertDegtoRad degree))
-        Y = (xyPos.X * System.Math.Sin(convertDegtoRad degree) + xyPos.Y * System.Math.Cos(convertDegtoRad degree))
+        X = xyPos.Y * -System.Math.Sin(convertDegtoRad degree) + xyPos.X * System.Math.Cos(convertDegtoRad degree)
+        Y = xyPos.X * System.Math.Sin(convertDegtoRad degree) + xyPos.Y * System.Math.Cos(convertDegtoRad degree)
     }
 
 let convertSymbolPointsListtoString (xyPosL: XYPos list) : string = 
     let splitXYPos accumulator (xyPos: XYPos) = accumulator + string(xyPos.X) + "," + string(xyPos.Y) + " "
     let coordinateString = ("", xyPosL) ||> List.fold splitXYPos
 
-    coordinateString[0..(String.length coordinateString) - 2]   
+    coordinateString[0 .. (String.length coordinateString) - 2]   
 
 let getSymbolPoints (symbol: Symbol) = convertSymbolPointsListtoString symbol.SymbolPoints
 
@@ -137,8 +129,7 @@ let insertCompLabel (compType: ComponentType) =
     | ROM1 _ -> "ROM"
     | RAM1 _ -> "RAM"
     | AsyncRAM1 _ -> "ARAM"
-    | Custom c ->
-        c.Name + (if c.Name |> Seq.last |> System.Char.IsDigit then "." else "")
+    | Custom c -> c.Name + (if c.Name |> Seq.last |> System.Char.IsDigit then "." else "")
     | Constant1 _ -> "C"
     | BusCompare _ -> "EQ"
     | Decode4 -> "DEC"
@@ -153,19 +144,19 @@ let init () = {Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty
 // (input port names, output port names)
 let insertPortTitle (comp: Component) = 
     match comp.Type with
+    | AsyncRAM1 _ -> (["Addr"; "Din";"Wen" ],["Dout"])
+    | Custom x -> (List.map fst x.InputLabels), (List.map fst x.OutputLabels)
     | Decode4 -> (["Sel";"Data"],["0"; "1";"2"; "3"])
+    | Demux2 -> (["IN" ; "SEL"],["0"; "1"])
+    | DFF -> (["D"],["Q"])
+    | DFFE -> (["D";"EN"],["Q"])
+    | Mux2 -> (["0"; "1";"SEL"],["OUT"])
     | NbitsAdder _ -> (["Cin";"A";"B"],["Sum "; "Cout"])
+    | NbitsXor _ -> (["P"; "Q"], ["Out"])
     | Register _ -> (["D"],["Q"])
     | RegisterE _ -> (["D"; "EN"],["Q"])
     | ROM1 _ |AsyncROM1 _ -> (["Addr"],["Dout"])
     | RAM1 _ -> (["Addr"; "Din";"Wen" ],["Dout"])
-    | AsyncRAM1 _ -> (["Addr"; "Din";"Wen" ],["Dout"])
-    | DFF -> (["D"],["Q"])
-    | DFFE -> (["D";"EN"],["Q"])
-    | Mux2 -> (["0"; "1";"SEL"],["OUT"])
-    | Demux2 -> (["IN" ; "SEL"],["0"; "1"])
-    | NbitsXor _ -> (["P"; "Q"], ["Out"])
-    | Custom x -> (List.map fst x.InputLabels), (List.map fst x.OutputLabels)
     |_ -> ([],[])
 
     // EXTENSION: Extra Components made that are not currently in Issie. Can be extended later by using this code as it is .
@@ -176,8 +167,8 @@ let insertPortTitle (comp: Component) =
     // |_ -> ([],[])
    
 let initPorts numOfPorts compId (portType: PortType) =
-    if numOfPorts < 1 
-    then []
+    if numOfPorts < 1 then 
+        []
     else
         [0..(numOfPorts-1)]
         |> List.collect (fun x ->
@@ -188,8 +179,6 @@ let initPorts numOfPorts compId (portType: PortType) =
                 HostId = compId
             }])
 
-// let initSymbolTitles posX posY (comp: Component) = 
-
 let initSymbolCharacteristics (comp: Component) = 
     match comp.Type with 
     | Nand | Nor | Xnor | Not -> {clocked=false; inverted=true}
@@ -197,7 +186,6 @@ let initSymbolCharacteristics (comp: Component) =
     | _ -> {clocked=false; inverted=false}
 
 let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list = 
-
     match compType with
         | BusSelection _ | BusCompare _ -> 
             [{X=0; Y=0}; {X=0; Y=compHeight}; {X=(0.6*compWidth); Y=compHeight}; {X=(0.8*compWidth); Y=(0.7*compHeight)}; {X=compWidth; Y=(0.7*compHeight)}; {X=compWidth; Y=(0.3*compHeight)}; {X=(0.8*compWidth); Y=(0.3*compHeight)}; {X=(0.6*compWidth); Y=0}]
@@ -220,64 +208,58 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
         | _ -> 
             [{X=0; Y=compHeight}; {X=compWidth; Y=compHeight}; {X=compWidth; Y=0}; {X=0; Y=0}]
 
-        // EXTENSION: | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
-        // EXTENSION: | Demux4 | Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
+        // EXTENSION:
+        // | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
+        // | Demux4 | Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
 
 //-----------------------Skeleton Message type for symbols---------------------//
-
-let cutToLength (lst : (string * int) list) =
-    let labelList = List.map (fst >> String.length) lst
-
-    // If a component has no inputs or outputs list max will fail
-    if List.isEmpty labelList then 0 
-    else List.max labelList
-
 let initialiseComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compLabel: string) : Component =
+    let cutToLength (lst: (string * int) list) =
+        let labelList = List.map (fst >> String.length) lst
+        if List.isEmpty labelList then 0 else List.max labelList
 
-    // Rounds an integer to any given number. 
     let roundToNth (precision : int) (x : int) = x + abs((x % precision) - precision)
-    
-    // match statement for each component type. the output is a 4-tuple that is used as an input to make component (see below)
-    // 4-tuple of the form ( number of input ports, number of output ports, Height, Width)
+
     let symbolShapeSize = 
         match compType with
         | ROM _ | RAM _ | AsyncROM _ -> 
             failwithf "What? Legacy RAM component types should never occur"
-        | And | Nand | Or | Nor | Xnor | Xor ->  (2 , 1, 2*GridSize , 2*GridSize) 
-        | Not -> ( 1 , 1, 2*GridSize ,  2*GridSize) 
-        | ComponentType.Input (a) -> ( 0 , 1, GridSize ,  2*GridSize)                
-        | ComponentType.Output (a) -> (  1 , 0, GridSize ,  2*GridSize) 
-        | ComponentType.Viewer a -> (  1 , 0, GridSize ,  GridSize) 
-        | ComponentType.IOLabel  ->(  1 , 1, GridSize ,  2*GridSize) 
-        | Decode4 ->( 2 , 4 , 4*GridSize  , 3*GridSize) 
-        | Constant1 (a, b,_) | Constant(a, b) -> (  0 , 1, GridSize ,  2*GridSize) 
-        | MergeWires -> ( 2 , 1, 2*GridSize ,  2*GridSize) 
-        | SplitWire (a) ->(  1 , 2 , 2*GridSize ,  2*GridSize) 
-        | Mux2 -> ( 3  , 1, 3*GridSize ,  2*GridSize) 
-        | Demux2 ->( 2  , 2, 3*GridSize ,  2*GridSize) 
-        | BusSelection (a, b) -> (  1 , 1, GridSize,  2*GridSize) 
-        | BusCompare (a, b) -> ( 1 , 1, GridSize ,  2*GridSize) 
-        | DFF -> (  1 , 1, 3*GridSize  , 3*GridSize) 
-        | DFFE -> ( 2  , 1, 3*GridSize  , 3*GridSize) 
-        | Register (a) -> ( 1 , 1, 3*GridSize  , 4*GridSize )
-        | RegisterE (a) -> ( 2 , 1, 3*GridSize  , 4*GridSize) 
-        | AsyncROM1 (a) -> (1,1 , 3*GridSize,5*GridSize) 
-        | ROM1 (a) -> (1,1 , 3*GridSize,5*GridSize) 
-        | RAM1 (a) | AsyncRAM1 a -> (3,1 , 3*GridSize,5*GridSize) 
-        | NbitsXor (n) -> (2, 1, (3*GridSize), (5*GridSize)) 
-        | NbitsAdder (n) -> (3, 2, (3*GridSize), (5*GridSize)) 
+        | And | Nand | Or | Nor | Xnor | Xor ->  (2, 1, 2*GridSize, 2*GridSize) 
+        | Not -> (1, 1, 2*GridSize, 2*GridSize) 
+        | ComponentType.Input (a) -> (0, 1, GridSize, 2*GridSize)                
+        | ComponentType.Output (a) -> (1, 0, GridSize, 2*GridSize) 
+        | ComponentType.Viewer a -> (1, 0, GridSize, GridSize) 
+        | ComponentType.IOLabel  ->(1, 1, GridSize, 2*GridSize) 
+        | Decode4 ->(2, 4 , 4*GridSize, 3*GridSize) 
+        | Constant1 (a, b,_) | Constant(a, b) -> (0, 1, GridSize, 2*GridSize) 
+        | MergeWires -> (2, 1, 2*GridSize, 2*GridSize) 
+        | SplitWire (a) ->(1, 2, 2*GridSize, 2*GridSize) 
+        | Mux2 -> (3, 1, 3*GridSize, 2*GridSize) 
+        | Demux2 ->(2, 2, 3*GridSize, 2*GridSize) 
+        | BusSelection (a, b) -> (1, 1, GridSize, 2*GridSize) 
+        | BusCompare (a, b) -> (1 , 1, GridSize, 2*GridSize) 
+        | DFF -> (1, 1, 3*GridSize, 3*GridSize) 
+        | DFFE -> (2, 1, 3*GridSize, 3*GridSize) 
+        | Register (a) -> (1, 1, 3*GridSize, 4*GridSize )
+        | RegisterE (a) -> (2, 1, 3*GridSize, 4*GridSize) 
+        | AsyncROM1 (a) -> (1, 1, 3*GridSize, 5*GridSize) 
+        | ROM1 (a) -> (1, 1, 3*GridSize, 5*GridSize) 
+        | RAM1 (a) | AsyncRAM1 a -> (3, 1, 3*GridSize, 5*GridSize) 
+        | NbitsXor (n) -> (2, 1, 3*GridSize, 5*GridSize) 
+        | NbitsAdder (n) -> (3, 2, 3*GridSize, 5*GridSize) 
         | Custom x -> 
             let h = GridSize + GridSize * (List.max [List.length x.InputLabels; List.length x.OutputLabels])
             let maxInLength, maxOutLength = cutToLength x.InputLabels, cutToLength x.OutputLabels
             let maxW = maxInLength + maxOutLength + compLabel.Length
             let scaledW = roundToNth GridSize (maxW * GridSize / 5) //Divide by 5 is just abitrary as otherwise the symbols would be too wide 
             let w = max scaledW (GridSize * 4) //Ensures a minimum width if the labels are very small
-            ( List.length x.InputLabels, List.length x.OutputLabels, h ,  w)
+            (List.length x.InputLabels, List.length x.OutputLabels, h ,  w)
 
-        // EXTENSION:    | Mux4 -> ( 5  , 1, 5*GridSize ,  2*GridSize)   
-        // EXTENSION:    | Mux8 -> ( 9  , 1, 7*GridSize ,  2*GridSize) 
-        // EXTENSION:   | Demux4 -> ( 2  , 4, 150 ,  50) 
-        // EXTENSION:    | Demux8 -> ( 2  , 8, 200 ,  50) 
+        // EXTENSION:
+        // | Mux4 -> (5, 1, 5*GridSize, 2*GridSize)   
+        // | Mux8 -> (9, 1, 7*GridSize, 2*GridSize) 
+        // | Demux4 -> (2, 4, 150, 50) 
+        // | Demux8 -> (2, 8, 200, 50) 
 
     // function that helps avoid duplicate code by initialising parameters that are the same for all component types and takes as argument the others
     let makeComponent (numOfInputPorts, numOfOutputPorts, height, width) label : Component =  
@@ -287,21 +269,20 @@ let initialiseComponent (pos: XYPos) (compType: ComponentType) (compId: string) 
             Label = label 
             InputPorts = initPorts numOfInputPorts compId PortType.Input 
             OutputPorts  = initPorts numOfOutputPorts compId PortType.Output 
-            X  = int (pos.X - float width / 2.0) 
-            Y = int (pos.Y - float height / 2.0) 
+            X  = int(pos.X - float(width)/2.0) 
+            Y = int(pos.Y - float(height)/2.0) 
             H = height 
             W = width
         }
 
     makeComponent symbolShapeSize compLabel
    
-// Function to generate a new symbol
-// TODO: Change to component ID
-let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) =
+let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol=
     let id = JSHelpers.uuid ()
     let comp = initialiseComponent pos comptype id label
+
     { 
-      Pos = { X = pos.X - float comp.W / 2.0; Y = pos.Y - float comp.H / 2.0 }
+      Pos = {X = pos.X - float(comp.W)/2.0; Y = pos.Y - float(comp.H)/2.0}
       ShowInputPorts = false
       ShowOutputPorts = false
       InWidth0 = None // set by BusWire
@@ -312,11 +293,10 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) =
       Opacity = 1.0
       Moving = false
       Rotation = 0.0
-      SymbolPoints = (initSymbolPoints comp.Type (float(comp.H)) (float(comp.W)))
-      SymbolCharacteristics = (initSymbolCharacteristics comp)
+      SymbolPoints = initSymbolPoints comp.Type (float(comp.H)) (float(comp.W))
+      SymbolCharacteristics = initSymbolCharacteristics comp
     }
 
-// Function to add ports to port model     
 let addToPortModel (model: Model) (sym: Symbol) =
     let addOnePort (currentPorts: Map<string, Port>) (port: Port) =
         Map.add port.Id port currentPorts
@@ -327,10 +307,7 @@ let addToPortModel (model: Model) (sym: Symbol) =
     (addedInputPorts, sym.Component.OutputPorts) ||> List.fold addOnePort
 
 //----------------------------------------- GET PORT POSITION---------------------------------------------------
-// Function that calculates the positions of the ports 
-
 let getPortPos (symbol: Symbol) (port: Port) : XYPos = 
-    /// hack so that bounding box of splitwire, mergewires can be smaller height relative to ports
     let inline getPortPosEdgeGap (compType: ComponentType) =
         match compType with
         | MergeWires | SplitWire _  -> 0.25
@@ -338,13 +315,13 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     
     let (ports, posX) =
         if port.PortType = (PortType.Input) then
-            (symbol.Component.InputPorts, 0.0)
+            symbol.Component.InputPorts, 0.0
         else 
-            (symbol.Component.OutputPorts, float( symbol.Component.W ))
+            symbol.Component.OutputPorts, float(symbol.Component.W)
 
-    let index = float( List.findIndex (fun (p:Port)  -> p = port) ports )
+    let index = float(List.findIndex (fun (p: Port) -> p = port) ports)
     let gap = getPortPosEdgeGap symbol.Component.Type 
-    let posY = (float(symbol.Component.H))* (( index + gap )/( float( ports.Length ) + 2.0*gap - 1.0))  // the ports are created so that they are equidistant
+    let posY = (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
     
     {X = posX; Y = posY}
     |> convertCoordtoCenter symbol
@@ -365,14 +342,53 @@ let private insertText posX posY name txtPos weight size =
 let private drawPortCircle x y = 
     [makeCircle x y portCircle]
 
-// Print the name of each port 
-let private addPortText (portList: Port List) (listOfNames: string List) (symbol: Symbol) = 
-    // Define the name of each port 
+let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: string List) = 
     let addPortName x y name portType=
-        let xPos = if portType = PortType.Output then x - 5. else x + 5.
-        let test = if portType = PortType.Output then "end" else "start"
+        let xPos = 
+            if portType = PortType.Output then 
+                match symbol.Rotation with
+                | 90.0 | 270.0 ->   
+                    x 
+                | 180.0 ->  
+                    x + 8.0
+                | _ ->
+                    x - 8.0
+            else 
+                match symbol.Rotation with
+                | 90.0 | 270.0 ->   
+                    x 
+                | 180.0 ->  
+                    x - 10.0
+                | _ ->
+                    x + 8.0
+
+        let yPos = 
+            if portType = PortType.Output then 
+                match symbol.Rotation with
+                | 90.0 ->   
+                    y - 20.0
+                | 270.0 ->
+                    y + 5.0
+                | _ ->
+                    y - 5.0
+            else 
+                match symbol.Rotation with
+                | 90.0 ->   
+                    y + 8.0
+                | 270.0 ->
+                    y - 20.0
+                | _ ->
+                    y - 5.0
         
-        (insertText xPos (y - 7.0) name test "normal" "12px")
+        let alignment = 
+            match (portType, symbol.Rotation) with
+            | (PortType.Output, 0.0) -> "end"
+            | (PortType.Output, 180.0) -> "start"
+            | (PortType.Input, 0.0) -> "start"
+            | (PortType.Input, 180.0) -> "end"
+            | _ -> "middle"
+
+        insertText xPos yPos name alignment "normal" "10px"
     
     if listOfNames.Length < 1
         then  []
@@ -441,7 +457,6 @@ let drawVerticalColorLine posY1 posY2 posX opacity (color: string) = // TODO: Li
     let olColor = addOutlineColor color
     [makePolygon points {defaultPolygon with Fill = "olcolor"; Stroke=olColor; StrokeWidth = "2.0"; FillOpacity = opacity}]
 
-
 let rotateSymbol (symbol: Symbol) = 
     // For debugging purposes: Get next rotation
     let nextRotation = 
@@ -476,21 +491,21 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
             |> List.map (rotatePoint symbol.Rotation)
             |> List.map (convertCenterCoordtoOriginal symbol)
         
-        let addClockText = 
-            match symbol.Rotation with 
-            | 90.0 ->
-                insertText (clockPoints[2].X) (clockPoints[2].Y) "clk" "middle" "normal" "12px"
-            | 180.0 ->
-                insertText (clockPoints[2].X - 10.0) (clockPoints[2].Y - 6.0) "clk" "middle" "normal" "12px"
-            | 270.0 ->
-                insertText (clockPoints[2].X) (clockPoints[2].Y - 13.0) "clk" "middle" "normal" "12px"
-            | _ -> 
-                insertText (clockPoints[2].X + 2.0) (clockPoints[2].Y - 7.0) "clk" "start" "normal" "12px"
+        // let addClockText = 
+        //     match symbol.Rotation with 
+        //     | 90.0 ->
+        //         insertText (clockPoints[2].X) (clockPoints[2].Y) "clk" "middle" "normal" "10px"
+        //     | 180.0 ->
+        //         insertText (clockPoints[2].X - 10.0) (clockPoints[2].Y - 6.0) "clk" "middle" "normal" "10px"
+        //     | 270.0 ->
+        //         insertText (clockPoints[2].X) (clockPoints[2].Y - 13.0) "clk" "middle" "normal" "10px"
+        //     | _ -> 
+        //         insertText (clockPoints[2].X + 2.0) (clockPoints[2].Y - 7.0) "clk" "start" "normal" "10px"
 
         clockPoints
         |> convertSymbolPointsListtoString
         |> createPolygon colour opacity
-        |> List.append addClockText
+        // |> List.append addClockText
         
     match symbol.SymbolCharacteristics with 
     | { clocked = false; inverted = true  } -> addInvertor (float(symbol.Component.W)) (float(symbol.Component.H) / 2.0)
@@ -502,16 +517,27 @@ let addSymbolLabel rotation W H label : ReactElement list =
     let getSymbolLabelCoord : XYPos =
             match rotation with 
             | 90.0 | 270.0 ->
-                {X = float(W + 15); Y = float(H/2 - 8)}
+                {X = float(W - 25); Y = float(H/2 - 8)}
             | _ -> 
                 {X = float(W/2); Y = -20.0}
 
-    insertText getSymbolLabelCoord.X getSymbolLabelCoord.Y label "middle" "normal" "16px"
+    let textAlignment = if (rotation = 90.0) || (rotation = 270.0) then "start" else "middle"
 
-let addSymbolText (comp: Component) : ReactElement list =
+    insertText getSymbolLabelCoord.X getSymbolLabelCoord.Y label textAlignment "normal" "16px"
+
+let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
     let compWidth = float(comp.W)
-    let compHeight = float(comp.W)
+    let compHeight = float(comp.H)
 
+    let addBusTitle posX1 posX2 posY msb lsb =
+        let text = 
+            match msb = lsb, msb >= lsb with
+            | _, false -> ""
+            | true, _ -> sprintf $"({msb})"
+            | false, _ -> sprintf $"({msb}:{lsb})"
+        
+        insertText (float(posX1 + posX2)/2.0) (posY*float(comp.H) - 25.0) text "middle" "bold" "12px"
+    
     let addTitleWithBusWidth title busWidth lsb =  
         match comp.Type with 
         | BusCompare (_,y) -> 
@@ -546,15 +572,36 @@ let addSymbolText (comp: Component) : ReactElement list =
 
     match comp.Type with 
     | BusSelection(x,y) ->
-        insertText ((compWidth/2.0)-5.0) ((compHeight/2.7)-2.0) (addTitleWithBusWidth "" x y) "middle" "bold" "12px"
+        insertText ((compWidth/2.0)-8.0) ((compHeight/3.0)-10.0) (addTitleWithBusWidth "" x y) "middle" "bold" "12px"
     | BusCompare (_,y) -> 
-        insertText ((compWidth/2.0)-6.0) ((compHeight/2.7)-1.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "10px"
+        insertText ((compWidth/2.0)-8.0) ((compHeight/3.0)-10.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "12px"
     | Input (x) -> 
         insertText ((compWidth/2.0)-5.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"
     | Output (x) -> 
         insertText (compWidth/2.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"
+    | MergeWires -> 
+        let lo, hi = 
+            match inWidth0, inWidth1  with 
+            | Some n, Some m -> n, m
+            | _ -> -1,-1
+        let msb = hi + lo - 1
+        let midb = lo
+        let midt = lo - 1
+
+        addBusTitle 0 (comp.W/2) (1.0/6.0) midt 0 @ 
+        addBusTitle 0 (comp.W/2) (5.0/6.0) msb midb @ 
+        addBusTitle (comp.W/2) comp.W 0.5 msb 0
+
+    | SplitWire mid ->  
+        let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
+        let midb = mid'
+        let midt = mid'-1
+
+        addBusTitle (comp.W/2) comp.W (1.0/6.0) midt 0 @ 
+        addBusTitle (comp.W/2) comp.W (5.0/6.0) msb midb @ 
+        addBusTitle 0 (comp.W/2) 0.5 msb 0
     | _ ->  
-        insertText (compWidth/2.0) ((compHeight/2.0)-7.0) (addSymbolTitle comp) "middle" "bold" "14px"
+        insertText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"
 
 let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     let outlineColor, strokeWidth =
@@ -604,29 +651,6 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
             |> List.append (drawArrow symbol [{X=((symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0); Y=((symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0)}; {X=symbol.SymbolPoints[4].X; Y=symbol.SymbolPoints[4].Y}] colour outlineColor opacity strokeWidth)
         | _ ->
             []
-
-    // let drawMergeSplitWires posX1 posX2 posY msb lsb =
-    //     let drawBusTitle = 
-    //             let text = 
-    //                 match msb = lsb, msb >= lsb with
-    //                 | _, false -> ""
-    //                 | true, _ -> sprintf $"({msb})"
-    //                 | false, _ -> sprintf $"({msb}:{lsb})"
-                
-    //             insertText (float (posX1 + posX2)/2.0) (posY*float(symbol.Component.H)-11.0) text "middle" "bold" "15px"
-        
-    //     drawHorizontalColorLine posX1 posX2 (posY*float(symbol.Component.H)) opacity colour @ drawBusTitle
-
-    // let drawLines = 
-    //     match symbol.Component.Type with
-    //         | SplitWire mid -> 
-    //             let msb, mid' = match symbol.InWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
-    //             let midb = mid'
-    //             let midt = mid'-1
-    //             drawMergeSplitWires (symbol.Component.W/2) symbol.Component.W (1.0/6.0) midt 0 @ 
-    //             drawMergeSplitWires (symbol.Component.W/2) symbol.Component.W (5.0/6.0) msb midb @ 
-    //             drawMergeSplitWires 0 (symbol.Component.W/2) 0.5 msb 0
-    //         | _ -> []
     
     match symbol.Component.Type with
     | Constant1 (_,_,txt) -> 
@@ -644,7 +668,6 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     | _ ->
         drawBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth
         
-
 let flipSymbol (symbol: Symbol) = 
     print "Flip Triggered"
 
@@ -654,13 +677,14 @@ let drawSymbol (symbol: Symbol, colour: string, opacity: float) =
 
     []
     |> List.append (addSymbolLabel symbol.Rotation symbol.Component.W symbol.Component.H symbol.Component.Label)
-    |> List.append (addSymbolText symbol.Component)
-    |> List.append (addPortText symbol.Component.InputPorts (fst(insertPortTitle symbol.Component)) symbol)
-    |> List.append (addPortText symbol.Component.OutputPorts (snd(insertPortTitle symbol.Component)) symbol)      
+    |> List.append (addSymbolText symbol.Component symbol.InWidth0 symbol.InWidth1)
+    |> List.append (addPortText symbol symbol.Component.InputPorts (fst(insertPortTitle symbol.Component)))
+    |> List.append (addPortText symbol symbol.Component.OutputPorts (snd(insertPortTitle symbol.Component)))      
     |> List.append (drawPorts symbol.Component.OutputPorts symbol.ShowOutputPorts symbol)
     |> List.append (drawPorts symbol.Component.InputPorts symbol.ShowInputPorts symbol)
-    |> List.append (drawSymbolShape symbol opacity colour)
     |> List.append (drawSymbolCharacteristics symbol colour opacity)
+    |> List.append (drawSymbolShape symbol opacity colour)
+
 
 //----------------------------View Function for Symbols----------------------------//
 
@@ -722,7 +746,6 @@ let getOneBoundingBox (symModel: Model) (compid: ComponentId ): BoundingBox =
     let symb = Map.find compid symModel.Symbols
     getBoundingBoxofSymbol symb
 
-
 //--------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS-------------------------------
 // Helpers
 let getSymbolPos (symbolModel: Model) compId =
@@ -774,7 +797,6 @@ let getInputPortLocation (model:Model) (portId: InputPortId)  =
     getInputPortsPositionMap model allSymbols 
     |> Map.find (portId)
     
-
 //Returns the location of an output portId
 let getOutputPortLocation (model:Model) (portId : OutputPortId) =
     let allSymbols =
@@ -804,7 +826,6 @@ let getOnePortLocationNew (symModel: Model) (portId : string) (pType: PortType) 
         else
             List.tryFind (fun (po:Port) -> po.Id = portId) comp.OutputPorts
         |> Option.map (fun port -> posAdd (getModelPortPos symModel port) (sym.Pos)))
-
 
 /// Returns the locations of a given input portId and output portId
 let getTwoPortLocations (symModel: Model) (inPortId: InputPortId ) (outPortId: OutputPortId) =
@@ -991,7 +1012,6 @@ let pasteSymbols (symModel: Model) (mPos: XYPos) : (Model * ComponentId list) =
         ((symModel, []), oldSymbolsList) ||> List.fold (makeSymbol basePos)
     | [] -> symModel, []
 
-    
 /// Given two componentId list of same length and input / output ports that are in list 1, return the equivalent ports in list 2.
 /// ComponentIds at same index in both list 1 and list 2 need to be of the same ComponentType
 /// CompIds1 need to be in model.CopiedSymbols
@@ -1026,7 +1046,6 @@ let getEquivalentCopiedPorts (model: Model) (copiedIds) (pastedIds) (InputPortId
     | [pastedInputPort], [pastedOutputPort] -> Some (pastedInputPort, pastedOutputPort) 
     | _ -> None // If either of source or target component of the wire was not copied then we discard the wire
   
- 
 /// Given a model return a model with a new Symbol and also the component id
 let addSymbol (model: Model) pos compType lbl =
     let newSym = makeSymbol pos compType lbl
