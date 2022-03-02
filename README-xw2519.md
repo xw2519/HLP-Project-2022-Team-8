@@ -26,13 +26,13 @@ This will be assessed based on the code. You can **but do not have to** highligh
 
 #### <u> Bad Functions </u>
 
-- [Symbol.fs: Line 80 - 86](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/0e517e099437c23ac5792b14e940bec50300685d/src/Renderer/DrawBlock/Symbol.fs#L80): Converting points between relative to symbol top-left and symbol center
+- [Symbol.fs: Line 84 - 90](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/824810d5f7c135d58a55ca1fa909e6a1c7bca9c6/src/Renderer/DrawBlock/Symbol.fs#L84-L90): Converting points between relative to symbol top-left and symbol center
 
     Current code implements rotation with points where the origin is the top-left corner of the symbol. Sections with rotation can be simplified if all the points of the symbol are changed to be all relative to the symbol center which is rotation-invariant. 
 
     Person responsible for the second part of Symbol (lg519) has already modified the `Pos` field of `Symbol` type to contain the coordinate of the center of the symbol. To build on, the `SymbolPoints` field can be changed to draw the symbol based on the center. 
 
-- [Symbol.fs: Line 339 - 495](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/0e517e099437c23ac5792b14e940bec50300685d/src/Renderer/DrawBlock/Symbol.fs#L339): Manually adjusting the coordinate of the symbol text depending on rotation
+- [Symbol.fs: Line 343 - 499](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/824810d5f7c135d58a55ca1fa909e6a1c7bca9c6/src/Renderer/DrawBlock/Symbol.fs#L343-L499): Manually adjusting the coordinate of the symbol text depending on rotation
 
     This leads to long code that is very specific and inefficient. With the location of the symbol center, symbol text can be generated relative to the center and, with rotations, can change the text to be vertical. 
 
