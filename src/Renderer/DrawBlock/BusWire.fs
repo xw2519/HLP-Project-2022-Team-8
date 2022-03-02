@@ -1808,21 +1808,13 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
     |> Option.bind scaleAutoroutedSegments
 
 
-///Returns the new positions keeping manual coordinates negative, and auto coordinates positive
-let addToPosAndKeepRoutingMode (pos : XYPos) (diff : XYPos) : XYPos =
-    //let newPos = Symbol.posAdd (getAbsXY pos) diff                  
-    // If coordinates where manually routed before, keep it that way
-    //if pos.X < 0. || pos.Y < 0. then {X = - newPos.X; Y = - newPos.Y}
-    //else newPos
-    Symbol.posAdd (getAbsXY pos) diff
-
 ///Moves a wire by a specified amount by adding a XYPos to each start and end point of each segment
 let moveWire (wire : Wire) (diff : XYPos) = 
     // Translates a segment by a vector 'diff' 
     let translateSegment (seg:Segment) = 
         {seg with
             //Just update the start, as we don't need to update the vector
-            Start = addToPosAndKeepRoutingMode seg.Start diff
+            Start = addPositions seg.Start diff
         }
     // Translate all the segments of the wire
     let newSegs = List.map translateSegment wire.Segments
