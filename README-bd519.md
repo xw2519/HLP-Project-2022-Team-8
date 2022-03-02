@@ -21,7 +21,7 @@ cannot easily find everything via links from this README.
 
 ## Team Shared Team.md
 
-[Team Contribution Repo](https://github.com/tomcl/hlp22docs/blob/main/README.md)
+[Team Contribution Repo](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
 * A file in this repo file is common to the team contains who is responsible for which parts of code
 * Fork and clone it
@@ -32,12 +32,15 @@ as extra lines in this file. See sample file in [README](https://github.com/tomc
 ## Admin and quick access links
 
 *link to your teamN.md file*
-[Common repo TeamN file](https://github.com/tomcl/hlp22docs/blob/main/README.md)
+[Common repo TeamN file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
-[Buswire (section 3)](src/renderer/drawblock/buswire.fs)
+[Buswire (section 3)](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L1906-L2474)
 
-Section 3 on my file is lines : 700-1100
-I am also responsible for lines 100-120 (functions mySplurgeFunc, my2ndSplurgeFunc)
+Section 3 on my file is lines : 1906-2474
+I am also responsible for lines:
+- 87 [adding keyBoardMsg](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/Sheet.fs#L87)
+- 913 : 915 [Defining keyBoardMsg associated with Ctrl+M](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/Sheet.fs#L913-L915)
+- 177 [editMenu dispatch](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/Renderer.fs#L177)
 
 Anything else you need to say about what you are or are not responsible for.
 
