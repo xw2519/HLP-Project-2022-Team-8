@@ -25,12 +25,13 @@ cannot easily find everything via links from this README.
 
 [Common repo TeamN file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
-[Buswire (section 2)](src/renderer/drawblock/buswire.fs)
+[Buswire (section 2)](./src/Renderer/DrawBlock/BusWire.fs)
 
-Section 2 on my file is lines : ***XXXX-XXXX***
-I am also responsible for lines 100-120 (functions mySplurgeFunc, my2ndSplurgeFunc)
+Section 2 on my file is lines : **1388-1942** - [Link](./src/Renderer/DrawBlock/BusWire.fs#L1388)
 
-*Anything else you need to say about what you are or are not responsible for.*
+I am also responsible for lines **402-487** (functions `xyVerticesToSegments`, `makeInitialSegmentsList`) - [Link](./src/Renderer/DrawBlock/BusWire.fs#L402)
+
+I have also worked on implementing the Extension for BusWire section 2, which is to implement AutoRouting for rotated Symbols. This part of my code is lines **325-400** - [Link](./src/Renderer/DrawBlock/BusWire.fs#L325) - but is currently commented out, as adding it in caused the following error when compiling: [Link to EdStem Post](https://edstem.org/us/courses/17809/discussion/1222697). I am hoping this part of my code can also be assessed, as a basis for coding quality (even though it does not work).
 
 ## Note on assessment
 
@@ -52,17 +53,8 @@ writing which can be found if need be in individual cases.
 
 This will be assessed based on the code. You can **but do not have to** highlight here things you are particularly proud of and want markers to look at (up to 3) as short bullet points:
 
-* Naming of `myGoodName`, `myWonderfulLongName`
-* New function boundaries: `topfun` -> `firstfun`, `topfun` -> `secondFun`
-* New types: MyGoodType
-* Helper function `myHelper` which is higher order and really helpful
-* I cleaned up all the sprintf and printf statements to use interpolated strings
+* New types: Segment using a Vector as parameter, as well as a Start position, to represent both the Length and Direction of the Segment.
 
-Your code will all be assessed anyway, so this is optional.
-
-***-- FILL THIS IN (OPTIONAL) --***
-
-  
 
 ## Analysis
 
@@ -100,6 +92,8 @@ refer to your code if this helps.
 
 1. The function `checkSegmentAngle` is very poorly written, but can simply be removed as it is not used.
 
+1. The function `removeRedundantSegments` is overall quite poorly written
+
 1. The function `getSafeDistanceForMove` is uses the similar pattern to check if two floats are equal multiple times. We can extract it into a helper function. The big match statement can have its cases re-organized to clarify its purpose, and the first match case to check if the wire is Horizontal can also be remove as it not needed.
 
 1. The function `moveSegment` calls an anonymous funtion that is longer that the rest of the function body. It should be extracted into a local function to make the code clearer.
@@ -122,7 +116,7 @@ refer to your code if this helps.
 #### Other problems
 
 State **concisely** Issues with existing code, or in refactoring for new types, that do not fit into per function list. 
-Again numbered points, at most 3. Choose the most inmportant if you have too much to say. You can should
+Again numbered points, at most 3. Choose the most important if you have too much to say. You can should
 refer to documentation (not XML docs) in code where this helps.
 
 ***-- FILL THIS IN --***

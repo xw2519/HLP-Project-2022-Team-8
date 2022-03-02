@@ -320,13 +320,7 @@ let pp segs (model: Model)=
     |> String.concat ";"
 
 //-------------------------------Implementation code----------------------------//
-//START INTERFACE CONVERSIONS
 
-/// Given the coordinates of two port locations that correspond
-/// to the endpoints of a wire, this function returns a list of
-/// wire vertices
-/// 
-/// 
 
 (*
 let makeInitialSegmentsListFromRISegs connId (portCoords : XYPos * XYPos) : Segment list =
@@ -405,7 +399,7 @@ let makeInitialSegmentsListFromRISegs connId (portCoords : XYPos * XYPos) : Segm
     RISegs |> convertRISegsToSegments connId startPort wireRotation
 *)
 
-// Turns a list of verticies into a list of Segments
+// Turns a list of vertices into a list of Segments
 let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos list) =
     // Put two endpoints together to form a segment
     List.pairwise xyVerticesList
@@ -426,7 +420,9 @@ let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos lis
                 Autorouted= true
             })
 
-/// Old autoRouting function
+/// Given the coordinates of two port locations that correspond
+/// to the endpoints of a wire, this function returns a list of
+/// wire vertices
 let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
     // Get the coordinates of the start port of the wire
     let xs, ys = snd(portCoords).X, snd(portCoords).Y
@@ -1605,9 +1601,9 @@ let removeRedundantSegments  (segs: Segment list) =                             
             [seg1;seg2]
     
     // Adjust the first two, and last two, segments of a Wire's segments list
-    adjust segs[0] segs[1] @  segs[2..4] @ adjust segs[5] segs[6]               //TODO: use segs[segs.Length - 1] etc 
+    adjust segs[0] segs[1] @  segs[2..(segs.Length - 3)] @ adjust segs[segs.Length - 2] segs[segs.Length - 1]
     
-    
+
 // MANUAL ROUTING: ENTRY POINT TO THIS CODE SECTION
 /// This function allows a wire segment to be moved a given amount in a direction perpedicular to
 /// its orientation (Horizontal or Vertical). Used to manually adjust routing by mouse drag.
@@ -1631,7 +1627,7 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
     else
         //runTestFable()
         distance      
-        |> getSafeDistanceForMove seg wire.Segments[0] wire.Segments[6]             //TODO: use wire.Segments[wire.Segments.Length - 1]
+        |> getSafeDistanceForMove seg wire.Segments[0] wire.Segments[wire.Segments.Length - 1]
         |> (fun distance' ->
             // Define the updated coordinates of the segments based on the orientation of the segment being moved
             let newPrevVector, newSegStart, newSegVector, newNextStart, newNextVector = 
@@ -1940,6 +1936,7 @@ let updateWire (model : Model) (wire : Wire) (inInputPort : InOut) =
 //----------------------------------------------------------------------------------//
 //----------------------TLP19 CODE SECTION ENDS-------------------------------------//
 //----------------------------------------------------------------------------------//
+
 
 
 
