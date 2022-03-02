@@ -1004,45 +1004,45 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
     
     | ResetModel -> { model with Symbols = Map.empty; Ports = Map.empty; SymbolsCount = Map.empty }, Cmd.none
     
-    | LoadComponents comps ->
-        let compIdsWithSymbols =
-            comps
-            |> List.map ( fun comp -> (
-                                        let (h,w) =
-                                            if comp.H = -1 && comp.W = -1 then
-                                                let comp' = initialiseComponent {X = float comp.X; Y = float comp.Y} comp.Type comp.Id comp.Label
-                                                comp'.H,comp'.W
-                                            else
-                                                comp.H, comp.W
-                                        ComponentId comp.Id,
-                                        { Center = {X = float (comp.X + h/2); Y = float (comp.Y+ w/2)}
-                                          ShowInputPorts = false //do not show input ports initially
-                                          ShowOutputPorts = false //do not show output ports initially
-                                          Colour = "lightgrey"     // initial color 
-                                          ComponentId = ComponentId comp.Id
-                                          Component = {comp with H=h ; W = w}
-                                          Opacity = 1.0
-                                          Moving = false
-                                          InWidth0 = None
-                                          InWidth1 = None
-                                          Rotation = 0.0
-                                          SymbolPoints = (initSymbolPoints comp {X = float comp.X; Y = float comp.Y} comp.H comp.W)
-                                          SymbolCharacteristics = (initSymbolCharacteristics comp)
-                                        }
-                                        ))
-        let symbolList =
-            compIdsWithSymbols
-            |> List.map snd
-
-        let symbolMap =
-            compIdsWithSymbols   
-            |> Map.ofList
+    | LoadComponents cmpsToLoad ->
+        let loadComponent cmp =
+            let (h,w) =
+                if cmp.H = -1 && cmp.W = -1 then
+                    let cmp' = initialiseComponent {X = float cmp.X; Y = float cmp.Y} cmp.Type cmp.Id cmp.Label
+                    cmp'.H,cmp'.W
+                else
+                    cmp.H, cmp.W
+            ComponentId cmp.Id,
+            { 
+            Center = {X = float (cmp.X + h/2); Y = float (cmp.Y+ w/2)}
+            ShowInputPorts = false 
+            ShowOutputPorts = false 
+            Colour = "lightgrey"  
+            ComponentId = ComponentId cmp.Id
+            Component = {cmp with H=h ; W = w}
+            Opacity = 1.0
+            Moving = false
+            InWidth0 = None
+            InWidth1 = None
+            Rotation = 0.0
+            SymbolPoints = (initSymbolPoints cmp {X = float cmp.X; Y = float cmp.Y} cmp.H cmp.W)
+            SymbolCharacteristics = (initSymbolCharacteristics cmp)
+            }
         
-        let folder currModel sym =
+
+        let loadedSymbolsMap = 
+            List.map loadComponent cmpsToLoad
+            |>  Map.ofList
+
+        let loadedSymbols =
+            List.map loadComponent cmpsToLoad
+            |> List.map snd
+        
+        let addPortsToModel currModel sym =
             { currModel with Ports = addToPortModel currModel sym }
             
-        let newModel = ( model, symbolList ) ||> List.fold folder
-        { newModel with Symbols = symbolMap }, Cmd.none
+        let loadedPortsModel = ( model, loadedSymbols ) ||> List.fold addPortsToModel
+        { loadedPortsModel with Symbols = loadedSymbolsMap }, Cmd.none
  
     | WriteMemoryLine (compId, addr, value) ->
         let symbol = model.Symbols[compId]
@@ -1061,6 +1061,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let newSymbols = Map.add compId { symbol with Component = newComp } model.Symbols
         
         { model with Symbols = newSymbols }, Cmd.none
+
     | WriteMemoryType (compId, memory) ->
         let symbol = model.Symbols[compId]
         let comp = symbol.Component       
@@ -1078,6 +1079,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let newSymbols = Map.add compId { symbol with Component = newComp } model.Symbols
         
         { model with Symbols = newSymbols }, Cmd.none
+        
     | RotateSymbols compIds ->
 
         let rotateSelectedCmps selectedComponents cmpId symbol  =
