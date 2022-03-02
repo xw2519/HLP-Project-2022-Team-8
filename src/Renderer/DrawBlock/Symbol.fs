@@ -856,8 +856,7 @@ let getPastedPortsIdsFromCopiedPortsIds (model: Model) (copiedCmpIds) (pastedCmp
  
 
 /// Returns a new Symbol who's Component number of bits expected in a port is set according to bits
-let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (bits : int) =
-    
+let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (bits : int) =   
     let sym = Map.find cmpId model.Symbols
     let updatedCmpType = 
         match sym.Component.Type with
@@ -876,27 +875,27 @@ let updateCmpNumOfBits (model:Model) (cmpId:ComponentId) (bits : int) =
     let updatedCmp = {sym.Component with Type = updatedCmpType}
     {sym with Component = updatedCmp}
 
-// Helper function to change the number of bits expected in the LSB port of BusSelection and BusCompare
-let updateLSB (symModel:Model) (compId:ComponentId) (newLsb:int64) =
-    let symbol = Map.find compId symModel.Symbols
-    let newcompotype = 
-        match symbol.Component.Type with
-        | BusSelection (w, _) -> BusSelection (w, int32(newLsb))
-        | BusCompare (w, _) -> BusCompare (w, uint32(newLsb)) 
-        | Constant1(w, _,txt) -> Constant1 (w, newLsb,txt)
+/// Returns a new Symbol who's Component number of bits expected in the LSB a port is set according to lsb
+let updateLSBNumOfBits (model:Model) (cmpId:ComponentId) (lsb:int64) =
+    let sym = Map.find cmpId model.Symbols
+    let updatedCmpType = 
+        match sym.Component.Type with
+        | BusSelection (w, _) -> BusSelection (w, int32(lsb))
+        | BusCompare (w, _) -> BusCompare (w, uint32(lsb)) 
+        | Constant1(w, _,txt) -> Constant1 (w, lsb,txt)
         | _ -> failwithf "this shouldnt happen, incorrect call of message changeLsb"
-    let newcompo = {symbol.Component with Type = newcompotype}
-    {symbol with Component = newcompo}
+    let updatedCmp = {sym.Component with Type = updatedCmpType}
+    {sym with Component = updatedCmp}
 
-let updateConstant (symModel:Model) (compId:ComponentId) (constantVal:int64) (constantText: string) =
-    let symbol = Map.find compId symModel.Symbols
-    let newcompotype = 
-        match symbol.Component.Type with
+
+let updateConstant (model:Model) (cmpId:ComponentId) (constantVal:int64) (constantText: string) =
+    let sym = Map.find cmpId model.Symbols
+    let updatedCmpType = 
+        match sym.Component.Type with
         | Constant1 (w, _, _) -> Constant1 (w, constantVal,constantText)
-        | _ -> failwithf "this shouldnt happen, incorrect call of message changeLsb"
-    let newcompo = {symbol.Component with Type = newcompotype}
-    printfn "Changing symbol to: %A" newcompotype
-    {symbol with Component = newcompo}
+        | _ -> failwithf "this shouldnt happen, incorrect call of message changeConstant"
+    let updatedCmp = {sym.Component with Type = updatedCmpType}
+    {sym with Component = updatedCmp}
     
 
 //---------------------------------- UPDATE FUNCTION -------------------------------//
@@ -994,7 +993,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         { model with Symbols = newSymbolsWithChangedSymbol }, Cmd.none
     
     | ChangeLsb (compId, newLsb) -> 
-        let newsymbol = updateLSB model compId newLsb
+        let newsymbol = updateLSBNumOfBits model compId newLsb
         let symbolswithoutone = model.Symbols.Remove compId
         let newSymbolsWithChangedSymbol = symbolswithoutone.Add (compId, newsymbol)
         { model with Symbols = newSymbolsWithChangedSymbol }, Cmd.none
