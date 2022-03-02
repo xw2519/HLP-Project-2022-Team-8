@@ -2,13 +2,11 @@
 
 ## Admin and quick access links
 
-***-- UPDATE THIS AT THE END: WITH MAIN SECTION AND TRADED FUNCTIONS IN SECTION 1 --***
-
 [Common repo Team8 file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
 [Buswire (section 2)](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-tlp19/src/Renderer/DrawBlock/BusWire.fs)
 
-Section 2 on my file is lines : **1310-1850** - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L1310)
+Section 2 on my file is lines : **1310-1825** - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L1310)
 
 I am also responsible for lines **325-410** (functions `xyVerticesToSegments`, `makeInitialSegmentsList`) - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L325)
 
@@ -36,7 +34,7 @@ Highlights:
 
 1. The function `checkSegmentAngle` is very poorly written, but can simply be removed as it is not used.
 
-1. The function `removeRedundantSegments` is overall quite poorly written. It does not handle general cases well.
+1. The function `removeRedundantSegments` is overall quite poorly written. After the types refactorings, it can be simplified substantially.
 
 1. The function `getSafeDistanceForMove` is uses the similar pattern to check if two floats are equal multiple times. We can extract it into a helper function. The big match statement can have its cases re-organized to clarify its purpose, and the first match case to check if the wire is Horizontal can also be remove as it not needed.
 
@@ -102,4 +100,4 @@ Highlights:
 
 1.  Attempt at full autorouting for rotated components
 
-     a. `makeInitialSegmentsListFromRISegs` was written in order to implement full autorouting for rotated components. Provided that it worked, it would have been compatible with the already implemented partial routing after manually moving components. It uses normalization of it's given input Port coordinates to define base cases for several possible combinations of port orientations and positions, and then applies those normalized cases back onto a real RotationInvariant Wire that is rotated to match the initial requirements of the Wire.
+     a. `makeInitialSegmentsListFromRISegs` was written in order to implement full autorouting for rotated components. Provided that it worked, it would have been compatible with the already implemented partial routing after manually moving components. It uses normalization of it's given input Port coordinates to define base cases for several possible combinations of port orientations and positions, and then applies those normalized cases back onto a real Rotation Invariant Segment list that is rotated to match the initial requirements of the Wire. This list of Rotation Invariant segments is then translated into our custom Segment type to be assigned to the wire.
