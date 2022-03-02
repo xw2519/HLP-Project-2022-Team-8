@@ -1270,6 +1270,15 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let newModel = ( model, symbolList ) ||> List.fold folder
         { newModel with Symbols = symbolMap }, Cmd.none
  
+    | RotateSymbols compIds ->
+        let rotateSelectedCmps selectedComponents cmpId symbol  =
+            match List.contains cmpId selectedComponents with
+            | true -> rotateSymbol symbol
+            | false -> symbol
+
+        let rotatedSymbols = Map.map (rotateSelectedCmps compIds) model.Symbols
+        {model with Symbols = rotatedSymbols}, Cmd.none
+
     | WriteMemoryLine (compId, addr, value) ->
         let symbol = model.Symbols[compId]
         let comp = symbol.Component
@@ -1313,22 +1322,3 @@ let extractComponents (symModel: Model) : Component list =
     symModel.Symbols
     |> Map.toList
     |> List.map (fun (key, _) -> extractComponent symModel key)
-
-let extractSymbol(symModel: Model) (sId:ComponentId) : Symbol = 
-    symModel.Symbols[sId]
-
-let extractSymbols (symModel: Model) : Symbol list =
-    symModel.Symbols
-    |> Map.toList
-    |> List.map (fun (key, _) -> extractSymbol symModel key)
-
-let updateModel(symModel: Model) (symbol: Symbol): Model = 
-    let updateSymbolMapping =
-        symModel.Symbols
-        |> Map.change (symbol.ComponentId) ( fun x ->
-                                               match x with
-                                               | Some s -> Some symbol
-                                               | None -> None
-                                           )
-
-    {CopiedSymbols = symModel.CopiedSymbols; Ports = symModel.Ports; Symbols = updateSymbolMapping}
