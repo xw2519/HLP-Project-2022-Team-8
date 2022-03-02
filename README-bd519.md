@@ -160,7 +160,15 @@ Your code will all be assessed anyway, so this is optional.
 * Defines a list of functions that update the model and communicates with others with the use of Cmd messages (defined as outputs).
 
 * `AddWire`: This function allows the systems to add a wire to the existing model. 
-* * I removed the "wireWidthFromSymbol" parameter definition as it was not used anywhere.
+   * Removed the "wireWidthFromSymbol" parameter definition as it was not used anywhere.
+   * Modified the calling of the function "updateWireSegmentJumps" to "updateOrResetWireSegmentJumps" by removing the unused ConnectionId list for Update.
+* `BusWidths`: Updates the width of wires and Segments linked to there state in the model: SplitWire/MergeWire
+   * Transformed the if else statement for "newColor" into a match statement to simplify visualisation and conform to "width"
+   * `addSymbolWidthFolder` bad naming for the map component "m" changed to "mapSymbolId".
+* `CopyWires`: iterates through every wires in the model and checks if their id is inside the selection for copy.
+* `ErrorWires`: Change the colors of wires if it detected an error in the system (not connected or misconnected, etc).
+   * Hesitated in changing the if else statement into a match case but decided that it is actually clearer the way it is.
+   * Reformatted the model declaration for clarity as it wasn't super clear before.
 
 
 
