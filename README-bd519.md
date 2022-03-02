@@ -125,14 +125,14 @@ Your code will all be assessed anyway, so this is optional.
 
 ## Analysis
 
-This combines analysis of **issues in existing code** with **proof or analysis of how/why the new code works**. 
-The marking combines both parts. If new code already works and is well written (especially if it is 
-demonstrated to have significant value in terms of ability to support extensions (see Extensions below)
-less evidence will be needed for a high mark in this section.
-The analysis here demonstrates that you understand the problems in the old code. 
-If the old code has no or few problems you can say this.
+[`makeAllJumps`](https://github.com/xw2519/HLP-Project-2022-Team_8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L1906-L2016)
 
-Anything you say here may if necessary be tested in the 5 min feedback interview to check understanding.
+* This function takes in a model as well as a ConnectionID List and returns a new model. It will iterate throught all the elements of the model, and check if two orthogonal segments intersect. If the function finds such case it will keep modify the JumpCoordinateList of the horizontal segment. This allows us to represent such jumps in OldfashionRepresentation.
+
+* The old version of this function was using "for loops" and mutable data opposite to F# directories, as well as being very messy and hard to understand.
+
+* The new function uses pipeline (Array.map, Array.fold...) by creating a Grid, making an array of all possible pairs of wires in the model and iterates through those to check intersection.
+
 
 ### Issues in Existing Code
 
