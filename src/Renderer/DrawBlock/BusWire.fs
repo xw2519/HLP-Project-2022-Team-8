@@ -1497,7 +1497,7 @@ let removeRedundantSegments (segs: Segment list) =
         // Get their direction
         let xDirection1, xDirection2 = seg1.Vector.X, seg2.Vector.X
         // If they are horizontal and of opposite direction
-        if (getOrientation seg1) = Horizontal &&                //TODO: ADD CHECK IF THEY ARE SMALL POINTS?
+        if (getOrientation seg1) = Horizontal &&
            (getOrientation seg2) = Horizontal && 
            sign xDirection1 <> sign xDirection2
         then
