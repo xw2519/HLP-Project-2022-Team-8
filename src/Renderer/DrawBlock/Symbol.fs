@@ -988,22 +988,19 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         { model with Symbols = newSymbols }, Cmd.none 
     
     | ChangeNumberOfBits (compId, newBits) ->
-        let newsymbol = updateCmpNumOfBits model compId newBits
-        let symbolswithoutone = model.Symbols.Remove compId
-        let newSymbolsWithChangedSymbol = symbolswithoutone.Add (compId, newsymbol)
-        { model with Symbols = newSymbolsWithChangedSymbol }, Cmd.none
+        let newSymbol = updateCmpNumOfBits model compId newBits
+        let newSymbols = Map.add compId newSymbol model.Symbols
+        { model with Symbols = newSymbols }, Cmd.none
     
     | ChangeLsb (compId, newLsb) -> 
-        let newsymbol = updateLSBNumOfBits model compId newLsb
-        let symbolswithoutone = model.Symbols.Remove compId
-        let newSymbolsWithChangedSymbol = symbolswithoutone.Add (compId, newsymbol)
-        { model with Symbols = newSymbolsWithChangedSymbol }, Cmd.none
+        let newSymbol = updateLSBNumOfBits model compId newLsb
+        let newSymbols = Map.add compId newSymbol model.Symbols
+        { model with Symbols = newSymbols }, Cmd.none
 
     | ChangeConstant (compId, newVal, newText) -> 
-        let newsymbol = updateConstant model compId newVal newText
-        let symbolswithoutone = model.Symbols.Remove compId
-        let newSymbolsWithChangedSymbol = symbolswithoutone.Add (compId, newsymbol)
-        { model with Symbols = newSymbolsWithChangedSymbol }, Cmd.none
+        let newSymbol = updateConstant model compId newVal newText
+        let newSymbols = Map.add compId newSymbol model.Symbols
+        { model with Symbols = newSymbols }, Cmd.none
     
     | ResetModel -> { model with Symbols = Map.empty; Ports = Map.empty }, Cmd.none
     
