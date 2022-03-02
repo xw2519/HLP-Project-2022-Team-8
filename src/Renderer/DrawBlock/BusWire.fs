@@ -1481,24 +1481,17 @@ let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (dist
 
 /// Adjust wire (input type is Segment list) so that two adjacent horizontal segments that are in opposite directions
 /// get eliminated
-let removeRedundantSegments  (segs: Segment list) =                                 // TODO: rewrite and fix this function
-/// Set the absolute value of X (keeping the previously assigned sign)
-(*let setAbsX x (pos: XYPos) =
-    let x = if pos.X < 0.0 then - abs x else abs x
-    {pos with X = x}
-*)
+let removeRedundantSegments  (segs: Segment list) =
     /// Get difference in X along a segment
     let xDelta seg = 
         let segEnd = getEndPoint seg
-        segEnd.X - seg.Start.X //abs segEnd.X - abs seg.Start.X
+        segEnd.X - seg.Start.X
 
     /// Set the X comp of the Start of the segment to 'x', keeping the sign
     let setStartX x (seg:Segment) = {seg with Start = {X = x ; Y = seg.Start.Y}}
 
     /// Set the X comp of the End of the segment to 'x', keeping the sign
     let setEndX x (seg:Segment) = 
-        //let newX = x - seg.Start.X
-        //{seg with Vector = setAbsX newX seg.Vector}
         let segEnd = getEndPoint seg
         let newSegEnd = {segEnd with X=x}
         {seg with Vector = {X = (newSegEnd.X - seg.Start.X) ; Y = (newSegEnd.Y - seg.Start.Y)}}
@@ -1506,14 +1499,14 @@ let removeRedundantSegments  (segs: Segment list) =                             
     /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
     let adjust seg1 seg2 =
         // Get their direction
-        let xd1, xd2 = xDelta seg1, xDelta seg2
+        let xDirection1, xDirection2 = xDelta seg1, xDelta seg2
         // If they are horizontal and of opposite direction
         if (getOrientation seg1) = Horizontal && 
            (getOrientation seg2) = Horizontal && 
-           sign xd1 <> sign xd2 
+           sign xDirection1 <> sign xDirection2
         then
             // If the first segment is longer than the second one
-            if abs xd1 > abs xd2 then
+            if abs xDirection1 > abs xDirection2 then
                 // replace the end of segment 1 with the end of segment 2, and the start of segment 2 with its end (making it of length 0)
                 [setEndX (getEndPoint seg2).X seg1; setStartX (getEndPoint seg2).X seg2]
             else
@@ -1527,7 +1520,7 @@ let removeRedundantSegments  (segs: Segment list) =                             
     adjust segs[0] segs[1] @  segs[2..(segs.Length - 3)] @ adjust segs[segs.Length - 2] segs[segs.Length - 1]
     
 
-// MANUAL ROUTING: ENTRY POINT TO THIS CODE SECTION
+/// MANUAL ROUTING: 
 /// This function allows a wire segment to be moved a given amount in a direction perpedicular to
 /// its orientation (Horizontal or Vertical). Used to manually adjust routing by mouse drag.
 /// The moved segment is tagged by negating one of its coordinates so that it cannot be auto-routed
@@ -1660,18 +1653,12 @@ let getWiresConnectedToPorts (wModel : Model) (compIds : list<ComponentId>) =
         {| InputWires = inputWires ; OutputWires = outputWires ; FullyConnectedWires = fullyConnected |}
 
 
-// AUTOMATIC FULL AUTOROUTE
+/// FULL AUTOROUTING: 
 /// Returns a new fully autorouted wire given a model and wire
 let autorouteWire (model : Model) (wire : Wire) : Wire =
     let posTuple = Symbol.getTwoPortLocations (model.Symbol) (wire.InputPort) (wire.OutputPort)
     // Re-generate default Wire shape going from the InputPort to the OutputPort
     {wire with Segments = makeInitialSegmentsList wire.Id posTuple}
-
-/// Reverse segment order, and Start, End coordinates, so list can be processed from input to output
-/// this function is self-inverse
-let revSegments (segs:Segment list) =
-    List.rev segs
-    |> List.map (fun seg -> {seg with Start = (getEndPoint seg) ; Vector = {X = - seg.Vector.X ; Y = - seg.Vector.Y}})
 
 //
 //  ====================================================================================================================
@@ -1731,6 +1718,12 @@ let transformSeg tX tY (seg: Segment) =
 /// Returns a tuple containing the sign of the difference of the X coordinates, and the sign of the difference of the Y coordinates
 let topology (pos1: XYPos) (pos2:XYPos) =
     sign (abs pos1.X - abs pos2.X), sign (abs pos1.Y - abs pos2.Y)
+
+/// Reverse segment order, and Start, End coordinates, so list can be processed from input to output
+/// this function is self-inverse
+let revSegments (segs:Segment list) =
+    List.rev segs
+    |> List.map (fun seg -> {seg with Start = (getEndPoint seg) ; Vector = {X = - seg.Vector.X ; Y = - seg.Vector.Y}})
 
 
 /// Returns None if full autoroute is required or Some segments with initial part of the segment list autorouted
@@ -1813,6 +1806,7 @@ let moveWire (wire : Wire) (diff : XYPos) =
     // Return the new wire
     {wire with Segments = newSegs}
 
+/// PARTIAL AUTOROUTING: 
 /// Re-routes a single wire in the model when its ports move.
 /// Tries to preserve manual routing when this makes sense, otherwise re-routes with autoroute.
 /// Partial routing from input end is done by reversing segments and and swapping Start/End
