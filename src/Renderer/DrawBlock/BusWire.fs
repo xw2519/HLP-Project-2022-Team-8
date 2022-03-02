@@ -282,6 +282,10 @@ let pp segs (model: Model)=
 //-------------------------------Implementation code----------------------------//
 //START INTERFACE CONVERSIONS
 
+//---------------------------------------------------------------------------------//
+//--------------------DAC219 CODE SECTION STARTS-------------------------------------//
+//---------------------------------------------------------------------------------//
+
 /// Given the coordinates of two port locations that correspond
 /// to the endpoints of a wire, this function returns a list of
 /// segments to form the wire
@@ -759,7 +763,7 @@ let RenderWire (segmentList: Segment List) (colour : string) (width : string) (n
         |Radiussed -> renderRadiusedWire segmentList colour width numofSegments : ReactElement List
 
 ///
-type WireRenderProps =
+type WireRenderProperties =
     {
         key: string
         Segments: list<Segment>
@@ -772,7 +776,7 @@ type WireRenderProps =
 ///Render a Wire and attach a buswidth label, using given inputted properties fetched from the model
 let RenderWireAttachBusWidth = 
     FunctionComponent.Of(
-        fun ((renderProperties: WireRenderProps)) ->
+        fun ((renderProperties: WireRenderProperties)) ->
             //call the render wire function with the model's displaytype 
             let renderWireSegmentList : list<ReactElement> = RenderWire renderProperties.Segments (renderProperties.ColorP.Text()) (string renderProperties.StrokeWidthP) (renderProperties.Segments.Length:int) renderProperties.DisplayType renderProperties.SplitWireList
             //bus width properties    
@@ -834,6 +838,9 @@ let RenderModel (model : Model) (dispatch : Dispatch<Msg>) =
     //return the rendered wires and rendered symbols
     g [] [(g [] RenderedWires); symbols]
     |> TimeHelpers.instrumentInterval "WireView" start
+//---------------------------------------------------------------------------------//
+//--------------------DAC219 CODE SECTION STOPS-------------------------------------//
+//---------------------------------------------------------------------------------//
 
 // This function is given two couples of
 /// points that define two line segments and it returns:
