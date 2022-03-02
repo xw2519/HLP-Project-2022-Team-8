@@ -1,1719 +1,1293 @@
-﻿(*
-This module implements wires between symbol ports. Wires can be autorouted, or manually routed by dragging segments.
-Moving symbols causes the corresponding wires to move.
-Wires are read and written from Issie as lists of wire vertices, whatever teh internal representation is.
+(*
+  This module coordinates the draw block user interface managing component selection, moving, auto-scrolling etc
 *)
 
-
-module BusWire
-
+module Sheet
 open CommonTypes
 open Fable.React
 open Fable.React.Props
+open Browser
 open Elmish
 open DrawHelpers
 
-//Static Vars
-let minSegLen = 5.
 
-//------------------------------------------------------------------------//
-//------------------------------BusWire Types-----------------------------//
-//------------------------------------------------------------------------//
-
-///
-type Orientation =  Horizontal | Vertical
-
-type InOut = Input | Output
+let mutable canvasDiv:Types.Element option = None
 
 type Modes = OldFashionedCircuit | ModernCircuit | Radiussed
 
-///
-type SnapPosition = High | Mid | Low
+/// Used to keep mouse movement (AKA velocity) info as well as position
+type XYPosMov = {
+    Pos: XYPos
+    Move: XYPos
+    }
 
-type Index = One | Two | Three | Four | Five
+/// Used to keep track of what the mouse is on
+type MouseOn =
+    | InputPort of CommonTypes.InputPortId * XYPos
+    | OutputPort of CommonTypes.OutputPortId * XYPos
+    | Component of CommonTypes.ComponentId
+    | Connection of CommonTypes.ConnectionId
+    | Canvas
+    
+/// Keeps track of the current action that the user is doing
+type CurrentAction =
+    | Selecting
+    | InitialiseMoving of CommonTypes.ComponentId // In case user clicks on a component and never drags the mouse then we'll have saved the component that the user clicked on to reset any multi-selection to that component only.
+    | MovingSymbols
+    | DragAndDrop
+    | MovingWire of CommonTypes.ConnectionId // Sends mouse messages on to BusWire
+    | ConnectingInput of CommonTypes.InputPortId // When trying to connect a wire from an input
+    | ConnectingOutput of CommonTypes.OutputPortId // When trying to connect a wire from an output
+    | Scrolling // For Automatic Scrolling by moving mouse to edge to screen
+    | Idle
+    // ------------------------------ Issie Actions ---------------------------- //
+    | InitialisedCreateComponent of ComponentType * string
+
+type UndoAction =
+    | MoveBackSymbol of CommonTypes.ComponentId List * XYPos
+    | UndoPaste of CommonTypes.ComponentId list
+    
+/// Used for Snap-to-Grid, keeps track of mouse coordinates when the snapping started, and the amount to un-snap in the future.
+type LastSnap =
+    {
+        Pos: float
+        SnapLength: float
+    }
+    
+/// Used for Snap-to-Grid, keeps track of the last snap for each coordinate. None if no snapping has occurred.
+type MouseSnapInfo = 
+    {
+        XSnap: LastSnap Option 
+        YSnap: LastSnap Option
+    }
+
+/// Keeps track of what cursor to show
+type CursorType =
+    | Default
+    | ClickablePort
+    | NoCursor
+    | Spinner
 with
-    member this.Text() = // the match statement is used for performance
+    member this.Text() = 
         match this with
-        | One -> 1
-        | Two -> 2
-        | Three -> 3
-        | Four -> 4
-        | Five -> 5
-    
-///
-type Segment = 
+        | Default -> "default"
+        | ClickablePort -> "move"
+        | NoCursor -> "none"
+        | Spinner -> "wait"
+
+/// Keeps track of coordinates of visual snap-to-grid indicators.
+type SnapIndicator =
     {
-        Id : SegmentId
-        Index: int
-        Start: XYPos
-        End: XYPos
-        Dir: Orientation
-        HostId: ConnectionId
-        /// List of x-coordinate values of segment jumps. Only used on horizontal segments.
-        JumpCoordinateList: list<float * SegmentId>
-        Draggable : bool
+        XLine: float Option
+        YLine: float Option
     }
 
+/// For Keyboard messages
+type KeyboardMsg =
+    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | CtrlM
 
-
-///
-type Wire =
-    {
-        Id: ConnectionId 
-        InputPort: InputPortId
-        OutputPort: OutputPortId
-        Color: HighLightColor
-        Width: int
-        Segments: list<Segment>
-    }
-
-    with static member stickLength = 16.0
-
-
-
-///
-type Model =
-    {
-        Symbol: Symbol.Model
-        WX: Map<ConnectionId, Wire>
-        FromVerticalToHorizontalSegmentIntersections: Map<SegmentId, list<ConnectionId*SegmentId>>
-        FromHorizontalToVerticalSegmentIntersections: Map<SegmentId, list<ConnectionId*SegmentId>>
-        CopiedWX: Map<ConnectionId, Wire> 
-        SelectedSegment: SegmentId
-        LastMousePos: XYPos
-        ErrorWires: list<ConnectionId>
-        Notifications: Option<string>
-        Mode: Modes
-        SplitWireList: XYPos list
-
-    }
-
-//----------------------------Message Type-----------------------------------//
-
-///
 type Msg =
-    | Symbol of Symbol.Msg
-    | AddWire of (InputPortId * OutputPortId)
-    | BusWidths
-    | CopyWires of list<ConnectionId>
-    | DeleteWires of list<ConnectionId>
-    | SelectWires of list<ConnectionId>
-    | UpdateWires of list<ComponentId> * XYPos
-    | DragWire of ConnectionId * MouseT
-    | ColorWires of list<ConnectionId> * HighLightColor
-    | ErrorWires of list<ConnectionId>
-    | ResetJumps of list<ConnectionId>
-    | MakeJumps of list<ConnectionId>
-    | ResetModel // For Issie Integration
-    | LoadConnections of list<Connection> // For Issie Integration
-    | ChangeMode
-
-//-------------------------Debugging functions---------------------------------//
-let ppSId (sId:SegmentId) =
-    sId
-    |> (fun (SegmentId x) -> x)
-    |> Seq.toList
-    |> (fun chars -> chars[0..2])
-    |> List.map string
-    |> String.concat ""
-
-let ppS (seg:Segment) =
-    sprintf $"|{seg.Index}:{ppSId seg.Id}|"
-
-let ppWId (wId:ConnectionId) =
-        wId
-        |> (fun (ConnectionId x) -> x)
-        |> Seq.toList
-        |> (fun chars -> chars[0..2])
-        |> List.map string
-        |> String.concat ""
-
-let ppMaps (model:Model) =
-    let mhv = model.FromHorizontalToVerticalSegmentIntersections
-    let mvh = model.FromVerticalToHorizontalSegmentIntersections
-    let m1 =
-        mhv
-        |> Map.toList
-        |> List.map (fun (sid,lst) ->
-            List.map (snd >> ppSId) lst
-            |> (fun segs -> sprintf $"""<{ppSId sid}->[{String.concat ";" segs}]>"""))
-            |> String.concat ";\n"
-    let m2 =
-        mvh
-        |> Map.toList
-        |> List.map (fun (sid,lst) ->
-            List.map (snd >> ppSId) lst
-            |> (fun segs -> sprintf $"""<{ppSId sid}->[{String.concat ";" segs}]>"""))
-            |> String.concat ";\n"
-    let jumps =
-        model.WX
-        |> Map.toList
-        |> List.map (fun (wId,w) ->
-            sprintf $"Wire: {w.Segments |> List.collect (fun seg -> seg.JumpCoordinateList |> List.map (fun (f, sid) -> ppSId sid))}")
-            
-    printfn $"\n------------------\nMapHV:\n {m1} \n MapVH\n{m2} \nJumps:\n {jumps}\n------------------\n"
+    | Wire of BusWire.Msg
+    | KeyPress of KeyboardMsg
+    | ToggleGrid
+    | KeepZoomCentered of XYPos
+    | MouseMsg of MouseT
+    | UpdateBoundingBoxes
+    | UpdateSingleBoundingBox of ComponentId
+    | UpdateScrollPos of X: float * Y: float
+    | ManualKeyUp of string // For manual key-press checking, e.g. CtrlC
+    | ManualKeyDown of string // For manual key-press checking, e.g. CtrlC
+    | CheckAutomaticScrolling
+    | DoNothing
+    // ------------------- Issie Interface Messages ----------------------
+    | InitialiseCreateComponent of ComponentType * string // Need to initialise for drag-and-drop
+    | FlushCommandStack
+    | ResetModel
+    | UpdateSelectedWires of ConnectionId list * bool
+    | ColourSelection of compIds : ComponentId list * connIds : ConnectionId list * colour : HighLightColor
+    | ToggleSelectionOpen
+    | ToggleSelectionClose
+    | ResetSelection
+    | SetWaveSimMode of bool
+    | ToggleNet of CanvasState //This message does nothing in sheet, but will be picked up by the update function
+    | SelectWires of ConnectionId list
+    | SetSpinner of bool
 
 
+// ------------------ Helper Functions that need to be before the Model type --------------------------- //
 
-let ppSeg seg (model: Model) = 
-        let cid,sid = seg
-        let wire = model.WX[cid]
-        let sg = List.find (fun (s:Segment) -> s.Id = sid ) wire.Segments
-        let pxy (xy: XYPos) = sprintf $"{(xy.X,xy.Y)}"
-        sprintf $"""[{ppSId sg.Id}: {pxy sg.Start}->{pxy sg.End}]-{match sg.Dir with | Vertical -> "V" | _ -> "H"}-{sg.Index}"""
+/// Creates a command to Symbol    
+let symbolCmd (msg: Symbol.Msg) = Cmd.ofMsg (Wire (BusWire.Symbol msg))
 
-let pp segs (model: Model)= 
-    segs
-    |> List.map  ( fun seg ->
-        let cid,sid = seg
-        let wire = model.WX[cid]
-        match List.tryFind (fun (s:Segment) -> s.Id = sid ) wire.Segments with
-        | Some  sg ->
-            let pxy (xy: XYPos) = sprintf $"{(xy.X,xy.Y)}"
-            sprintf $"""[{pxy sg.Start}->{pxy sg.End}]-{match sg.Dir with | Vertical -> "V" | _ -> "H"}-{sg.Index}"""
-        | None -> "XX")
-    |> String.concat ";"
-
-//-------------------------------Implementation code----------------------------//
-
-/// Wire to Connection
-let segmentsToVertices (segList:Segment list) = 
-    let firstCoord = (segList[0].Start.X, segList[0].Start.Y)
-    let verticesExceptFirst = List.mapi (fun i seg -> (seg.End.X,seg.End.Y)) segList
-    [firstCoord] @ verticesExceptFirst
+/// Creates a command to BusWire
+let wireCmd (msg: BusWire.Msg) = Cmd.ofMsg (Wire msg)
 
 
-/// Given the coordinates of two port locations that correspond
-/// to the endpoints of a wire, this function returns a list of
-/// wire vertices
-let makeInitialWireVerticesList (portCoords : XYPos * XYPos)  = 
-    let xs, ys, Xt, Yt = snd(portCoords).X, snd(portCoords).Y, fst(portCoords).X, fst(portCoords).Y
-
-    // adjust length of segments 0 and 6 - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
-    let adjStick = 
-        let d = List.max [ abs (xs - Xt) ; abs (ys - Yt) ; Wire.stickLength / 4.0 ]
-        if (Xt - xs > 0.0) then
-            min d (Wire.stickLength / 2.0)
-        else
-            Wire.stickLength / 2.0
-
-    // the simple case of a wire travelling from output to input in a left-to-right (positive X) direction
-    let leftToRight = 
-        [
-            {X = xs; Y = ys};
-            {X = xs+adjStick; Y = ys};
-            {X = xs+adjStick; Y = ys};
-            {X = (xs+Xt)/2.0; Y = ys};
-            {X = (xs+Xt)/2.0; Y = Yt};
-            {X = Xt-adjStick; Y = Yt}
-            {X = Xt-adjStick; Y = Yt}
-            {X = Xt; Y = Yt}
-        ]
-    // the case of a wire travelling from output to input in a right-to-left (negative X) direction. Thus must bend back on itself.
-    let rightToLeft =
-        [
-            {X = xs; Y = ys}
-            {X = xs+Wire.stickLength; Y = ys}
-            {X = xs+Wire.stickLength; Y = ys}
-            {X = xs+Wire.stickLength; Y = (ys+Yt)/2.0}
-            {X = Xt-Wire.stickLength; Y = (ys+Yt)/2.0}
-            {X = Xt-Wire.stickLength; Y = Yt}
-            {X = Xt-Wire.stickLength; Y = Yt}
-            {X = Xt; Y = Yt}
-        ]
-
-    // the special case of a wire travelling right-to-left where the two ends are vertically almost identical. 
-    // In this case we ad an offset to the main horizontal segment so it is more visible and can be easily re-routed manually.
-    let rightToLeftHorizontal =
-        [
-            {X = xs; Y = ys}
-            {X = xs+Wire.stickLength; Y = ys}
-            {X = xs+Wire.stickLength; Y = ys}
-            {X = xs+Wire.stickLength; Y = ys + Wire.stickLength}
-            {X = Xt-Wire.stickLength; Y = ys + Wire.stickLength}
-            {X = Xt-Wire.stickLength; Y = Yt}
-            {X = Xt-Wire.stickLength; Y = Yt}
-            {X = Xt; Y = Yt}
-        ]
-
-    if Xt - xs >= adjStick * 2.0 then 
-        leftToRight, true
-    elif abs (ys - Yt) < 4.0 then 
-        rightToLeftHorizontal, false
-    else 
-        rightToLeft, false 
-
-let inferDirectionfromVertices (xyVerticesList: XYPos list) =
-    if xyVerticesList.Length <> 8 then 
-        failwithf $"Can't perform connection type inference except with 8 vertices: here given {xyVerticesList.Length} vertices"
-    let getDir (vs:XYPos) (ve:XYPos) =
-        match sign ((abs vs.X - abs ve.X)*(abs vs.X - abs ve.X) - (abs vs.Y - abs ve.Y)*(abs vs.Y - abs ve.Y)) with
-        | 1 -> Some Horizontal
-        | -1 -> Some Vertical
-        | _ -> None
-    let midS, midE = xyVerticesList[3], xyVerticesList[4]
-    let first,last = xyVerticesList[1], xyVerticesList[5]
-    let xDelta = abs last.X - abs first.X
-    match getDir midS midE, abs xDelta > 20.0, xDelta > 0.0 with
-    | Some Horizontal, _, _ when midE.X < midS.X -> Some Horizontal
-    | Some Vertical, _, _ -> Some Vertical 
-    | _, true, true -> Some Vertical
-    | _, true, false -> Some Horizontal
-    | _, false, _ -> None
-
-/// this turns a list of vertices into a list of segments
-let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos list) =
-
-    let dirs = 
-        match isLeftToRight with
-        | true -> 
-            // for 5 adjustable segments left-to-right
-            [Horizontal;Vertical;Horizontal;Vertical;Horizontal;Vertical;Horizontal]
-        | false ->
-            // for 3 adjustale segments right-to-left
-            [Horizontal;Horizontal;Vertical;Horizontal;Vertical;Horizontal;Horizontal]
-
-    List.pairwise xyVerticesList
-    |> List.mapi (
-        fun i ({X=startX; Y=startY},{X=endX; Y=endY}) ->    
-            {
-                Id = SegmentId(JSHelpers.uuid())
-                Index = i
-                Start = {X=startX;Y=startY};
-                End = {X=endX;Y=endY};
-                Dir = dirs[i]
-                HostId  = connId;
-                JumpCoordinateList = [];
-                Draggable =
-                    match i with
-                    | 1 | 5 ->  isLeftToRight
-                    | 0  | 6  -> false
-                    | _ -> true
-            })
-
-/// Convert a (possibly legacy) issie Connection stored as a list of vertices to Wire
-let issieVerticesToSegments 
-        (connId) 
-        (verticesList: list<float*float>) =
-    let xyVerticesList =
-        verticesList
-        |> List.map (fun (x,y) -> {X=x;Y=y})
-
-    let makeSegmentsFromVertices (xyList: XYPos list) =
-        makeInitialWireVerticesList (xyList[0], xyList[xyList.Length - 1])
-        |> (fun (vl, isLeftToRight) -> xyVerticesToSegments connId isLeftToRight vl)
-        
-
-    // segments lists must must be length 7, in case legacy vertex list does not conform check this
-    // if there are problems reroute
-        //vertex lists are one element longer than segment lists
-    if xyVerticesList.Length <> 8 then  
-        makeSegmentsFromVertices xyVerticesList
-    else 
-        match inferDirectionfromVertices xyVerticesList with
-        | Some Vertical -> 
-            printfn "Converting vertical"
-            xyVerticesToSegments connId true xyVerticesList
-        | Some Horizontal -> 
-            printfn "Converting horizontal"
-            xyVerticesToSegments connId false xyVerticesList
-        | _ ->
-            // can't work out what vertices are, so default to auto-routing
-            printfn "Converting unknown"
-            makeSegmentsFromVertices xyVerticesList
-            
-
+type Model = {
+    Wire: BusWire.Model
+    BoundingBoxes: Map<CommonTypes.ComponentId, BoundingBox>
+    LastValidBoundingBoxes: Map<CommonTypes.ComponentId, BoundingBox>
+    SelectedComponents: CommonTypes.ComponentId List
+    SelectedWires: CommonTypes.ConnectionId list
+    NearbyComponents: CommonTypes.ComponentId list
+    ErrorComponents: CommonTypes.ComponentId list
+    DragToSelectBox: BoundingBox
+    ConnectPortsLine: XYPos * XYPos // Visual indicator for connecting ports, defines two vertices to draw a line in-between.
+    TargetPortId: string // Keeps track of if a target port has been found for connecting two wires in-between.
+    Action: CurrentAction 
+    ShowGrid: bool // Always true at the moment, kept in-case we want an optional grid
+    Snap: MouseSnapInfo // For Snap-to-Grid
+    SnapIndicator: SnapIndicator // For Snap-to-Grid
+    CursorType: CursorType
+    LastValidPos: XYPos
+    CurrentKeyPresses: Set<string> // For manual key-press checking, e.g. CtrlC
+    Zoom: float
+    TmpModel: Model Option
+    UndoList: Model List
+    RedoList: Model List
+    AutomaticScrolling: bool // True if mouse is near the edge of the screen and is currently scrolling. This improved performance for manual scrolling with mouse wheel (don't check for automatic scrolling if there is no reason to)
+    ScrollPos: XYPos // copies HTML canvas scrolling position: (canvas.scrollLeft,canvas.scrollTop)
+    LastMousePos: XYPos // For Symbol Movement
+    ScrollingLastMousePos: XYPosMov // For keeping track of mouse movement when scrolling. Can't use LastMousePos as it's used for moving symbols (won't be able to move and scroll symbols at same time)
+    LastMousePosForSnap: XYPos
+    MouseCounter: int
+    Toggle : bool
+    IsWaveSim : bool
+    PrevWireSelection : ConnectionId list
+    } with
     
-//----------------------interface to Issie-----------------------//
-/// This function is given a ConnectionId and it
-/// converts the corresponding BusWire.Wire type to a
-/// Connection type, offering an interface
-/// between our implementation and Issie.
-let extractConnection (wModel : Model) (cId : ConnectionId) : Connection =
-    let conn = wModel.WX[cId]
-    let ConnectionId strId, InputPortId strInputPort, OutputPortId strOutputPort = conn.Id, conn.InputPort, conn.OutputPort
-    {
-        Id = strId
-        Source = { Symbol.getPort wModel.Symbol strOutputPort with PortNumber = None } // None for connections 
-        Target = { Symbol.getPort wModel.Symbol strInputPort with PortNumber = None } // None for connections 
-        Vertices = segmentsToVertices conn.Segments
-    } // We don't use vertices
-
-/// This function is given a list of ConnectionId and it
-/// converts the corresponding BusWire.Wire(s) to a
-/// list of Connectio, offering an interface
-/// between our implementation and Issie.
-let extractConnections (wModel : Model) : list<Connection> = 
-    wModel.WX
-    |> Map.toList
-    |> List.map (fun (key, _) -> extractConnection wModel key)
-
-/// Given three points p, q, r, the function returns true if 
-/// point q lies on line segment 'pr'. Otherwise it returns false.
-let onSegment (p : XYPos) (q : XYPos) (r : XYPos) : bool = 
-    (
-        (q.X <= max (p.X) (r.X)) &&
-        (q.X >= min (p.X) (r.X)) &&
-        (q.Y <= max (p.Y) (r.Y)) &&
-        (q.Y >= min (p.Y) (r.Y))
-    )
-  
-/// Given three points p, q, r, the function returns:
-/// - 0 if p, q and r are colinear;
-/// - 1 if the path that you must follow when you start at p, you visit q and you end at r, is a CLOCKWISE path;
-/// - 2 if the path that you must follow when you start at p, you visit q and you end at r, is a COUNTERCLOCKWISE path.
-let orientation (p : XYPos) (q : XYPos) (r : XYPos) : int =
-    let result = (q.Y - p.Y) * (r.X - q.X) - (q.X - p.X) * (r.Y - q.Y)
-  
-    if (result = 0.0) then 0 // colinear
-    elif (result > 0.0) then 1 // clockwise
-    else 2 //counterclockwise
-
-///Returns the abs of an XYPos object
-let getAbsXY (pos : XYPos) = 
-    {X = abs pos.X; Y = abs pos.Y}
-  
-/// Given two sets of two points: (p1, q1) and (p2, q2)
-/// that define two segments, the function returns true
-/// if these two segments intersect and false otherwise.
-let segmentIntersectsSegment ((p1, q1) : (XYPos * XYPos)) ((p2, q2) : (XYPos * XYPos)) : bool =
-    // this is a terrible implementation
-    // determining intersection should be done by finding intersection point and comparing with coords
-    // since segments are always horizontal or vertical that is pretty easy.
-    // in addition the way that coordinates can be positive or negative but are absed when used is appalling
-    // the manual or auto route info per segment should be a separate field in Segmnet, not encoded in the sign of the coordinates
-    // that is needed when writing out or reading from Issie, but the write/read process can easily translate to a sane internal data structure in the draw blokc model
-    let p1,q1,p2,q2= getAbsXY p1, getAbsXY q1, getAbsXY p2, getAbsXY q2
-    // Find the four orientations needed for general and 
-    // special cases 
-    let o1 = orientation (p1) (q1) (p2)
-    let o2 = orientation (p1) (q1) (q2)
-    let o3 = orientation (p2) (q2) (p1)
-    let o4 = orientation (p2) (q2) (q1)
-  
-    // General case 
-    if (o1 <> o2 && o3 <> o4)
-        then true
-
-    // Special Cases 
-    // p1, q1 and p2 are colinear and p2 lies on segment p1q1 
-    elif (o1 = 0 && onSegment (p1) (p2) (q1))
-        then true
-  
-    // p1, q1 and q2 are colinear and q2 lies on segment p1q1 
-    elif (o2 = 0 && onSegment (p1) (q2) (q1))
-        then true
-  
-    // p2, q2 and p1 are colinear and p1 lies on segment p2q2 
-    elif (o3 = 0 && onSegment (p2) (p1) (q2))
-        then true
-  
-     // p2, q2 and q1 are colinear and q1 lies on segment p2q2 
-    elif (o4 = 0 && onSegment (p2) (q1) (q2))
-        then true
-    else false
-
-
-
-///Returns a segment with positive Start and End coordinates
-let makeSegPos (seg : Segment) =
-    {seg with
-        Start = getAbsXY seg.Start
-        End = getAbsXY seg.End }
-
-/// Given two coordinates, this function returns the euclidean
-/// distance between them.
-let distanceBetweenTwoPoints (pos1 : XYPos) (pos2 : XYPos) : float =
-    sqrt ( (pos1.X - pos2.X)*(pos1.X - pos2.X) + (pos1.Y - pos2.Y)*(pos1.Y - pos2.Y) )
-
-
-/// Given the coordinates of two port locations that correspond
-/// to the endpoints of a wire, this function returns a list of
-/// Segment(s).
-let makeInitialSegmentsList (hostId : ConnectionId) (portCoords : XYPos * XYPos) : list<Segment> =
-    let xyPairs, isLeftToRight = makeInitialWireVerticesList portCoords
-    xyPairs
-    |> xyVerticesToSegments hostId isLeftToRight
-
-
-/// This function renders the given
-/// segment (i.e. creates a ReactElement
-/// using the data stored inside it),
-/// using the colour and width properties given.
-let renderSegment (segment : Segment) (colour : string) (width : string) : ReactElement = 
-    let wOpt = EEExtensions.String.tryParseWith System.Int32.TryParse width
-    let renderWidth = 
-        match wOpt with
-        | Some 1 -> 1.5
-        | Some n when n < int "8" -> 2.5
-        | _ -> 3.5
-    let halfWidth = (renderWidth/2.0) - (0.75)
-    let lineParameters = { defaultLine with Stroke = colour; StrokeWidth = string renderWidth }
-    let circleParameters = { defaultCircle with R = halfWidth; Stroke = colour; Fill = colour }
-
-    if segment.Dir = Horizontal then
-        let pathParameters = { defaultPath with Stroke = colour; StrokeWidth = string renderWidth }
-
-        let renderWireSubSegment (vertex1 : XYPos) (vertex2 : XYPos) : list<ReactElement> =
-            let Xa, Ya, Xb, Yb = vertex1.X, vertex1.Y, vertex2.X, vertex2.Y
-            makeLine Xa Ya Xb Yb lineParameters
-            ::
-            makeCircle Xa Ya circleParameters
-            ::
-            [
-                makeCircle Xb Yb circleParameters
-            ]
-        
-        let segmentJumpHorizontalSize = 9.0
-        let segmentJumpVerticalSize = 6.0
-        
-        let renderSingleSegmentJump (intersectionCoordinate : XYPos) : list<ReactElement> =
-            let x, y = intersectionCoordinate.X, intersectionCoordinate.Y
-
-            let startingPoint = {X = x - segmentJumpHorizontalSize/2.0; Y = y}
-            let startingControlPoint = {X = x - segmentJumpHorizontalSize/2.0; Y = y - segmentJumpVerticalSize}
-            let endingControlPoint = {X = x + segmentJumpHorizontalSize/2.0; Y = y - segmentJumpVerticalSize}
-            let endingPoint = {X = x + segmentJumpHorizontalSize/2.0; Y = y}
-
-            makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters
-            ::
-            makeCircle startingPoint.X startingPoint.Y circleParameters
-            ::
-            [
-                makeCircle endingPoint.X endingPoint.Y circleParameters
-            ]
-        
-        let rec renderMultipleSegmentJumps (segmentJumpCoordinateList : list<float>) (segmentJumpYCoordinate : float) : list<ReactElement> =
-            
-            match segmentJumpCoordinateList with
-
-            | [] -> []
-
-
-            | [singleElement] ->
-                renderSingleSegmentJump {X = singleElement; Y = segmentJumpYCoordinate}
-
-
-            | firstElement :: secondElement :: tailList ->
-
-                if (segment.Start.X > segment.End.X) then
-                    renderSingleSegmentJump {X = firstElement; Y = segmentJumpYCoordinate}
-                    @
-                    renderWireSubSegment {X = firstElement - segmentJumpHorizontalSize/2.0; Y = segmentJumpYCoordinate} {X = secondElement + segmentJumpHorizontalSize/2.0; Y = segmentJumpYCoordinate}
-                    @
-                    renderMultipleSegmentJumps (secondElement :: tailList) (segmentJumpYCoordinate)
-                
-                else
-                    renderSingleSegmentJump {X = firstElement; Y = segmentJumpYCoordinate}
-                    @
-                    renderWireSubSegment {X = firstElement + segmentJumpHorizontalSize/2.0; Y = segmentJumpYCoordinate} {X = secondElement - segmentJumpHorizontalSize/2.0; Y = segmentJumpYCoordinate}
-                    @
-                    renderMultipleSegmentJumps (secondElement :: tailList) (segmentJumpYCoordinate)
-            
-
-        let completeWireSegmentRenderFunction (seg : Segment) : list<ReactElement> =
-            
-            let jumpCoordinateList =
-                if (segment.Start.X > segment.End.X) then
-                    seg.JumpCoordinateList
-                    |> List.map fst
-                    |> List.sortDescending
-                    
-                else
-                    seg.JumpCoordinateList
-                    |> List.map fst
-                    |> List.sort
-            
-            match jumpCoordinateList with
-                | [] -> renderWireSubSegment seg.Start seg.End
-
-                | lst ->
-                     let y = seg.Start.Y // SHOULD be equal to seg.End.Y since ONLY horizontal segments have jumps
-                     let firstSegmentJumpCoordinate = lst[0]
-                     let lastSegmentJumpCoordinate = lst[(List.length lst) - 1]
-
-                     if (segment.Start.X > segment.End.X) then
-                         renderWireSubSegment seg.Start {X = firstSegmentJumpCoordinate + segmentJumpHorizontalSize/2.0; Y = y}
-                         @
-                         renderMultipleSegmentJumps lst y
-                         @
-                         renderWireSubSegment {X = lastSegmentJumpCoordinate - segmentJumpHorizontalSize/2.0; Y = y} seg.End
-
-                     else
-                         renderWireSubSegment seg.Start {X = firstSegmentJumpCoordinate - segmentJumpHorizontalSize/2.0; Y = y}
-                         @
-                         renderMultipleSegmentJumps lst y
-                         @
-                         renderWireSubSegment {X = lastSegmentJumpCoordinate + segmentJumpHorizontalSize/2.0; Y = y} seg.End
-        
-
-        let wireSegmentReactElementList = segment
-                                          |> completeWireSegmentRenderFunction
-
-        g [] wireSegmentReactElementList
+    // ---------------------------------- Issie Interfacing functions ----------------------------- //
     
-    else
-        let Xa, Ya, Xb, Yb = segment.Start.X, segment.Start.Y, segment.End.X, segment.End.Y
-        let segmentElements = 
-            makeLine Xa Ya Xb Yb lineParameters
-            ::
-            makeCircle Xa Ya circleParameters
-            ::
-            [
-                makeCircle Xb Yb circleParameters
-            ]
-        g [] segmentElements
+    /// Given a compType, return a label
+    member this.GenerateLabel (compType: ComponentType) : string =
+        Symbol.generateLabel this.Wire.Symbol compType
+    
+    /// Given a compId, return the corresponding component
+    member this.GetComponentById (compId: ComponentId) =
+        Symbol.extractComponent this.Wire.Symbol compId
+        
+    /// Change the label of Component specified by compId to lbl
+    member this.ChangeLabel (dispatch: Dispatch<Msg>) (compId: ComponentId) (lbl: string) =
+        dispatch <| (Wire (BusWire.Symbol (Symbol.ChangeLabel (compId, lbl) ) ) )
+        
+    /// Run Bus Width Inference check
+    member this.DoBusWidthInference dispatch =
+        dispatch <| (Wire (BusWire.BusWidths))
+        
+    /// Given a compId and a width, update the width of the Component specified by compId
+    member this.ChangeWidth (dispatch: Dispatch<Msg>) (compId: ComponentId) (width: int) =
+        dispatch <| (Wire (BusWire.Symbol (Symbol.ChangeNumberOfBits (compId, width) ) ) )
+        this.DoBusWidthInference dispatch
+        
+    /// Given a compId and a LSB, update the LSB of the Component specified by compId
+    member this.ChangeLSB (dispatch: Dispatch<Msg>) (compId: ComponentId) (lsb: int64) =
+        dispatch <| (Wire (BusWire.Symbol (Symbol.ChangeLsb (compId, lsb) ) ) )
+        
+    /// Return Some string if Sheet / BusWire / Symbol has a notification, if there is none then return None
+    member this.GetNotifications =
+        // Currently only BusWire has notifications
+        this.Wire.Notifications
+        
+    /// Get the current canvas state in the form of (Component list * Connection list)
+    member this.GetCanvasState () =
+        let compList = Symbol.extractComponents this.Wire.Symbol
+        let connList = BusWire.extractConnections this.Wire
+        
+        compList, connList
+        
+    /// Clears the Undo and Redo stack of Sheet
+    member this.FlushCommandStack dispatch =
+        dispatch <| FlushCommandStack
+        
+    /// Clears the canvas, removes all components and connections
+    member this.ClearCanvas dispatch =
+        dispatch <| ResetModel
+        dispatch <| (Wire BusWire.ResetModel)
+        dispatch <| (Wire (BusWire.Symbol (Symbol.ResetModel ) ) )
+        
+    /// Returns a list of selected components
+    member this.GetSelectedComponents =
+        this.SelectedComponents
+        |> List.map (Symbol.extractComponent this.Wire.Symbol)
+        
+    /// Returns a list of selected connections
+    member this.GetSelectedConnections =
+        this.SelectedWires
+        |> List.map (BusWire.extractConnection this.Wire)
+        
+    /// Returns a list of selected components and connections in the form of (Component list * Connection list)
+    member this.GetSelectedCanvasState =
+        this.GetSelectedComponents, this.GetSelectedConnections
+        
+    /// Given a list of connIds, select those connections
+    member this.SelectConnections dispatch on connIds =
+        dispatch <| UpdateSelectedWires (connIds, on)
+        
+    /// Update the memory of component specified by connId at location addr with data value
+    member this.WriteMemoryLine dispatch connId addr value =
+        dispatch <| (Wire (BusWire.Symbol (Symbol.WriteMemoryLine (connId, addr, value))))
 
-///
-type WireRenderProps =
+// ---------------------------- CONSTANTS ----------------------------- //
+let gridSize = 30.0 // Size of each square grid
+let snapMargin = gridSize / 25.0 // How strongly snap-to-grid snaps to the grid, small value so that there is not excessive snapping when moving symbols
+let unSnapMargin = gridSize / 5.0 // How much movement there needs to be for un-snapping 
+
+
+// ------------------------------------------- Helper Functions ------------------------------------------- //
+
+//Calculates the symmetric difference of two lists, returning a list of the given type
+let symDiff lst1 lst2 =
+    let a = Set.ofList lst1
+    let b = Set.ofList lst2
+    (a - b) + (b - a)
+    |> Set.toList
+
+/// Calculates the change in coordinates of two XYPos
+let posDiff (a: XYPos) (b: XYPos) = {X=a.X-b.X; Y=a.Y-b.Y}
+
+let getScreenEdgeCoords () = 
+    let canvas = document.getElementById "Canvas"
+    let wholeApp = document.getElementById "WholeApp"
+    let rightSelection = document.getElementById "RightSelection"
+    let topMenu = document.getElementById "TopMenu"
+    let leftScreenEdge = canvas.scrollLeft
+    let rightScreenEdge = leftScreenEdge + wholeApp.clientWidth - rightSelection.offsetWidth
+    let topScreenEdge = canvas.scrollTop
+    let bottomScreenEdge = topScreenEdge + rightSelection.offsetHeight - topMenu.clientHeight
+    (leftScreenEdge, rightScreenEdge,topScreenEdge,bottomScreenEdge)
+    
+/// Checks if pos is inside any of the bounding boxes of the components in boundingBoxes
+let insideBox (boundingBoxes: Map<CommonTypes.ComponentId, BoundingBox>) (pos: XYPos) : CommonTypes.ComponentId Option =
+    let insideOneBox _ boundingBox =
+        let {BoundingBox.X=xBox; Y=yBox; H=hBox; W=wBox} = boundingBox
+        pos.X >= xBox && pos.X <= xBox + wBox && pos.Y >= yBox && pos.Y <= yBox + hBox
+    
+    boundingBoxes
+    |> Map.tryFindKey insideOneBox // If there are multiple components overlapping (should not happen), return first one found
+
+/// return a BB equivalent to input but with (X,Y) = LH Top coord, (X+W,Y+H) = RH bottom coord
+/// note that LH Top is lower end of the two screen coordinates
+let standardiseBox (box:BoundingBox) =
+    let x = min box.X (box.X+box.W)
+    let y = min box.Y (box.Y+box.H)
+    let w = abs box.W
+    let h = abs box.H
+    { X=x; Y=y; W=w;H=h}
+
+
+let transformScreenToPos (screenPos:XYPos) (scrollPos:XYPos) mag =
+    {X=(screenPos.X + scrollPos.X)/mag; 
+     Y=(screenPos.Y + scrollPos.Y)/mag}
+    
+
+/// calculates the smallest bounding box that contains two BBs, in form with W,H > 0
+let boxUnion (box:BoundingBox) (box':BoundingBox) =
+    let maxX = max (box.X+box.W) (box'.X + box'.W)
+    let maxY = max (box.Y + box.H) (box'.Y + box'.H)
+    let minX = min box.X box'.X
+    let minY = min box.Y box'.Y
     {
-        key: string
-        Segments: list<Segment>
-        ColorP: HighLightColor
-        StrokeWidthP: int
-        OutputPortLocation: XYPos
+        X = minX
+        Y = minY
+        W = maxX - minX
+        H = maxY - minY
     }
 
-
-// ------------------------------redundant wire memoisation code------------------------------
-// this code is not used because React (via Function.Of) does this caching anyway - better tha it can be
-// done here
-let mutable cache:Map<string,WireRenderProps*ReactElement> = Map.empty
-
-/// not used
-let memoOf (f: WireRenderProps -> ReactElement, _, _) =
-    (fun props ->
-        match Map.tryFind props.key cache with
-        | None -> 
-            let re = f props
-            cache <- Map.add props.key (props,re) cache 
-            re
-        | Some (props',re) ->  
-            if props' = props then re else
-                let re = f props
-                cache <- Map.add props.key (props,re) cache
-                re)
-//-------------------------------------------------------------------------------------------
-
-let singleWireView = 
-    FunctionComponent.Of(
-        fun (props: WireRenderProps) ->
-            let renderWireSegmentList : list<ReactElement> =
-                props.Segments
-                |> List.map
-                    (
-                        fun (segment : Segment) -> renderSegment segment (props.ColorP.Text()) (string props.StrokeWidthP)
-                            //call a bunch of render helper functions to render the segment (*** DO NOT FORGET SEGMENT JUMPS ***)
-                    )
-            
-            let renderWireWidthText : ReactElement =
-                let textParameters =
-                    {
-                        TextAnchor = "left";
-                        FontSize = "12px";
-                        FontWeight = "Bold";
-                        FontFamily = "Verdana, Arial, Helvetica, sans-serif";
-                        Fill = props.ColorP.Text();
-                        UserSelect = UserSelectOptions.None;
-                        DominantBaseline = "middle";
-                    }
-                let textString = if props.StrokeWidthP = 1 then "" else string props.StrokeWidthP //Only print width > 1
-                makeText (props.OutputPortLocation.X+1.0) (props.OutputPortLocation.Y-7.0) (textString) textParameters
-            g [] ([ renderWireWidthText ] @ renderWireSegmentList)
-        
-    , "Wire"
-    , equalsButFunctions
-    )
-
-///
-let MapToSortedList map : Wire list = 
-    let listSelected = 
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Purple) map
-        |> Map.toList
-        |> List.map snd
-    let listErrorSelected =
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Brown) map
-        |> Map.toList
-        |> List.map snd
-    let listErrorUnselected =
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Red) map
-        |> Map.toList
-        |> List.map snd
-    let listUnSelected = 
-        Map.filter (fun id wire -> wire.Color = HighLightColor.DarkSlateGrey) map
-        |> Map.toList
-        |> List.map snd
-    let listCopied = 
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Thistle) map
-        |> Map.toList
-        |> List.map snd
-    let listWaves = 
-        Map.filter (fun id wire -> wire.Color = HighLightColor.Blue) map
-        |> Map.toList
-        |> List.map snd
-
-    listUnSelected @ listErrorUnselected @ listErrorSelected @ listSelected @ listWaves @ listCopied
-   
-let view (model : Model) (dispatch : Dispatch<Msg>) =
-    let start = TimeHelpers.getTimeMs()
-    let wires1 =
-        model.WX
-        |> Map.toArray
-        |> Array.map snd
-    TimeHelpers.instrumentTime "WirePropsSort" start
-    let rStart = TimeHelpers.getTimeMs()
-    let wires =
-        wires1
-        |> Array.map
-            (
-                fun wire ->
-                    let stringOutId =
-                        match wire.OutputPort with
-                        | OutputPortId stringId -> stringId
-                        
-                    let outputPortLocation = Symbol.getOnePortLocationNew model.Symbol stringOutId PortType.Output
-                    let props =
-                        {
-                            key = match wire.Id with | ConnectionId s -> s
-                            Segments = List.map makeSegPos wire.Segments
-                            ColorP = wire.Color
-                            StrokeWidthP = wire.Width
-                            OutputPortLocation = outputPortLocation
-                        }
-                    singleWireView props)
-    TimeHelpers.instrumentInterval "WirePrepareProps" rStart ()
-    let symbols = Symbol.view model.Symbol (Symbol >> dispatch)
- 
-    g [] [(g [] wires); symbols]
-    |> TimeHelpers.instrumentInterval "WireView" start
-
-
-
-/// This function is given two couples of
-/// points that define two line segments and it returns:
-/// - Some (x, y) if the two segments intersect;
-/// - None if the do not.
-let segmentIntersectsSegmentCoordinates ((p1, q1) : (XYPos * XYPos)) ((p2, q2) : (XYPos * XYPos)) : Option<XYPos> =
-    
-    if (segmentIntersectsSegment (p1, q1) (p2, q2)) then
-        let x1, y1, x2, y2 = abs p1.X, abs p1.Y, abs q1.X, abs q1.Y
-        let x3, y3, x4, y4 = abs p2.X, abs p2.Y, abs q2.X, abs q2.Y
-        let uA = ((x4-x3)*(y1-y3) - (y4-y3)*(x1-x3)) / ((y4-y3)*(x2-x1) - (x4-x3)*(y2-y1))
-
-        let intersectionX = x1 + (uA * (x2-x1)) // if coordinates are wanted, maybe useful later
-        let intersectionY = y1 + (uA * (y2-y1))
-        Some {X = intersectionX; Y = intersectionY}
-    
-    else None
-
-/// This funtion is given a bounding box and it returns the coordinates
-/// of the top-left and the bottom-right corners of this bounding box.
-let getTopLeftAndBottomRightCorner (box : BoundingBox) : XYPos * XYPos = 
-    let {BoundingBox.X = x; BoundingBox.Y = y} = box
-    let {BoundingBox.H = h; BoundingBox.W = w} = box
-    let coords = [(x, y); (x, y+h); (x+w, y); (x+w, y+h)]
-    let topLeft = List.min coords
-    let bottomRight = List.max coords
-
-    {X = fst(topLeft) ; Y = snd(topLeft)} , {X = fst(bottomRight) ; Y = snd(bottomRight)}
-
-/// This function is given a Segment and a BoundingBox
-/// and it returns:
-/// - (false, None) if the segment does not intersect the bounding box
-/// - (true, None) if the segment is fully included inside the bounding box
-/// - (true, Some coordinate)  if the segment intersects the bounding box
-let segmentIntersectsBoundingBoxCoordinates (segIn : Segment) (bb : BoundingBox) : bool * Option<XYPos> =
-    let seg = makeSegPos segIn
-    let ({X = x; Y = y} : XYPos), ({X = a; Y = b} : XYPos) = getTopLeftAndBottomRightCorner bb
-    let w , h = (a-x), (b-y) // a = x+w;  b = y+h
-    let x1, y1, x2, y2 = seg.Start.X, seg.Start.Y, seg.End.X, seg.End.Y 
-
-    let segPointInBox =
-        (
-            ( (x1 > x) && (x1 < (x+w)) ) && ( (y1 > y) && (y1 < (y+h)) )
-        )
-        ||
-        (
-            ( (x2 > x) && (x2 < (x+w)) ) && ( (y2 > y) && (y2 < (y+h)) )
-        )
-
-    let left = segmentIntersectsSegmentCoordinates (seg.Start, seg.End) ({X=x; Y=y}, {X=x; Y=y+h})
-    let right = segmentIntersectsSegmentCoordinates (seg.Start, seg.End) ({X=x+w; Y=y}, {X=x+w; Y=y+h})
-    let top = segmentIntersectsSegmentCoordinates (seg.Start, seg.End) ({X=x; Y=y}, {X=x+w; Y=y})
-    let bottom = segmentIntersectsSegmentCoordinates (seg.Start, seg.End) ({X=x; Y=y+h}, {X=x+w; Y=y+h})
-    
-    let (intersectionList : list<XYPos>) = 
-        [top; bottom; left; right]
-        |> List.choose id
-
-    if intersectionList.Length = 0 then
-        if segPointInBox then
-            true, None
-        else
-            false, None
-    else
-        let intersection = 
-            intersectionList
-            |> List.head
-        true, Some intersection
-
-/// This distance is given a point and a segment
-/// and it returns the distance between them.
-let distanceFromPointToSegment (point : XYPos) (segment : Segment) : float = 
-    let x0, y0 = point.X, abs point.Y
-    let x1, y1, x2, y2 = abs segment.Start.X, abs segment.Start.Y, abs segment.End.X, abs segment.End.Y
-
-    if (x1 = x2) then abs (x1 - x0)
-    elif (y1 = y2) then abs (y1 - y0)
-    else
-        let numer = abs (  (x2-x1)*(y1-y0) - (x1-x0)*(y2-y1)  )
-        let denom = sqrt (  (x2-x1)*(x2-x1) + (y2-y1)*(y2-y1)  )
-        numer/denom
-
-/// This function takes the current state of the model and the
-/// IDs of the wires to be rerouted (i.e. updated) as inputs,
-/// it REROUTES ALL THE GIVEN WIRES using the default wire
-/// shapes defined and it returns the model updated.
-let routeGivenWiresBasedOnPortPositions (wiresToBeRouted : list<ConnectionId>) (model : Model) : Model = 
-    let updatedWireMap = 
-        wiresToBeRouted
-        |> List.map (fun id -> model.WX[id])
-        |> List.map
-            (
-                fun wire -> 
-                    let posTuple = Symbol.getTwoPortLocations (model.Symbol) (wire.InputPort) (wire.OutputPort)
-                    (wire.Id, {wire with Segments = makeInitialSegmentsList wire.Id posTuple})
-            )
-        |> Map.ofList
-    
-    let newWX = 
-        model.WX
-        |> Map.map (fun id wire -> if Map.containsKey id updatedWireMap then updatedWireMap[id] else wire)
-
-    {model with WX = newWX}
-
-/// Given the current state of the BusWire model,
-/// a ConnectionId and an BoundingBox,
-/// this function returns a list of Segments of the
-/// wire corresponding to the given id that intersect the bounding box.
-let getIntersectingSegments (model:Model) (wireId:ConnectionId) (selectBox:BoundingBox) : list<Segment> =     
-    model.WX[wireId].Segments
-    |> List.filter (fun seg -> fst(segmentIntersectsBoundingBoxCoordinates seg selectBox))
-
-
-//Finds the closest segment in a wire to a point using euclidean distance
-let getClosestSegment (model : Model) (wireId : ConnectionId) (pos : XYPos) : Segment =
-    model.WX[wireId].Segments
-    |> List.minBy (
-        fun seg -> 
-            distanceFromPointToSegment pos seg)
-
-/// Function called when a wire has been clicked, so no need to be an option
-let getClickedSegment (model:Model) (wireId: ConnectionId) (pos: XYPos) : SegmentId =
-    let boundingBox = {X = pos.X - 5.0; Y = pos.Y - 5.0; H = 10.0; W = 10.0}
-    let intersectingSegments = getIntersectingSegments model wireId boundingBox
-
-    //getIntersecting segments may not return anything at low resolutions as the mouse was not on any segment, but in range of the wire bbox
-    //In this case just return the segment closest to mouse position
-    //TODO - should it just do this anyway?
-    if List.isEmpty intersectingSegments 
-    then (getClosestSegment model wireId pos).Id
-    else (List.head intersectingSegments).Id
-
-let checkSegmentAngle (seg:Segment) (name:string) =
-    match seg.Dir with
-    | Vertical -> abs (abs seg.Start.X - abs seg.End.X) < 0.000001
-    | Horizontal -> abs (abs seg.Start.Y - abs seg.End.Y) < 0.000001
-    |> (fun ok ->
-        if not ok then  
-            printfn $"Weird segment '{name}':\n{seg}\n\n fails angle checking")
-
-let segPointsLeft seg =
-    abs seg.Start.X > abs seg.End.X && seg.Dir = Horizontal
-
-let segXDelta seg = abs seg.End.X - abs seg.Start.X
-
-/// change the middle X coordinate of the joined ends of two segments (seg0 is LH, seg1 is RH).
-/// compensate for negative signs in coordinates using as value but preserving sign
-/// xPos is asumed positive
-let moveXJoinPos xPos seg0 seg1 =
-    let changeXKeepingSign (coord:XYPos) =
-        if coord.X < 0.0 then {coord with X = -xPos}
-        else {coord with X = xPos}
-    [ {seg0 with End = changeXKeepingSign seg0.End}; {seg1 with Start = changeXKeepingSign seg1.Start} ]
-
-let changeLengths isAtEnd seg0 seg1 =
-    let outerSeg, innerSeg =
-        if isAtEnd then seg1, seg0 else seg0, seg1
-    let innerX = segXDelta innerSeg
-    let outerX = segXDelta outerSeg
-
-    // should never happen, can't do anything
-    if seg0.Dir <> Horizontal || seg1.Dir <> Horizontal || outerX < 0.0 then [seg0 ; seg1]
-    elif innerX < 0.0 then  
-        // the case where we need to shorten the first or last segment (seg0 here)
-        moveXJoinPos (if isAtEnd then seg1.End.X - Wire.stickLength else seg0.Start.X + Wire.stickLength) seg0 seg1
-    else [ seg0; seg1]
-       
-
-/// Called for segments 1, 2, 3, 4, 5 - if they are vertical and move horizontally.
-/// The function returns distance reduced if need be to prevent wires moving into components
-/// approx equality test is safer tehn exact equality - but probably not needed.
-let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (seg6:Segment) (distance:float) =
-    let shrink = match seg.Index with | 1 | 2 | 4 | 5 -> 0.5 | _ -> 1.0
-    match seg.Index with
-    | _ when seg.Dir = Horizontal ->
-        distance
-    | 3 when distance < 0.0 && abs (abs seg0.Start.Y - abs seg.Start.Y) > 0.0001 ->
-        distance
-    | 3 when distance > 0.0 && abs (abs seg6.Start.Y - abs seg.End.Y) > 0.0001 ->
-        distance
-    | 1 | 2 -> 
-        let minDistance = seg0.Start.X + Wire.stickLength * shrink - abs seg.End.X
-        max minDistance distance
-    | 4 | 5 ->
-        let maxDistance = seg6.End.X -  Wire.stickLength * shrink - abs seg.Start.X
-        min maxDistance distance
-    | 3 ->
-        let minDistance = abs seg0.Start.X + Wire.stickLength * shrink - abs seg.Start.X
-        let maxDistance = abs seg6.End.X -  Wire.stickLength * shrink - abs seg.Start.X
-        distance
-        |> max minDistance
-        |> min maxDistance        
-        
-    | _ -> 
-        distance
-
-        
-/// Adjust wire so that two adjacent horizontal segments that are in opposite directions
-/// get eliminated
-let removeRedundantSegments  (segs: Segment list) =
-    let setAbsX x (pos: XYPos) =
-        let x = if pos.X < 0.0 then - abs x else abs x
-        {pos with X = x}
-    let xDelta seg = abs seg.End.X - abs seg.Start.X
-    let setStartX x (seg:Segment) = {seg with Start = setAbsX x seg.Start}
-    let setEndX x (seg:Segment) = {seg with End = setAbsX x seg.End}
-    let adjust seg1 seg2 =
-        let xd1, xd2 = xDelta seg1, xDelta seg2
-        if seg1.Dir = Horizontal && 
-           seg2.Dir = Horizontal && 
-           sign xd1 <> sign xd2 
-        then
-            if abs xd1 > abs xd2 then
-                [setEndX seg2.End.X seg1; setStartX seg2.End.X seg2]
-            else
-                [setEndX seg1.Start.X seg1; setStartX seg1.End.X seg2]
-        else
-            [seg1;seg2]
-    adjust segs[0] segs[1] @  segs[2..4] @ adjust segs[5] segs[6]
-       
-
-/// This function allows a wire segment to be moved a given amount in a direction perpedicular to
-/// its orientation (Horizontal or Vertical). Used to manually adjust routing by mouse drag.
-/// The moved segment is tagged by negating one of its coordinates so that it cannot be auto-routed
-/// after the move, thus keeping the moved position.
-let moveSegment (seg:Segment) (distance:float) (model:Model) = 
-    let wire = model.WX[seg.HostId]
-    let index = seg.Index
-    if index <= 0 || index >= wire.Segments.Length - 1 then
-        failwithf $"Buswire segment index {index} out of range in moveSegment in wire length {wire.Segments.Length}"
-    let prevSeg = wire.Segments[index-1]
-    let nextSeg = wire.Segments[index+1]
-    if seg.Dir = prevSeg.Dir || seg.Dir = nextSeg.Dir then
-        wire
-    else
-        //runTestFable()
-        distance      
-        |> getSafeDistanceForMove seg wire.Segments[0] wire.Segments[6]   
-        |> (fun distance' ->
-            let newPrevEnd, newSegStart, newSegEnd, newNextStart = 
-                match seg.Dir with
-
-                | Vertical -> 
-                    {prevSeg.End with X = - (abs seg.Start.X + distance')}, 
-                    {seg.Start with X = - (abs seg.Start.X + distance')}, 
-                    {seg.End with X = - (abs seg.End.X + distance')}, 
-                    {nextSeg.Start with X = - (abs seg.End.X + distance')}
-
-                | Horizontal -> 
-                    {prevSeg.End with Y = - (abs seg.Start.Y + distance')}, 
-                    {seg.Start with Y = - (abs seg.Start.Y + distance')}, 
-                    {seg.End with Y = - (abs seg.End.Y + distance')}, 
-                    {nextSeg.Start with Y = - (abs seg.End.Y + distance')}
-
-            let newPrevSeg = {prevSeg with End = newPrevEnd}
-            let newSeg = {seg with Start = newSegStart;End = newSegEnd}
-            let newNextSeg = {nextSeg with Start = newNextStart}
-        
-            let newSegments =
-                wire.Segments[.. index-2] @ [newPrevSeg; newSeg; newNextSeg] @ wire.Segments[index+2 ..]
-                |> removeRedundantSegments
-
-            {wire with Segments = newSegments})
-
-/// Initialisatiton with no wires
-let init () =
-    let symbols,_ = Symbol.init()
-    {   
-        WX = Map.empty;
-        FromVerticalToHorizontalSegmentIntersections = Map.empty;
-        FromHorizontalToVerticalSegmentIntersections = Map.empty;
-        Symbol = symbols; 
-        CopiedWX = Map.empty; 
-        SelectedSegment = SegmentId(""); 
-        LastMousePos = {X = 0.0; Y = 0.0};
-        ErrorWires = []
-        Notifications = None
-        Mode = OldFashionedCircuit
-        SplitWireList= []
-
-    } , Cmd.none
-
-///Returns the wires connected to a list of components given by componentIds
-let getConnectedWires (wModel : Model) (compIds : list<ComponentId>) =
-    let inputPorts, outputPorts = Symbol.getPortLocations wModel.Symbol compIds
-
-    wModel.WX
-    |> Map.toList
-    |> List.map snd
-    |> List.filter (fun wire -> Map.containsKey wire.InputPort inputPorts || Map.containsKey wire.OutputPort outputPorts)
-    |> List.map (fun wire -> wire.Id)
-    |> List.distinct
-
-///Returns a tuple of: wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
-let filterWiresByCompMoved (wModel : Model) (compIds : list<ComponentId>) =
-        let inputPorts, outputPorts = Symbol.getPortLocations wModel.Symbol compIds
-        let lst = 
-            wModel.WX
-            |> Map.toList
-            |> List.map snd
-
-        let inputWires =
-            lst
-            |> List.filter (fun wire -> Map.containsKey wire.InputPort inputPorts)
-            |> List.map (fun wire -> wire.Id)
-            |> List.distinct
-
-        let outputWires =
-            lst
-            |> List.filter (fun wire -> Map.containsKey wire.OutputPort outputPorts)
-            |> List.map (fun wire -> wire.Id)
-            |> List.distinct
-
-        let fullyConnected =
-            lst
-            |> List.filter (fun wire -> Map.containsKey wire.InputPort inputPorts && Map.containsKey wire.OutputPort outputPorts)
-            |> List.map (fun wire -> wire.Id)
-            |> List.distinct
-
-        (inputWires, outputWires, fullyConnected)
-
-//Returns a newly autorouted wire given a model and wire
-let autorouteWire (model : Model) (wire : Wire) : Wire =
-    let posTuple = Symbol.getTwoPortLocations (model.Symbol) (wire.InputPort) (wire.OutputPort)
-    {wire with Segments = makeInitialSegmentsList wire.Id posTuple}
-
-/// reverse segment order, and Start, End coordinates, so list can be processed from input to output
-/// this function is self-inverse
-let revSegments (segs:Segment list) =
-    List.rev segs
-    |> List.map (fun seg -> {seg with Start = seg.End; End = seg.Start})
-
-//
-//  ====================================================================================================================
-//
-//                                        WIRE SEGMENTS FOR ROUTING
-//
-//
-// Segments, going from Start (output port) to End (input port) coords, are summarised as:
-// H => Horizontal (incr X)
-// V => Vertical (incr Y)
-// 0 => zero length segment (never used)
-//
-// segment qualifiers:
-// F => min length (next to output or input, cannot be shortened)
-//
-// "Simple" case where output.X < input.X and 3 segment autoroute is possible
-//  S0.FH  S1.0V  S2.H  S3.V  S4.H  S5.0V S6.FH
-//
-// "Complex" case where output.X > input.X and wire ends back for 5 segment autoroute
-//  S0.FH  S1.V  S2.H  S3.V  S4.H  S5.0V S6.FH (not sure if H and V are correct here)
-//
-// To determine adjustment on End change we just reverse the segment and apply the Start change algorithm
-// Adjustment => reverse list of segments, swap Start and End, and alter the sign of all coordinates
-// For simplicity, due to the encoding of manual changes into coordinates by negating them (yuk!)
-// we do not alter coordinate sign. Instead we invert all numeric comparisons.
-// There are no constants used in the algorithm (if there were, they would need to be negated)
-//
-// ======================================================================================================================
-
-
-let inline addPosPos (pos1: XYPos) (pos:XYPos) =
-    {X = pos1.X + pos.X; Y = pos1.Y + pos.Y}
-
-
-let inline moveEnd (mover: XYPos -> XYPos) (n:int) =
-    List.mapi (fun i (seg:Segment) -> if i = n then {seg with End = mover seg.End} else seg)
-
-
-let inline moveStart (mover: XYPos -> XYPos) (n:int) =
-    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Start = mover seg.Start} else seg)
-
-let inline moveAll (mover: XYPos -> XYPos) (n : int) =
-    List.mapi (fun i (seg:Segment) -> if i = n then {seg with Start = mover seg.Start; End = mover seg.End} else seg)
-
-let  transformXY tX tY (pos: XYPos) =
-    {pos with X = tX pos.X; Y = tY pos.Y}
-
-let transformSeg tX tY (seg: Segment) =
-    let trans = transformXY tX tY
-    {seg with Start = trans seg.Start; End = trans seg.End }
-
-let topology (pos1: XYPos) (pos2:XYPos) =
-    sign (abs pos1.X - abs pos2.X), sign (abs pos1.Y - abs pos2.Y)
-
-/// Returns None if full autoroute is required or Some segments with initial part of the segment list autorouted
-/// up till the first dragged (manually routed) segment.
-/// ReverseFun must equal not or id. not => the segments go from input to output (reverse of normal).
-/// This allows the same code to work on both ends of the wire, with segment reversal done outside this
-/// function to implement input -> output direction.
-let partialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
-    let wirePos = segs[0].End
-    let portPos = segs[0].Start
-    let newWirePos = {newPortPos with X = newPortPos.X + (abs wirePos.X - portPos.X) }
-    let (diff:XYPos) = {X=newPortPos.X-portPos.X; Y= newPortPos.Y - portPos.Y}
-    let lastAutoIndex =
-        let isNegative (pos:XYPos) = pos.X < 0.0 || pos.Y < 0.0
-        let isAutoSeg seg = 
-            not (isNegative seg.Start || isNegative seg.End)
-        segs
-        |> List.takeWhile isAutoSeg
-        |> List.length
-        |> (fun n -> if n > 5 then None else Some (n + 1))
-    let scaleBeforeSegmentEnd segIndex =
-        let seg = segs[segIndex]
-        let fixedPt = getAbsXY seg.End
-        let scale x fx nx wx =
-            if nx = fx then x else ((abs x - fx)*(nx-fx)/(abs wx - fx) + fx) * float (sign x)
-        let startPos = if segIndex = 1 then portPos else wirePos
-        let newStartPos = if segIndex = 1 then newPortPos else newWirePos
-        let scaleX x = scale x fixedPt.X newStartPos.X startPos.X
-        let scaleY y = scale y fixedPt.Y newStartPos.Y startPos.Y
-        match List.splitAt (segIndex+1) segs, segIndex with
-        | ((scaledSegs), otherSegs), 1 ->
-            Some ((List.map (transformSeg scaleX scaleY) scaledSegs) @ otherSegs)
-        | ((firstSeg :: scaledSegs), otherSegs), _ ->
-            Some ((moveAll (addPosPos diff) 0 [firstSeg] @ List.map (transformSeg scaleX scaleY) scaledSegs) @ otherSegs)
-        | _ -> None
-
-    let checkTopology index =
-        let finalPt = segs[6].Start
-        let oldTop x = topology (if index = 1 then portPos else wirePos) x
-        let newTop x = topology (if index = 1 then newPortPos else newWirePos) x
-        if oldTop finalPt <> newTop finalPt then
-            // always aandon manual routing
-            None 
-        else
-            let manSegEndPt = segs[index].End
-            let oldT = oldTop manSegEndPt
-            let newT = newTop manSegEndPt
-            if oldT = newT then
-                Some index
-            else
-                None
-    lastAutoIndex
-    |> Option.bind checkTopology
-    |> Option.bind scaleBeforeSegmentEnd
-
-
-///Returns the new positions keeping manual coordinates negative, and auto coordinates positive
-let negXYPos (pos : XYPos) (diff : XYPos) : XYPos =
-    let newPos = Symbol.posAdd (getAbsXY pos) diff
-    if pos.X < 0. || pos.Y < 0. then {X = - newPos.X; Y = - newPos.Y}
-    else newPos
-
-///Moves a wire by a specified amount by adding a XYPos to each start and end point of each segment
-let moveWire (wire : Wire) (diff : XYPos) =    
-    {wire with 
-        Segments = 
-            wire.Segments
-            |> List.map (fun seg -> 
-                {seg with
-                    Start = negXYPos seg.Start diff
-                    End = negXYPos seg.End diff
-                })
-    }
-
-/// Re-routes a single wire in the model when its ports move.
-/// Tries to preserve manual routing when this makes sense, otherwise re-routes with autoroute.
-/// Partial routing from input end is done by reversing segments and and swapping Start/End
-/// inout = Input => reroute input (target) side of wire.
-let updateWire (model : Model) (wire : Wire) (inOut : InOut) =
-    let newPort = 
-        match inOut with
-        | Input -> Symbol.getInputPortLocation model.Symbol wire.InputPort
-        | Output -> Symbol.getOutputPortLocation model.Symbol wire.OutputPort
-    if inOut = Input then
-        partialAutoRoute (revSegments wire.Segments) newPort
-        |> Option.map revSegments
-    else 
-        partialAutoRoute wire.Segments newPort
-    |> Option.map (fun segs -> {wire with Segments = segs})
-    |> Option.defaultValue (autorouteWire model wire)
-
-
-
-/// TODO: replace name findAllJumps:
-/// Finds all the Jumps and updates the list.
-/// TODO: change to array : JumpCoordinateList and so have Jumps of type array and not list
-/// 
-let makeAllJumps (wiresWithNoJumps: ConnectionId list) (model: Model) =
-    // Arrays are faster to check than lists
-    let wiresWithNoJumpsA = List.toArray wiresWithNoJumps
-
-    // Returns an array of: arrays of segments for all wires in Model.WX
-    let segs =
-        model.WX
-        |> Map.toArray
-        |> Array.map (fun (_, w) -> List.toArray w.Segments)   
-
-
-
-    let splithorizontalVertical allSegs=
-        let isSegInJumpList seg =
-            not (Array.contains seg.HostId wiresWithNoJumpsA)
-            
-        let horizontal seg =
-            match seg.Dir with
-            | Horizontal -> true
-            | _ -> false 
-            
-        let vertical seg =
-            match seg.Dir with
-            | Vertical -> true
-            | _ -> false 
-
-        let collectedSegments = allSegs
-                                |> Array.concat                // Collect all segments into a big array
-                                |> Array.filter isSegInJumpList
-
-        let horizontalArray = Array.filter horizontal collectedSegments
-        let verticalArray = Array.filter vertical collectedSegments
-
-        (horizontalArray, verticalArray)
-
-
-
-    let makeHoriVertiGrid (horizontalVerticalSegs: Segment array * Segment array) =
-        let horizontalArray = fst horizontalVerticalSegs
-        let verticalArray = snd horizontalVerticalSegs
-
-        let makePair a b =
-            (a,b)
-
-        let makeColumn (lst: Segment array) (x:Segment) =
-            Array.map (makePair x) lst
-        Array.map (makeColumn verticalArray) horizontalArray
-            |> Array.concat                                 
+let symbolToBB (symbol:Symbol.Symbol) =
+    let co = symbol.Compo 
+    {X= float co.X; Y=float co.Y; W=float (co.W); H=float (co.H)}
     
 
-
-    /// If horizontal and Vertical segments intersect then append to the list of Jumps
-    let registerAllJumps hvGrid=
-        let checkCrossing (segHrz, segVrt) =
-            let vrtX = abs segVrt.Start.X
-            let hrzY = abs segHrz.Start.Y 
-
-            let maxMin x y =
-                (max x y , min x y)
-
-            let (xhi, xlo) = maxMin (abs segHrz.Start.X) (abs segHrz.End.X)
-            let (yhi, ylo) = maxMin (abs segVrt.Start.Y) (abs segVrt.End.Y)
-           
-            if vrtX < xhi - 5.0 && vrtX > xlo + 5.0 && hrzY < yhi - 5.0 && hrzY > ylo + 5.0 then
-                [|(segHrz.Id,(vrtX, segVrt.Id))|]
-            else [||]
-
-        Array.map checkCrossing hvGrid
-            |> Array.collect id 
-
-
-
-    let changeJumps (model: Model) (jumps: (SegmentId * (float * SegmentId)) array) =       //(WX:Map<ConnectionId,Wire>)
-        let WX = model.WX
-        let jumpHorizontalId = Array.toList (Array.map fst jumps)
-        let changeSegment (segs: Segment list) =
-            //printfn $"{jumps}"
-            List.map (fun (x:Segment) -> if not (List.contains x.Id jumpHorizontalId) then { x with JumpCoordinateList = []}     // Reinitialise it every time we change the concerned wire
-                                         else 
-                                            let contains lst =
-                                                x.Id = (fst lst)
-                                            let jumpIdList = Array.filter contains jumps
-                                            let jumpList = Array.toList (Array.map snd jumpIdList)
-                                            { x with JumpCoordinateList = jumpList} ) segs
-
-        let iterateWire connectionId =
-            let updateSeg = changeSegment (WX[connectionId].Segments)
-            {WX[connectionId] with Segments = updateSeg}
-
-        let keyList = List.map fst (Map.toList WX)
-        List.zip keyList (List.map iterateWire keyList)
-        |> Map.ofList
-
-    let newWX = segs
-                |> splithorizontalVertical
-                |> makeHoriVertiGrid
-                |> registerAllJumps
-                |> changeJumps model
-
-
-    //printfn $"{newWX}"
-    { model with WX = newWX }
-
-
-/// Function used to reset the JumpCoordinate part of the Model when changing modes
-let resetJumpsTo0 (WX:Map<ConnectionId,Wire>) =
-    let changeSegment (segs: Segment list) =
-        //printfn $"{jumps}"
-        List.map (fun (x:Segment) -> {x with JumpCoordinateList = []}) segs    // Reinitialise it every time we change the concerned wire
-                                    
-    let iterateWire connectionId =
-        let updateSeg = changeSegment (WX[connectionId].Segments)
-        {WX[connectionId] with Segments = updateSeg}
-
-    let keyList = List.map fst (Map.toList WX)
-    List.zip keyList (List.map iterateWire keyList)
-    |> Map.ofList
-
-
-///
-let computeWireSplitCoord (model:Model) =
-
-    let WX = model.WX
-
-    let makeWireGrid (wireList:(ConnectionId*Wire) list) =
-        let makePair a b =
-            (a,b)
-
-        let makeColumn (lst: (ConnectionId*Wire) list) (x:ConnectionId*Wire)=
-            List.map (makePair x) lst
-        List.map (makeColumn wireList) wireList
-            |> List.concat  
- 
-
-    let findCircle (segs1: Segment list) (segs2: Segment list) =
-        let pairList = Seq.zip (List.toSeq segs1) (List.toSeq segs2)
-        let circleSeg = Seq.tryFind (fun ((x:Segment),(y:Segment)) ->  (x.Start.X = y.Start.X) && (x.Start.Y = y.Start.Y) && not ((x.End.X = y.End.X) && (x.End.Y = y.End.Y))) pairList
-        printfn $"{circleSeg}"
-        match circleSeg with
-
-        | Some (a,b) -> if ( sqrt ((a.End.X - a.Start.X)**2 + (a.End.Y - a.Start.Y)**2) <= sqrt ((b.End.X - b.Start.X)**2 + (b.End.Y - b.Start.Y)**2))
-                        then Some a.End
-                        else Some b.End
-        | None -> None
-
-
-    let getPorts ((wireSeq1:(ConnectionId * Wire)),(wireSeq2:ConnectionId * Wire)) =
-        
-        let wire1 = snd wireSeq1
-        let wire2 = snd wireSeq2
-        
-        let stringInId1, stringOutId1 =
-            match wire1.InputPort, wire1.OutputPort with
-            | InputPortId stringId1, OutputPortId stringId2 -> stringId1, stringId2
-        let stringInId2, stringOutId2 =
-            match wire2.InputPort, wire2.OutputPort with
-            | InputPortId stringId1, OutputPortId stringId2 -> stringId1, stringId2
-
-        match (stringOutId1 = stringOutId2) && (stringInId1 <> stringInId2) with
-        | false -> None
-        | true -> findCircle (wire1.Segments: Segment list) (wire2.Segments: Segment list)
-
-
-    let makeGrid (WX: (ConnectionId*Wire) list)=
-        let grid = makeWireGrid WX
-        List.map getPorts grid 
-
-    // remove all none from the option list and convert to list & keep all distinct some values
-    let XYPos = makeGrid (Map.toList WX) 
-               |> List.choose id 
-               |> List.distinct
-    
-    { model with SplitWireList= XYPos
-                 WX = resetJumpsTo0 WX }
-
-
-// Update at said interval the jumps arrays
-
-/// This function updates the wire model by removing from the stored lists of intersections
-/// all those generated by wireList wires. It updates if the list is empty and Resets if the list is not.
-/// Intersections are stored in maps on the model and on the horizontal segments containing the jumps.
-
-let updateOrResetWireSegmentJumps (wireList: ConnectionId list) (wModel: Model) : Model =
-    let startT = TimeHelpers.getTimeMs()                // StartT is not an interval
-    let model = match wModel.Mode with
-                | OldFashionedCircuit -> makeAllJumps wireList wModel
-                | Radiussed -> { wModel with WX = resetJumpsTo0 wModel.WX }
-                | ModernCircuit -> let model = computeWireSplitCoord wModel
-                                   printfn $"{model.SplitWireList}"
-                                   model
-    TimeHelpers.instrumentTime "UpdateJumps" startT     // print interval
-    model
-
-
-/// Re-routes the wires in the model based on a list of components that have been altered.
-/// If the wire input and output ports are both in the list of moved components, does not re-route wire but instead translates it.
-/// Keeps manual wires manual (up to a point).
-/// Otherwise it will auto-route wires connected to components that have moved
-let updateWires (model : Model) (compIdList : ComponentId list) (diff : XYPos) =
-
-    ///Returns a tuple of: wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
-    let (inputWires, outputWires, InOutConnected) = filterWiresByCompMoved model compIdList
-
-    let newWires = 
-        model.WX
+/// Inputs must also have W,H > 0.
+/// Maybe this should include wires as well?
+let symbolBBUnion (model:Model) = 
+    let symbols =
+        model.Wire.Symbol.Symbols
         |> Map.toList
-        |> List.map (fun (connectionId, wire) ->
-            match (List.contains connectionId InOutConnected), (List.contains connectionId inputWires), 
-                  (List.contains connectionId outputWires) with
-            | true, _ , _ -> (connectionId, moveWire wire diff)                      //Translate wires that are connected to moving components on both sides
-            | false, true, _ -> (connectionId, updateWire model wire Input)           //Only route wires connected to ports that moved for efficiency
-            | false, false, true -> (connectionId, updateWire model wire Output)
-            | _ ,_ ,_ -> (connectionId, wire)
-            )
-        |> Map.ofList
-        
-    {model with WX = newWires}
+    match symbols with
+    | [] -> None
+    | (_,sym) :: rest ->
+        (symbolToBB sym, rest)
+        ||> List.fold (fun (box:BoundingBox) (_,sym) ->
+                boxUnion box (symbolToBB sym)) 
+        |> Some
 
-
-let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
-    
-    match msg with
-    | Symbol sMsg ->
-        let sm,sCmd = Symbol.update sMsg model.Symbol
-        {model with Symbol=sm}, Cmd.map Symbol sCmd
-
-
-    | UpdateWires (componentIdList, diff) -> 
-        (updateWires model componentIdList diff, Cmd.none)
-
-    | AddWire ( (inputId, outputId) : (InputPortId * OutputPortId) ) ->
-        let portOnePos, portTwoPos = Symbol.getTwoPortLocations model.Symbol inputId outputId
-        let wireId = ConnectionId(JSHelpers.uuid())
-        let segmentList = makeInitialSegmentsList wireId (portOnePos, portTwoPos)
-        
-        let newWire = 
+let fitCircuitToWindowParas (model:Model) =
+    let maxMagnification = 2.
+    let boxOpt = symbolBBUnion model
+    let sBox =
+        match boxOpt with
+        | None -> {X=100.; Y=100.; W=100.; H=100.} // default if sheet is empty
+        | Some box -> 
             {
-                Id = wireId
-                InputPort = inputId
-                OutputPort = outputId
-                Color = HighLightColor.DarkSlateGrey
-                Width = 1
-                Segments = segmentList
+                    X = box.X
+                    Y = box.Y
+                    W = box.W
+                    H = box.H
             }
-            
-        let wireAddedMap = Map.add newWire.Id newWire model.WX
-        let newModel = updateOrResetWireSegmentJumps [] {model with WX = wireAddedMap}
+    let boxEdge = max 30. ((max sBox.W sBox.H) * 0.05)
+    let lh,rh,top,bottom = getScreenEdgeCoords()
+    let wantedMag = min ((rh - lh)/(sBox.W+2.*boxEdge)) ((bottom-top)/(sBox.H+2.*boxEdge))
+    let magToUse = min wantedMag maxMagnification
+    let xMiddle = (sBox.X + sBox.W/2.)*magToUse
+    let xScroll = xMiddle - (rh-lh)/2.
+    let yMiddle = (sBox.Y + (sBox.H)/2.)*magToUse
+    let yScroll = yMiddle - (bottom-top)/2.
 
-        newModel, Cmd.ofMsg BusWidths
-
-    | BusWidths ->
-
-        let processConWidths (connWidths: ConnectionsWidth) =
-            let addWireWidthFolder (wireMap: Map<ConnectionId, Wire>) _ wire  =
-                let width =
-                    match connWidths[wire.Id] with
-                    | Some a -> a
-                    | None -> wire.Width
-                let newColor =                                      // Done: if wire.Color = Purple || wire.Color = Brown then Purple else DarkSlateGrey       
-                    match wire.Color with
-                    | Purple | Brown -> Purple
-                    | _ -> DarkSlateGrey
-                wireMap.Add ( wire.Id, { wire with                  // formatting
-                                            Width = width ; 
-                                            Color = newColor} )
-                                                                                                                // change name m to map or else
-            let addSymbolWidthFolder (mapSymbolId: Map<ComponentId,Symbol.Symbol>) (_: ConnectionId) (wire: Wire) =       // _ as no need for the key in map.fold
-                    let inPort = model.Symbol.Ports[match wire.InputPort with InputPortId ip -> ip]
-                    let symId = ComponentId inPort.HostId
-                    let symbol = mapSymbolId[symId]
-
-                    match symbol.Compo.Type with
-                    | SplitWire _ ->        // Splitwire needs an argument int
-                        match inPort.PortNumber with 
-                        | Some 0 -> {symbol with InWidth0 = Some wire.Width}
-                        | x -> failwithf $"What? wire found with input port {x} other than 0 connecting to SplitWire"
-                        |> (fun sym -> Map.add symId sym mapSymbolId)
-                    | MergeWires ->
-                        match inPort.PortNumber with
-                        | Some 0 -> 
-                            Map.add symId {symbol with InWidth0 = Some wire.Width} mapSymbolId
-                        | Some 1 -> 
-                            Map.add symId {symbol with InWidth1 = Some wire.Width} mapSymbolId
-                        | x -> failwithf $"What? wire found with input port {x} other than 0 or 1 connecting to MergeWires"
-                    | _ -> mapSymbolId
-
-
-            let newWX = (Map.empty, model.WX) ||> Map.fold addWireWidthFolder
-            let symbolsWithWidths =
-                (model.Symbol.Symbols, newWX) ||> Map.fold addSymbolWidthFolder
-
-            { model with 
-                WX = newWX
-                Notifications = None
-                ErrorWires=[]
-                Symbol = {model.Symbol with Symbols = symbolsWithWidths}}, Cmd.none
-            // TODO: rename type Model.Symbol in Model.SymbolModel
-        
-
-
-        let canvasState = (Symbol.extractComponents model.Symbol, extractConnections model )
-        
-        
-        match BusWidthInferer.inferConnectionsWidth canvasState with
-        | Ok connWidths ->
-            processConWidths connWidths
-        | Error e ->
-                { model with 
-                    Notifications = Some e.Msg }, Cmd.ofMsg (ErrorWires e.ConnectionsAffected)
+    {|ScrollX=xScroll; ScrollY=yScroll; MagToUse=magToUse|}
     
-    | CopyWires (connIdList : list<ConnectionId>) ->
-        let copiedWires = Map.filter (fun connId _ -> List.contains connId connIdList) model.WX
-        { model with CopiedWX = copiedWires }, Cmd.none
+    
+let isBBoxAllVisible (bb: BoundingBox) =
+    let lh,rh,top,bottom = getScreenEdgeCoords()
+    let bbs = standardiseBox bb
+    lh < bb.Y && 
+    top < bb.X && 
+    bb.Y+bb.H < bottom && 
+    bb.X+bb.W < rh
 
-    | ErrorWires (connectionIds : list<ConnectionId>) -> 
-        let newWX =
-            model.WX
-            |> Map.map
-                (fun id wire ->                     // convert to match doesn't really makes sense more complexe
-                    match List.contains id connectionIds, List.contains id model.ErrorWires with
-                    | true , _ -> {wire with Color = HighLightColor.Red}                // If he got detected as error this turn around
-                    | false, true -> {wire with Color = HighLightColor.DarkSlateGrey}   // If he was in the error list but is not anymore switch back to default color
-                    | _ , _ -> wire                                                     // Else all the wires that are not errors and that you don't need to modify their color                        
-                ) 
+/// could be made more efficient, since segments contain redundant info
+let getWireBBox (wire: BusWire.Wire) (model: Model) =
+    let coords = 
+        wire.Segments
+        |> List.collect (fun seg -> [seg.Start; BusWire.getEndPoint seg])
+    let xCoords =  coords |> List.map (fun xy -> xy.X)
+    let yCoords =  coords |> List.map (fun xy -> xy.Y)
+    let lh,rh = List.min xCoords, List.max xCoords
+    let top,bottom = List.min yCoords, List.max yCoords
+    {X=lh; Y = top; W = rh - lh; H = bottom - top}
+    
+
+let isAllVisible (model: Model)(conns: ConnectionId list) (comps: ComponentId list) =
+    let wVisible =
+        conns
+        |> List.map (fun cid -> Map.tryFind cid model.Wire.WX)
+        |> List.map (Option.map (fun wire -> getWireBBox wire model))
+        |> List.map (Option.map isBBoxAllVisible)
+        |> List.map (Option.defaultValue true)
+        |> List.fold (&&) true
+    let cVisible =
+        comps
+        |> List.map (Symbol.getOneBoundingBox model.Wire.Symbol)
+        |> List.map isBBoxAllVisible
+        |> List.fold (&&) true
+    wVisible && cVisible
+
+    
+    
+
+
+/// Calculates if two bounding boxes intersect by comparing corner coordinates of each box
+let boxesIntersect (box1: BoundingBox) (box2: BoundingBox) =
+    // Requires min and max since H & W can be negative, i.e. we don't know which corner is which automatically
+    // Boxes intersect if there is overlap in both x and y coordinates 
+    min box1.X (box1.X + box1.W) < max box2.X (box2.X + box2.W)
+    && min box2.X (box2.X + box2.W) < max box1.X (box1.X + box1.W)
+    && min box1.Y (box1.Y + box1.H) < max box2.Y (box2.Y + box2.H)
+    && min box2.Y (box2.Y + box2.H) < max box1.Y (box1.Y + box1.H)
+    
+/// Finds all components that touch a bounding box (which is usually the drag-to-select box)
+let findIntersectingComponents (model: Model) (box1: BoundingBox) =
+    model.BoundingBoxes
+    |> Map.filter (fun _ boundingBox -> boxesIntersect boundingBox box1)
+    |> Map.toList 
+    |> List.map fst
+
+let posAdd (pos : XYPos) (a : float, b : float) : XYPos =
+    {X = pos.X + a; Y = pos.Y + b}
+    
+/// Finds all components (that are stored in the Sheet model) near pos
+let findNearbyComponents (model: Model) (pos: XYPos) =
+    List.allPairs [-50.0 .. 10.0 .. 50.0] [-50.0 .. 10.0 .. 50.0] // Larger Increments -> More Efficient. But can miss small components then.
+    |> List.map ((fun x -> posAdd pos x) >> insideBox model.BoundingBoxes)
+    |> List.collect ((function | Some x -> [x] | _ -> []))
+    
+/// Checks if pos is inside any of the ports in portList    
+let mouseOnPort portList (pos: XYPos) (margin: float) =
+    let radius = 5.0
+
+    let insidePortCircle (pos: XYPos) (portLocation: XYPos): bool =        
+        let distance = ((pos.X - portLocation.X) ** 2.0 + (pos.Y - portLocation.Y) ** 2.0) ** 0.5
+        distance <= radius + margin
+
         
-        { model with 
-            WX = newWX
-            ErrorWires = connectionIds}, Cmd.none
+    match List.tryFind (fun (_, portLocation) -> insidePortCircle pos portLocation) portList with // + 2.5 margin to make it a bit easier to click on, maybe it's due to the stroke width?
+    | Some (portId, portLocation) -> Some (portId, portLocation)
+    | None -> None
 
-    | SelectWires (connectionIds : list<ConnectionId>) -> //selects all wires in connectionIds, and also deselects all other wires
-        let newWX =
-            model.WX
-            |> Map.map
-                (fun id wire -> 
-                    match List.contains id model.ErrorWires, List.contains id connectionIds with
-                    | true, true -> {wire with Color = HighLightColor.Brown} 
-                    | true, false -> {wire with Color = HighLightColor.Red}
-                    | false, true -> {wire with Color = HighLightColor.Purple}
-                    | false, false -> {wire with Color = HighLightColor.DarkSlateGrey}
-                )
+/// Returns the ports of all model.NearbyComponents
+let findNearbyPorts (model: Model) =
+    let inputPortsMap, outputPortsMap = Symbol.getPortLocations model.Wire.Symbol model.NearbyComponents
+    
+    (inputPortsMap, outputPortsMap) ||> (fun x y -> (Map.toList x), (Map.toList y))
+
+/// Returns what is located at pos
+/// Priority Order: InputPort -> OutputPort -> Component -> Wire -> Canvas
+let mouseOn (model: Model) (pos: XYPos) : MouseOn =
+    let inputPorts, outputPorts = findNearbyPorts model
+
+    //TODO FIX THIS - QUICK FIX TO MAKE WORK, NOT IDEAL
+    //The ports/wires are being loaded in the correct place but the detection is not working 
+    //Something is wrong with the mouse coordinates somewhere, might be caused by zoom? not sure
+    //let pos = {X = posIn.X - 2.; Y = posIn.Y - 4.} 
+
+    match mouseOnPort inputPorts pos 2.5 with
+    | Some (portId, portLoc) -> InputPort (portId, portLoc)
+    | None ->
+        match mouseOnPort outputPorts pos 2.5 with
+        | Some (portId, portLoc) -> OutputPort (portId, portLoc)
+        | None ->
+            match insideBox model.BoundingBoxes pos with
+            | Some compId -> Component compId
+            | None -> 
+                match BusWire.getWireIfClicked model.Wire pos (5./model.Zoom) with
+                | Some connId -> Connection connId
+                | None -> Canvas
+
+let notIntersectingComponents (model: Model) (box1: BoundingBox) (inputId: CommonTypes.ComponentId) =
+   model.BoundingBoxes
+   |> Map.filter (fun sId boundingBox -> boxesIntersect boundingBox box1 && inputId <> sId)
+   |> Map.isEmpty 
+
+/// Update function to move symbols in model.SelectedComponents
+let moveSymbols (model: Model) (mMsg: MouseT) =
+    let nextAction, isDragAndDrop =
+        match model.Action with
+        | DragAndDrop -> DragAndDrop, true
+        | _ -> MovingSymbols, false
+    
+    match model.SelectedComponents.Length with
+    | 1 -> // Attempt Snap-to-Grid if there is only one moving component
         
-        {model with WX = newWX}, Cmd.none
+        /// Checks for snap-to-grid in one dimension (x-coordinates or y-coordinates)
+        /// Input / output is an anonymous record to deal with too many arguments otherwise
+        let checkForSnap1D (input: {| SnapInfo: LastSnap Option; Indicator: float Option; CurrMPos: float; LastMPos: float; Side1: float; Side2: float; PosDirection: float |}) =
+            
+            match input.SnapInfo with
+            | Some { Pos = oldPos; SnapLength = previousSnap } -> // Already snapped, see if mouse is far enough to un-snap
+                if abs (input.CurrMPos - oldPos) > unSnapMargin
+                then {| DeltaPos = (input.CurrMPos - oldPos) - previousSnap; SnapInfo = None; Indicator = None |} // Un-snap
+                else {| DeltaPos = 0.0; SnapInfo = input.SnapInfo; Indicator = input.Indicator |} // Don't un-snap
+            | None -> // No snapping has occurred yet, check which side is closer to a grid and see if it should snap, also save which side it is
+                let margins = [ (input.Side1 % gridSize), input.Side1
+                                ((input.Side1 % gridSize) - gridSize), input.Side1
+                                (input.Side2 % gridSize), input.Side2
+                                ((input.Side2 % gridSize) - gridSize), input.Side2 ]
+                
+                let getMarginWithDirection (sortedMargins: (float*float)list) (dir: float) = 
+                    if abs(fst(sortedMargins[0]) - fst(sortedMargins[1])) < 0.1 then
+                        //printfn "HERE"
+                        //printfn "%A" dir 
+                        if dir > 0. then 
+                        //    printf "HERE1"
+                            sortedMargins[0] 
+                        else sortedMargins[1]
+                    else 
+                        sortedMargins[0]
 
-// Create a new model without the wires contained in connectionIds
-    | DeleteWires (connectionIds : list<ConnectionId>) -> 
-        let resetWireModel = updateOrResetWireSegmentJumps (connectionIds) (model)    // Reset Wire Segment
-        let newWX =
-             resetWireModel.WX
-             |> Map.filter (fun id _ -> not (List.contains id connectionIds))     // TODO: change the wire not used to a _
-        {resetWireModel with WX = newWX}, Cmd.ofMsg BusWidths
+                let sortedMargins = List.rev (List.sortByDescending (fun (margin, _) -> abs margin) margins)
 
-    | DragWire (connectionId : ConnectionId, mouse: MouseT) ->
-        match mouse.Op with                                             // TODO: Change to return cmd.none at the end only once | use newModel = match ... | newModel, cmd.none
-        | Down ->
-            let segId = getClickedSegment model connectionId mouse.Pos
-            {model with SelectedSegment = segId }, Cmd.none
-        | Drag ->
-            let segId = model.SelectedSegment
-            let rec getSeg (segList: list<Segment>) =           // TODO: change from rec to a library function call like list.filter or Map.tryfind
-                match segList with
-                | h::t -> if h.Id = segId then h else getSeg t
-                | _ -> failwithf "segment Id not found in segment list"
-        (*    match result with
-            | Some x -> printfn "Found an element: %d" x
-            | None -> printfn "Failed to find a matching element."  *)
-            let seg = getSeg model.WX[connectionId].Segments
+                //printfn "%A" sortedMargins
 
-            if seg.Draggable then
-                let distanceToMove = 
-                    match seg.Dir with
-                    | Horizontal -> mouse.Pos.Y - abs seg.Start.Y
-                    | Vertical -> mouse.Pos.X - abs seg.Start.X
+                match getMarginWithDirection sortedMargins input.PosDirection with // abs since there negative margins as well (e.g. snap left)
+                | margin, side when abs margin < snapMargin && not model.AutomaticScrolling -> // disable snap if autoscrolling
+                    // Snap to grid and save info for future un-snapping
+                    {| DeltaPos = -margin
+                       SnapInfo = Some {Pos = input.CurrMPos; SnapLength = -margin - (input.CurrMPos - input.LastMPos)} // Offset with (CurrMPos - LastMPos), so that the symbol stays aligned with the mouse after un-snapping
+                       Indicator = Some (side - margin) |}
+                | _ -> // Don't do any snap-to-grid
+                    {| DeltaPos = (input.CurrMPos - input.LastMPos)
+                       SnapInfo = None
+                       Indicator = None |} 
+        
+        let compId = model.SelectedComponents.Head
+        let boundingBox = model.BoundingBoxes[compId]
+        let x1, x2, y1, y2 = boundingBox.X, boundingBox.X + boundingBox.W, boundingBox.Y, boundingBox.Y + boundingBox.H
+        
+        // printfn "%A" mMsg.Pos.X
+        // printfn "%A" model.LastMousePos.X
 
-                let newWire = moveSegment seg distanceToMove model
-                let newWX = Map.add seg.HostId newWire model.WX
- 
-                {model with WX = newWX}, Cmd.none
+        let snapX = checkForSnap1D {| SnapInfo = model.Snap.XSnap
+                                      Indicator = model.SnapIndicator.XLine
+                                      CurrMPos = mMsg.Pos.X
+                                      LastMPos = model.LastMousePos.X
+                                      Side1 = x1
+                                      Side2 = x2
+                                      PosDirection = (mMsg.Pos.X - model.LastMousePosForSnap.X)  |}
+                              
+        let snapY = checkForSnap1D {| SnapInfo = model.Snap.YSnap
+                                      Indicator = model.SnapIndicator.YLine
+                                      CurrMPos = mMsg.Pos.Y
+                                      LastMPos = model.LastMousePos.Y
+                                      Side1 = y1
+                                      Side2 = y2
+                                      PosDirection = (mMsg.Pos.Y - model.LastMousePosForSnap.Y) |}
+        
+        let errorComponents  = 
+            if notIntersectingComponents model boundingBox compId then [] else [compId]
+
+        let updateLastMousePosForSnap , updateMouseCounter = 
+                                if model.MouseCounter > 5 then 
+                                    mMsg.Pos , 0
+                                 else 
+                                    model.LastMousePos , model.MouseCounter + 1
+        {model with
+             Action = nextAction
+             LastMousePos = mMsg.Pos
+             ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement}
+             ErrorComponents = errorComponents
+             Snap = {XSnap = snapX.SnapInfo; YSnap = snapY.SnapInfo}
+             SnapIndicator = {XLine = snapX.Indicator; YLine = snapY.Indicator}
+             MouseCounter = updateMouseCounter
+             LastMousePosForSnap = updateLastMousePosForSnap},
+        Cmd.batch [ symbolCmd (Symbol.MoveSymbols (model.SelectedComponents, {X = snapX.DeltaPos; Y = snapY.DeltaPos}))
+                    Cmd.ofMsg (UpdateSingleBoundingBox model.SelectedComponents.Head) 
+                    symbolCmd (Symbol.ErrorSymbols (errorComponents,model.SelectedComponents,isDragAndDrop))
+                    Cmd.ofMsg CheckAutomaticScrolling 
+                    wireCmd (BusWire.UpdateWires (model.SelectedComponents, posDiff mMsg.Pos model.LastMousePos))]
+    | _ -> // Moving multiple symbols -> don't do snap-to-grid
+        let errorComponents = 
+            model.SelectedComponents
+            |> List.filter (fun sId -> not (notIntersectingComponents model model.BoundingBoxes[sId] sId))
+        {model with Action = nextAction ; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement}; ErrorComponents = errorComponents },
+        Cmd.batch [ symbolCmd (Symbol.MoveSymbols (model.SelectedComponents, posDiff mMsg.Pos model.LastMousePos))
+                    symbolCmd (Symbol.ErrorSymbols (errorComponents,model.SelectedComponents,isDragAndDrop))
+                    Cmd.ofMsg UpdateBoundingBoxes
+                    Cmd.ofMsg CheckAutomaticScrolling 
+                    wireCmd (BusWire.UpdateWires (model.SelectedComponents, posDiff mMsg.Pos model.LastMousePos))]
+        
+// ----------------------------------------- Mouse Update Helper Functions ----------------------------------------- //
+// (Kept in separate functions since Update function got too long otherwise)
+
+let appendUndoList (undoList: Model List) (model_in: Model): Model List =
+    let rec removeLast lst =
+        match lst with
+        | _ :: lst when List.isEmpty lst -> []
+        | hd :: lst -> hd :: (removeLast lst)
+        | [] -> []
+
+    match List.length undoList with
+    | n when n < 500 -> model_in :: undoList
+    | _ -> model_in :: (removeLast undoList)
+
+
+/// Mouse Down Update, Can have clicked on: InputPort / OutputPort / Component / Wire / Canvas. Do correct action for each.
+let mDownUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
+    let newModel = 
+        match model.TmpModel with 
+        | None -> model
+        | Some newModel -> newModel
+
+    match model.Action with
+    | DragAndDrop ->
+        let errorComponents = 
+            model.SelectedComponents
+            |> List.filter (fun sId -> not (notIntersectingComponents model model.BoundingBoxes[sId] sId))
+
+        match List.isEmpty errorComponents with 
+        | false -> model, Cmd.none
+        | true -> 
+            {model with
+                BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol // TODO: Improve here in group stage when we are concerned with efficiency
+                Action = Idle
+                Snap = {XSnap = None; YSnap = None}
+                SnapIndicator = {XLine = None; YLine = None}
+                UndoList = appendUndoList model.UndoList newModel
+                RedoList = []
+                AutomaticScrolling = false
+            }, 
+            Cmd.batch [ symbolCmd (Symbol.SelectSymbols model.SelectedComponents)
+                        wireCmd (BusWire.SelectWires model.SelectedWires) ]
+    | _ ->
+        match (mouseOn model mMsg.Pos) with
+        | InputPort (portId, portLoc) -> 
+            {model with Action = ConnectingInput portId; ConnectPortsLine = portLoc, mMsg.Pos; TmpModel=Some model},
+            symbolCmd Symbol.ShowAllOutputPorts
+        | OutputPort (portId, portLoc) -> 
+            {model with Action = ConnectingOutput portId; ConnectPortsLine = portLoc, mMsg.Pos; TmpModel=Some model},
+            symbolCmd Symbol.ShowAllInputPorts
+        | Component compId ->
+            let msg, action = 
+                if model.IsWaveSim then 
+                    ToggleNet ([Symbol.extractComponent model.Wire.Symbol compId], []), Idle
+                else DoNothing, InitialiseMoving compId
+
+            if model.Toggle 
+            then 
+                let newComponents =
+                    if List.contains compId model.SelectedComponents
+                    then List.filter (fun cId -> cId <> compId) model.SelectedComponents // If component selected was already in the list, remove it
+                    else compId :: model.SelectedComponents // If user clicked on a new component add it to the selected list
+
+                {model with SelectedComponents = newComponents; LastValidPos = mMsg.Pos ; LastValidBoundingBoxes=model.BoundingBoxes ; Action = action; LastMousePos = mMsg.Pos; TmpModel = Some model; PrevWireSelection = model.SelectedWires},
+                Cmd.batch [symbolCmd (Symbol.SelectSymbols newComponents); Cmd.ofMsg msg]
             else
-                model, Cmd.none
+                let newComponents, newWires =
+                    if List.contains compId model.SelectedComponents
+                    then model.SelectedComponents, model.SelectedWires // Keep selection for symbol movement
+                    else [compId], [] // If user clicked on a new component, select that one instead
+                {model with SelectedComponents = newComponents; LastValidPos = mMsg.Pos ; LastValidBoundingBoxes=model.BoundingBoxes ; SelectedWires = newWires; Action = action; LastMousePos = mMsg.Pos; TmpModel = Some model},
+                Cmd.batch [ symbolCmd (Symbol.SelectSymbols newComponents)
+                            wireCmd (BusWire.SelectWires newWires) 
+                            Cmd.ofMsg msg]
+
+        | Connection connId ->
+            let msg = 
+                if model.IsWaveSim then 
+                    ToggleNet ([], [BusWire.extractConnection model.Wire connId]) 
+                else DoNothing
+
+            if model.Toggle
+            then 
+                let newWires = 
+                    if List.contains connId model.SelectedWires
+                    then List.filter (fun cId -> cId <> connId) model.SelectedWires // If component selected was already in the list, remove it
+                    else connId :: model.SelectedWires // If user clicked on a new component add it to the selected list
+
+                { model with SelectedWires = newWires; Action = Idle; TmpModel = Some model; PrevWireSelection = model.SelectedWires},
+                Cmd.batch [wireCmd (BusWire.SelectWires newWires); Cmd.ofMsg msg]
+            else
+                { model with SelectedComponents = []; SelectedWires = [ connId ]; Action = MovingWire connId; TmpModel=Some model},
+                Cmd.batch [ symbolCmd (Symbol.SelectSymbols [])
+                            wireCmd (BusWire.SelectWires [ connId ])
+                            wireCmd (BusWire.DragWire (connId, mMsg))
+                            wireCmd (BusWire.ResetJumps [ connId ] )
+                            Cmd.ofMsg msg]
+        | Canvas ->
+            let newComponents, newWires =
+                if model.Toggle
+                then model.SelectedComponents, model.SelectedWires //do not deselect if in toggle mode
+                else [], []
+            // Start Creating Selection Box and Reset Selected Components
+            let initialiseSelection = {model.DragToSelectBox with X=mMsg.Pos.X; Y=mMsg.Pos.Y}
+            {model with DragToSelectBox = initialiseSelection; Action = Selecting; SelectedComponents = newComponents; SelectedWires = newWires },
+            Cmd.batch [ symbolCmd (Symbol.SelectSymbols newComponents)
+                        wireCmd (BusWire.SelectWires newWires) ]
         
+/// Mouse Drag Update, can be: drag-to-selecting, moving symbols, connecting wire between ports.
+let mDragUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> = 
+    match model.Action with
+    | MovingWire connId -> model, wireCmd (BusWire.DragWire (connId, mMsg))
+    | Selecting ->
+        let initialX = model.DragToSelectBox.X
+        let initialY = model.DragToSelectBox.Y
+        let newDragToSelectBox = {model.DragToSelectBox with W = (mMsg.Pos.X - initialX); H = (mMsg.Pos.Y - initialY)}
+        {model with DragToSelectBox = newDragToSelectBox
+                    ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement}
+                    LastMousePos = mMsg.Pos
+         }, Cmd.ofMsg CheckAutomaticScrolling
+    | InitialiseMoving _ ->
+        let movingWires = BusWire.getConnectedWires model.Wire model.SelectedComponents
+        let newModel, cmd = moveSymbols model mMsg
+        newModel, Cmd.batch [ cmd; wireCmd (BusWire.ResetJumps movingWires) ]
+    | MovingSymbols | DragAndDrop ->
+        moveSymbols model mMsg
+    | ConnectingInput _ -> 
+        let nearbyComponents = findNearbyComponents model mMsg.Pos
+        let _, nearbyOutputPorts = findNearbyPorts model
+
+        let targetPort, drawLineTarget = 
+            match mouseOnPort nearbyOutputPorts mMsg.Pos 12.5 with
+            | Some (OutputPortId portId, portLoc) -> (portId, portLoc) // If found target, snap target of the line to the port
+            | None -> ("", mMsg.Pos)
+                
+        { model with
+                    NearbyComponents = nearbyComponents
+                    ConnectPortsLine = (fst model.ConnectPortsLine, drawLineTarget)
+                    TargetPortId = targetPort
+                    LastMousePos = mMsg.Pos
+                    ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement}}        
+        , Cmd.ofMsg CheckAutomaticScrolling
+    | ConnectingOutput _ -> 
+        let nearbyComponents = findNearbyComponents model mMsg.Pos
+        let nearbyInputPorts, _ = findNearbyPorts model
+        
+        let targetPort, drawLineTarget = 
+            match mouseOnPort nearbyInputPorts mMsg.Pos 12.5 with
+            | Some (InputPortId portId, portLoc) -> (portId, portLoc) // If found target, snap target of the line to the port
+            | None -> ("", mMsg.Pos)
+                
+        { model with
+                    NearbyComponents = nearbyComponents
+                    ConnectPortsLine = (fst model.ConnectPortsLine, drawLineTarget)
+                    TargetPortId = targetPort
+                    LastMousePos = mMsg.Pos
+                    ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement} }        
+        , Cmd.ofMsg CheckAutomaticScrolling
+    | _ -> model, Cmd.none
+    
+/// Mouse Up Update, can have: finished drag-to-select, pressed on a component, finished symbol movement, connected a wire between ports
+let mUpUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> = // mMsg is currently un-used, but kept for future possibilities 
+    let newModel = 
+        match model.TmpModel with 
+        | None -> model
+        | Some newModel -> newModel
+
+    match model.Action with
+    | MovingWire connId ->
+        { model with Action = Idle ; UndoList = appendUndoList model.UndoList newModel; RedoList = [] },
+        Cmd.batch [ wireCmd (BusWire.DragWire (connId, mMsg))
+                    wireCmd (BusWire.MakeJumps [ connId ] ) ]
+    | Selecting ->
+        let newComponents = findIntersectingComponents model model.DragToSelectBox
+        let newWires = BusWire.getIntersectingWires model.Wire model.DragToSelectBox
+        let resetDragToSelectBox = {model.DragToSelectBox with H = 0.0; W = 0.0}
+        let selectComps, selectWires = 
+            if model.Toggle 
+            then 
+                symDiff newComponents model.SelectedComponents, symDiff newWires model.SelectedWires
+            else newComponents, newWires
+
+        { model with DragToSelectBox = resetDragToSelectBox; Action = Idle; SelectedComponents = selectComps; SelectedWires = selectWires; AutomaticScrolling = false },
+        Cmd.batch [ symbolCmd (Symbol.SelectSymbols selectComps)
+                    wireCmd (BusWire.SelectWires selectWires) ]
+
+    | InitialiseMoving compId -> // If user clicked on a component and never moved it, then select that component instead. (resets multi-selection as well)
+            { model with Action = Idle; SelectedComponents = [ compId ]; SelectedWires = [] },
+            Cmd.batch [ symbolCmd (Symbol.SelectSymbols [ compId ])
+                        wireCmd (BusWire.SelectWires []) ]
+    | MovingSymbols ->
+        // Reset Movement State in Model
+        match model.ErrorComponents with 
+        | [] ->
+            let movingWires = BusWire.getConnectedWires model.Wire model.SelectedComponents
+            {model with
+                // BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol 
+                Action = Idle
+                Snap = {XSnap = None; YSnap = None}
+                SnapIndicator = {XLine = None; YLine = None }
+                UndoList = appendUndoList model.UndoList newModel
+                RedoList = []
+                AutomaticScrolling = false },
+            wireCmd (BusWire.MakeJumps movingWires)
+        | _ ->
+            let movingWires = BusWire.getConnectedWires model.Wire model.SelectedComponents
+            {model with
+                BoundingBoxes = model.LastValidBoundingBoxes 
+                Action = Idle
+                Snap = {XSnap = None; YSnap = None}
+                SnapIndicator = {XLine = None; YLine = None }
+                AutomaticScrolling = false }, 
+            Cmd.batch [ symbolCmd (Symbol.MoveSymbols (model.SelectedComponents, (posDiff model.LastValidPos mMsg.Pos)))
+                        symbolCmd (Symbol.SelectSymbols (model.SelectedComponents))
+                        wireCmd (BusWire.UpdateWires (model.SelectedComponents, posDiff model.LastValidPos mMsg.Pos))
+                        wireCmd (BusWire.MakeJumps movingWires) ]
+    | ConnectingInput inputPortId ->
+        let cmd, undoList ,redoList =
+            if model.TargetPortId <> "" // If a target has been found, connect a wire
+            then wireCmd (BusWire.AddWire (inputPortId, (OutputPortId model.TargetPortId))),
+                           appendUndoList model.UndoList newModel, []
+            else Cmd.none , model.UndoList , model.RedoList
+        {model with Action = Idle; TargetPortId = ""; UndoList = undoList ; RedoList = redoList ; AutomaticScrolling = false }, cmd
+    | ConnectingOutput outputPortId ->
+        let cmd , undoList , redoList =
+            if model.TargetPortId <> "" // If a target has been found, connect a wire
+            then  wireCmd (BusWire.AddWire (InputPortId model.TargetPortId, outputPortId)),
+                           appendUndoList model.UndoList newModel , []
+            else Cmd.none , model.UndoList , model.RedoList
+        { model with Action = Idle; TargetPortId = ""; UndoList = undoList ; RedoList = redoList ; AutomaticScrolling = false  }, cmd
+    | _ -> model, Cmd.none
+    
+/// Mouse Move Update, looks for nearby components and looks if mouse is on a port
+let mMoveUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
+    match model.Action with
+    | DragAndDrop -> moveSymbols model mMsg
+    | InitialisedCreateComponent (compType, lbl) ->
+        let labelTest = if lbl = "" then Symbol.generateLabel model.Wire.Symbol compType else lbl
+        let newSymbolModel, newCompId = Symbol.addSymbol model.Wire.Symbol mMsg.Pos compType labelTest
+
+        { model with Wire = { model.Wire with Symbol = newSymbolModel }
+                     Action = DragAndDrop
+                     SelectedComponents = [ newCompId ]
+                     SelectedWires = []
+                     LastMousePos = mMsg.Pos
+                     ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement} },
+        Cmd.batch [ Cmd.ofMsg UpdateBoundingBoxes
+                    symbolCmd (Symbol.SelectSymbols [])
+                    symbolCmd (Symbol.PasteSymbols [ newCompId ]) ]
+    | _ ->
+        let nearbyComponents = findNearbyComponents model mMsg.Pos // TODO Group Stage: Make this more efficient, update less often etc, make a counter?
+        
+        let newCursor =
+            match model.CursorType with
+            | Spinner -> Spinner
+            | _ ->
+                match mouseOn { model with NearbyComponents = nearbyComponents } mMsg.Pos with // model.NearbyComponents can be outdated e.g. if symbols have been deleted -> send with updated nearbyComponents.
+                | InputPort _ | OutputPort _ -> ClickablePort // Change cursor if on port
+                | _ -> Default
+            
+        { model with NearbyComponents = nearbyComponents; CursorType = newCursor; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement} },
+        symbolCmd (Symbol.ShowPorts nearbyComponents) // Show Ports of nearbyComponents
+    
+let getScreenCentre (model : Model) : XYPos =
+    let canvas = document.getElementById "Canvas"
+    { 
+        X = (canvas.scrollLeft + canvas.clientWidth / 2.0) / model.Zoom
+        Y = (canvas.scrollTop + canvas.clientHeight / 2.0) / model.Zoom 
+    } 
+
+/// Update Function
+let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
+    match msg with
+    | Wire wMsg -> 
+        let wModel, wCmd = BusWire.update wMsg model.Wire
+        { model with Wire = wModel }, Cmd.map Wire wCmd
+    | ToggleGrid ->
+        {model with ShowGrid = not model.ShowGrid}, Cmd.none
+    | KeyPress DEL ->
+        let wiresConnectedToComponents = BusWire.getConnectedWires model.Wire model.SelectedComponents
+        // Ensure there are no duplicate deletions by using a Set
+        let wireUnion =
+            Set.union (Set.ofList wiresConnectedToComponents) (Set.ofList model.SelectedWires)
+            |> Set.toList
+            
+        // let inputPorts, outputPorts = BusWire.getPortIdsOfWires model.Wire wireUnion
+        { model with SelectedComponents = []; SelectedWires = []; UndoList = appendUndoList model.UndoList model ; RedoList = [] },
+        Cmd.batch [ wireCmd (BusWire.DeleteWires wireUnion) // Delete Wires before components so nothing bad happens
+                    symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
+                    Cmd.ofMsg UpdateBoundingBoxes ]
+    | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
+        { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
+        Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1")); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
+    | KeyPress AltShiftZ ->
+        TimeHelpers.printStats() 
+        model, Cmd.none
+    | KeyPress CtrlC ->
+        model,
+        Cmd.batch [
+            symbolCmd (Symbol.CopySymbols model.SelectedComponents) // Better to have Symbol keep track of clipboard as symbols can get deleted before pasting.
+            wireCmd (BusWire.CopyWires model.SelectedWires)
+        ]
+    | KeyPress CtrlV ->
+        let newSymbolModel, pastedCompIds = Symbol.pasteSymbols model.Wire.Symbol model.LastMousePos // Symbol has Copied Symbols stored
+        let newBusWireModel, pastedConnIds = BusWire.pasteWires { model.Wire with Symbol = newSymbolModel } pastedCompIds
+        
+        { model with Wire = newBusWireModel
+                     SelectedComponents = pastedCompIds
+                     SelectedWires = pastedConnIds
+                     TmpModel = Some model
+                     Action = DragAndDrop }, 
+        Cmd.batch [ Cmd.ofMsg UpdateBoundingBoxes
+                    symbolCmd (Symbol.SelectSymbols []) // Select to unhighlight all other symbols
+                    symbolCmd (Symbol.PasteSymbols pastedCompIds)
+                    wireCmd (BusWire.SelectWires [])
+                    wireCmd (BusWire.ColorWires (pastedConnIds, HighLightColor.Thistle)) ]
+    | KeyPress ESC -> // Cancel Pasting Symbols, and other possible actions in the future
+        match model.Action with
+        | DragAndDrop ->
+            { model with SelectedComponents = []
+                         SelectedWires = []
+                         Snap = {XSnap = None; YSnap = None}
+                         SnapIndicator = {XLine = None; YLine = None }
+                         Action = Idle },
+            Cmd.batch [ symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
+                        wireCmd (BusWire.DeleteWires model.SelectedWires)
+                        Cmd.ofMsg UpdateBoundingBoxes ]
         | _ -> model, Cmd.none
+    | KeyPress CtrlZ -> 
+        match model.UndoList with 
+        | [] -> model , Cmd.none
+        | prevModel :: lst -> 
+            let symModel = { prevModel.Wire.Symbol with CopiedSymbols = model.Wire.Symbol.CopiedSymbols }
+            let wireModel = { prevModel.Wire with CopiedWX = model.Wire.CopiedWX ; Symbol = symModel}
+            { prevModel with Wire = wireModel ; UndoList = lst ; RedoList = model :: model.RedoList ; CurrentKeyPresses = Set.empty } , Cmd.none
+    | KeyPress CtrlY -> 
+        match model.RedoList with 
+        | [] -> model , Cmd.none
+        | newModel :: lst -> { newModel with UndoList = model :: model.UndoList ; RedoList = lst} , Cmd.none
+    | KeyPress CtrlA -> 
+        let symbols = model.Wire.Symbol.Symbols |> Map.toList |> List.map fst
+        let wires = model.Wire.WX |> Map.toList |> List.map fst
+        { model with 
+            SelectedComponents = symbols
+            SelectedWires = wires
+        } , Cmd.batch [ symbolCmd (Symbol.SelectSymbols symbols)
+                        wireCmd (BusWire.SelectWires wires) ]
+    | KeyPress CtrlW ->
+        match canvasDiv with
+        | None -> model, Cmd.none
+        | Some el -> 
+            let paras = fitCircuitToWindowParas model
+            el.scrollTop <- paras.ScrollY
+            el.scrollLeft <- paras.ScrollX
+            { model with Zoom = paras.MagToUse}, Cmd.ofMsg (UpdateScrollPos (el.scrollLeft, el.scrollTop))
+    | KeyPress CtrlM ->
+        // let inputPorts, outputPorts = BusWire.getPortIdsOfWires model.Wire wireUnion
+        model, Cmd.batch [ wireCmd (BusWire.ChangeMode)] // Delete Wires before components so nothing bad happens
 
+    | ToggleSelectionOpen ->
+        //if List.isEmpty model.SelectedComponents && List.isEmpty model.SelectedWires then  
+        //    model, Cmd.none
+        //else
+            {model with Toggle = true}, Cmd.none
+    | ToggleSelectionClose -> 
+        {model with Toggle = false}, Cmd.none
 
-    | ColorWires ((connIds: list<ConnectionId>), (color: HighLightColor)) -> // Just Changes the colour of the wires, Sheet calls pasteWires before this
-        let newWiresMap =
-            List.fold (fun oldWiresMap cId -> 
-                            let oldWireOpt = Map.tryFind cId model.WX
-                            match oldWireOpt with
-                            | Some oldWire ->
-                                Map.add cId { oldWire with Color = color } oldWiresMap
-                            | None -> 
-                                oldWiresMap      
-                        ) model.WX connIds
+    | MouseMsg mMsg -> // Mouse Update Functions can be found above, update function got very messy otherwise
+        //printf "%A" mMsg
+        match mMsg.Op with
+        | Down -> mDownUpdate model mMsg
+        | Drag -> mDragUpdate model mMsg
+        | Up -> mUpUpdate model mMsg
+        | Move -> mMoveUpdate model mMsg
+    | UpdateBoundingBoxes -> { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol }, Cmd.none
+    | UpdateSingleBoundingBox compId ->
+        match Map.containsKey compId model.BoundingBoxes with
+        | true -> {model with BoundingBoxes = model.BoundingBoxes.Add (compId, (Symbol.getOneBoundingBox model.Wire.Symbol compId))}, Cmd.none
+        | false -> model, Cmd.none
+    | UpdateScrollPos (scrollX, scrollY) ->
+        let scrollDif = posDiff { X = scrollX; Y = scrollY } model.ScrollPos
+        let newLastScrollingPos =
+            {
+             Pos =
+                {
+                    X = model.ScrollingLastMousePos.Pos.X + scrollDif.X / model.Zoom
+                    Y = model.ScrollingLastMousePos.Pos.Y + scrollDif.Y / model.Zoom                
+                }
+             Move = model.ScrollingLastMousePos.Move
+            }
+        let cmd =
+            if model.AutomaticScrolling then
+                Cmd.ofMsg CheckAutomaticScrolling // Also check if there is automatic scrolling to continue
+            else
+                Cmd.none
+        { model with ScrollPos = { X = scrollX; Y = scrollY }; ScrollingLastMousePos = newLastScrollingPos }, cmd
+    | KeyPress ZoomIn ->
+        { model with Zoom = model.Zoom + 0.05 }, Cmd.ofMsg (KeepZoomCentered model.LastMousePos)
+    | KeyPress ZoomOut ->
+        let leftScreenEdge, rightScreenEdge,_,_ = getScreenEdgeCoords()
+        //Check if the new zoom will exceed the canvas width
+        let newZoom = 
+            if rightScreenEdge - leftScreenEdge < (DrawHelpers.canvasUnscaledSize * (model.Zoom - 0.05)) then model.Zoom - 0.05
+            else model.Zoom
+
+        { model with Zoom = newZoom }, Cmd.ofMsg (KeepZoomCentered model.LastMousePos)
+    | KeepZoomCentered oldScreenCentre ->
+        let canvas = document.getElementById "Canvas"
+        let newScreenCentre = getScreenCentre model 
+        let requiredOffset = posDiff oldScreenCentre newScreenCentre
         
-        { model with WX = newWiresMap }, Cmd.none
-    
-    | ResetJumps connIds ->        
-        let newModel =
-            model
-            |> updateOrResetWireSegmentJumps connIds    // Reset Wire Segment
+        // Update screen so that the zoom is centred around the middle of the screen.
+        canvas.scrollLeft <- canvas.scrollLeft + requiredOffset.X * model.Zoom
+        canvas.scrollTop <- canvas.scrollTop + requiredOffset.Y * model.Zoom
         
-        newModel, Cmd.none
-    
-    | MakeJumps _ ->
-        let newModel =
-            model
-            |> updateOrResetWireSegmentJumps [] // Update Wire Segment
+        model, Cmd.none
+    | ManualKeyDown key -> // Needed for e.g. Ctrl + C and Ctrl + V as they are not picked up by Electron
+        let newPressedKeys = model.CurrentKeyPresses.Add (key.ToUpper()) // Make it fully upper case to remove CAPS dependency
+        let newCmd =
+            match Set.contains "CONTROL" newPressedKeys || Set.contains "META" newPressedKeys with
+            | true ->
+                if Set.contains "C" newPressedKeys then
+                    Cmd.ofMsg (KeyPress CtrlC)
+                elif Set.contains "V" newPressedKeys then
+                    Cmd.ofMsg (KeyPress CtrlV)
+                elif Set.contains "A" newPressedKeys then
+                    Cmd.ofMsg (KeyPress CtrlA)
+                elif Set.contains "W" newPressedKeys then
+                    Cmd.ofMsg (KeyPress CtrlW)
+                else
+                    Cmd.none
+            | false -> Cmd.none
             
-        newModel, Cmd.none
-    
-    | ResetModel -> { model with 
-                        WX = Map.empty
-                        ErrorWires = []
-                        Notifications = None }, Cmd.none
-    
-    | LoadConnections connections -> // we assume components (and hence ports) are loaded before connections
-        let posMatchesVertex (pos:XYPos) (vertex: float*float) =
-            let epsilon = 0.00001
-            abs (abs pos.X - abs (fst vertex)) < epsilon && abs (abs pos.Y - abs (snd vertex)) < epsilon
-        let newWX =
-            connections 
-            |> List.map ( fun connection ->
-                            let inputId = InputPortId connection.Target.Id
-                            let outputId = OutputPortId connection.Source.Id
-                            let connId = ConnectionId connection.Id
-                            let segments = issieVerticesToSegments connId connection.Vertices
-                            let makeWirePosMatchSymbol inOut (wire:Wire) =
-                                match inOut with
-                                | Input -> posMatchesVertex 
-                                            (Symbol.getInputPortLocation model.Symbol inputId)
-                                            (List.head connection.Vertices)
-                                | Output ->
-                                          posMatchesVertex 
-                                            (Symbol.getOutputPortLocation model.Symbol outputId) 
-                                            (List.last connection.Vertices)
-                                |> (fun b -> 
-                                    if b then 
-                                        wire 
-                                    else
-                                        let getS (connId:string) = 
-                                            Map.tryFind connId model.Symbol.Ports
-                                            |> Option.map (fun port -> port.HostId)
-                                            |> Option.bind (fun symId -> Map.tryFind (ComponentId symId) model.Symbol.Symbols)
-                                            |> Option.map (fun sym -> sym.Compo.Label)
-                                        updateWire model wire inOut)  
-                                
-                            connId,
-
-                            { Id = ConnectionId connection.Id
-                              InputPort = inputId
-                              OutputPort = outputId
-                              Color = HighLightColor.DarkSlateGrey
-                              Width = 1
-                              Segments = segments }
-
-                            |> makeWirePosMatchSymbol Output
-                            |> makeWirePosMatchSymbol Input
-                        )
-            |> Map.ofList
+        { model with CurrentKeyPresses = newPressedKeys }, newCmd
+    | ManualKeyUp key -> { model with CurrentKeyPresses = model.CurrentKeyPresses.Remove (key.ToUpper()) }, Cmd.none
+    | CheckAutomaticScrolling ->
+        let canvas = document.getElementById "Canvas"
+        let wholeApp = document.getElementById "WholeApp"
+        let rightSelection = document.getElementById "RightSelection"
         
-        let connIds =
-            connections
-            |> List.map (fun connection -> ConnectionId connection.Id)
+        let leftScreenEdge = canvas.scrollLeft
+        let rightScreenEdge = leftScreenEdge + wholeApp.clientWidth - rightSelection.clientWidth
+        let upperScreenEdge = canvas.scrollTop
+        let lowerScreenEdge = upperScreenEdge + canvas.clientHeight
+        let mPosX = model.ScrollingLastMousePos.Pos.X * model.Zoom // Un-compensate for zoom as we want raw distance from mouse to edge screen
+        let mPosY = model.ScrollingLastMousePos.Pos.Y * model.Zoom // Un-compensate for zoom as we want raw distance from mouse to edge screen
+        let mMovX = model.ScrollingLastMousePos.Move.X
+        let mMovY = model.ScrollingLastMousePos.Move.Y
+        /// no scrolling if too far from edge, or if moving away from edge
+        let checkForAutomaticScrolling1D (edge: float) (mPos: float) (mMov: float) =
+            let scrollMargin = 100.0
+            let scrollSpeed = 10.0
+            let edgeDistance = abs (edge - mPos)
             
-        { model with WX = newWX }, Cmd.ofMsg (MakeJumps connIds)
-    
-    | ChangeMode ->
-        let prvmode = model.Mode
-        let mode = match prvmode with
-                    | OldFashionedCircuit -> Radiussed
-                    | Radiussed -> ModernCircuit
-                    | ModernCircuit -> OldFashionedCircuit
-        let wModel = model
-        let newWX = { wModel with Mode = mode }
-        printfn $"{mode}"
-        let resetWireModel = updateOrResetWireSegmentJumps [] (newWX)    // Reset Wire Segment
+            if edgeDistance < scrollMargin && mMov >= -0.0000001 // just in case there are FP rounding errors
+            then scrollSpeed * (scrollMargin - edgeDistance) / scrollMargin // Speed should be faster the closer the mouse is to the screen edge
+            else 0.0
         
-        resetWireModel, Cmd.none
+        canvas.scrollLeft <- canvas.scrollLeft - (checkForAutomaticScrolling1D leftScreenEdge mPosX -mMovX) // Check left-screen edge
+        canvas.scrollLeft <- canvas.scrollLeft + (checkForAutomaticScrolling1D rightScreenEdge mPosX mMovX) // Check right-screen edge
+        canvas.scrollTop <- canvas.scrollTop - (checkForAutomaticScrolling1D upperScreenEdge mPosY -mMovY) // Check upper-screen edge
+        canvas.scrollTop <- canvas.scrollTop + (checkForAutomaticScrolling1D lowerScreenEdge mPosY mMovY) // Check lower-screen edge
+        let xDiff = canvas.scrollLeft - leftScreenEdge
+        let yDiff = canvas.scrollTop - upperScreenEdge
 
-//---------------Other interface functions--------------------//
+        if xDiff <> 0.0 || yDiff <> 0.0 then // Did any automatic scrolling happen?
+            let newMPos = { X = model.LastMousePos.X + xDiff / model.Zoom ; Y = model.LastMousePos.Y + yDiff / model.Zoom }
+            // Need to update mouse movement as well since the scrolling moves the mouse relative to the canvas, but no actual mouse movement will be detected.
+            // E.g. a moving symbol should stick to the mouse as the automatic scrolling happens and not lag behind.
+            let outputModel, outputCmd =
+                match model.Action with
+                | DragAndDrop ->
+                    mMoveUpdate { model with AutomaticScrolling = true } { Pos = newMPos; Op = Move;  Movement = {X=0.;Y=0.}}
+                | MovingSymbols | ConnectingInput _ | ConnectingOutput _ | Selecting ->
+                    mDragUpdate { model with AutomaticScrolling = true } { Pos = newMPos; Op = Drag; Movement = {X=0.;Y=0.}}
+                | _ -> 
+                    { model with AutomaticScrolling = true }, Cmd.none
+            
+            // Don't want to go into an infinite loop (program would crash), don't check for automatic scrolling immediately (let it be handled by OnScroll listener).
+            let filteredOutputCmd = Cmd.map (fun msg -> if msg <> CheckAutomaticScrolling then msg else DoNothing) outputCmd
+            // keep model ScrollPos uptodate with real scrolling position
+            let outputModel = {outputModel with ScrollPos = {X = canvas.scrollLeft; Y = canvas.scrollTop}}
+            
+            outputModel, filteredOutputCmd
+        else
+            { model with AutomaticScrolling = false}, Cmd.none
+                
+    // ---------------------------- Issie Messages ---------------------------- //
 
-/// returns true when for wires inside the bounding box or hovered by mouse else false
-let wireIntersectsBoundingBox (w : Wire) (boundBox : BoundingBox) =
-    let boolList = List.map (fun seg -> fst(segmentIntersectsBoundingBoxCoordinates seg boundBox)) w.Segments
-    List.contains true boolList
+    | InitialiseCreateComponent (compType, lbl) ->
+        { model with Action = (InitialisedCreateComponent (compType, lbl)) ; TmpModel = Some model}, Cmd.none
+    | FlushCommandStack -> { model with UndoList = []; RedoList = []; TmpModel = None }, Cmd.none
+    | ResetModel ->
+        { model with
+            BoundingBoxes = Map.empty
+            LastValidBoundingBoxes = Map.empty
+            SelectedComponents = []
+            SelectedWires = []
+            NearbyComponents = []
+            ErrorComponents = []
+            DragToSelectBox = {X=0.0; Y=0.0; H=0.0; W=0.0}
+            ConnectPortsLine = {X=0.0; Y=0.0}, {X=0.0; Y=0.0}
+            TargetPortId = ""
+            Action = Idle
+            LastMousePos = { X = 0.0; Y = 0.0 }
+            Snap = { XSnap = None; YSnap = None}
+            SnapIndicator = { XLine = None; YLine = None }
+            //ScrollPos = { X = 0.0; Y = 0.0 } Fix for scroll bug on changing sheets
+            LastValidPos = { X = 0.0; Y = 0.0 }
+            CurrentKeyPresses = Set.empty
+            UndoList = []
+            RedoList = []
+            TmpModel = None
+            Zoom = 1.0
+            AutomaticScrolling = false
+            ScrollingLastMousePos = {Pos={ X = 0.0; Y = 0.0 };Move={X=0.0; Y=0.0}}
+            MouseCounter = 0
+            LastMousePosForSnap = { X = 0.0; Y = 0.0 }    
+        }, Cmd.none
+    | UpdateSelectedWires (connIds, on) -> 
+        let oldWires = model.SelectedWires
+        let newWires = 
+            if on then oldWires @ connIds
+            else List.filter (fun conId -> List.contains conId connIds |> not) oldWires
+        {model with SelectedWires = newWires}, wireCmd (BusWire.SelectWires newWires)
+    | ColourSelection (compIds, connIds, colour) ->
+        {model with SelectedComponents = compIds; SelectedWires = connIds},
+        Cmd.batch [
+            symbolCmd (Symbol.ColorSymbols (compIds, colour)) // Better to have Symbol keep track of clipboard as symbols can get deleted before pasting.
+            wireCmd (BusWire.ColorWires (connIds, colour))
+        ]
+    | ResetSelection ->
+        {model with SelectedComponents = []; SelectedWires = []},
+        Cmd.batch [
+            symbolCmd (Symbol.SelectSymbols []) // Better to have Symbol keep track of clipboard as symbols can get deleted before pasting.
+            wireCmd (BusWire.SelectWires [])
+        ]
+    | SetWaveSimMode mode ->
+        {model with IsWaveSim = mode}, Cmd.none
+    | SelectWires cIds ->
+        //If any of the cIds of the netgroup given are inside the previous selection (not current as this will always be true)
+        //then deselect (remove from the selected list) any wires from the selected list that are in that cId list
+        //otherwise add the cId list to the selectedwires model
+        let newWires =
+            if List.exists (fun cId -> List.contains cId model.PrevWireSelection) cIds then
+                List.filter (fun cId -> List.contains cId cIds |> not) model.PrevWireSelection
+            else
+                List.append cIds model.PrevWireSelection
+        {model with SelectedWires = newWires}, Cmd.batch [Cmd.ofMsg (ColourSelection([], newWires, HighLightColor.Blue)); wireCmd (BusWire.SelectWires newWires)]
+    | SetSpinner isOn ->
+        if isOn then {model with CursorType = Spinner}, Cmd.none
+        else {model with CursorType = Default}, Cmd.none
+
+    | ToggleNet _ | DoNothing | _ -> model, Cmd.none
 
 
-/// 
-let getIntersectingWires (wModel : Model) (selectBox : BoundingBox) : list<ConnectionId> = 
-    wModel.WX
-    |> Map.map (fun id wire -> wireIntersectsBoundingBox wire selectBox)
-    |> Map.filter (fun id boolVal -> boolVal)
-    |> Map.toList
-    |> List.map (fun (id, bool) -> id)
+/// This function zooms an SVG canvas by transforming its content and altering its size.
+/// Currently the zoom expands based on top left corner. 
+let displaySvgWithZoom (model: Model) (headerHeight: float) (style: CSSProp list) (svgReact: ReactElement List) (dispatch: Dispatch<Msg>)=
+    // Hacky way to get keypresses such as Ctrl+C to work since Electron does not pick them up.
+    document.onkeydown <- (fun key ->
+        if key.which = 32.0 then// Check for spacebar
+            key.preventDefault() // Disable scrolling with spacebar
+            dispatch <| (ManualKeyDown key.key)
+        else
+            dispatch <| (ManualKeyDown key.key) )
+    document.onkeyup <- (fun key -> dispatch <| (ManualKeyUp key.key))
 
-///searches if the position of the cursor is on a wire in a model
-///Where n is 5 pixels adjusted for top level zoom
-let getWireIfClicked (wModel : Model) (pos : XYPos) (n : float) : ConnectionId Option =
-    let boundingBox = {X = pos.X - n
-                       Y = pos.Y - n
-                       H = n*2.
-                       W = n*2.}
-    let intersectingWires = getIntersectingWires (wModel : Model) boundingBox
-    List.tryHead intersectingWires
+    let sizeInPixels = sprintf "%.2fpx" ((DrawHelpers.canvasUnscaledSize * model.Zoom))
 
-///
-let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list<ConnectionId>) =
-    let oldCompIds = Symbol.getCopiedSymbols wModel.Symbol
-    
-    let pastedWires =
-        let createNewWire (oldWire : Wire) : list<Wire> =
-            let newId = ConnectionId(JSHelpers.uuid())
-    
-            match Symbol.getEquivalentCopiedPorts wModel.Symbol oldCompIds newCompIds (oldWire.InputPort, oldWire.OutputPort) with
-            | Some (newInputPort, newOutputPort) ->
+    /// Is the mouse button currently down?
+    let mDown (ev:Types.MouseEvent) = ev.buttons <> 0.
 
-                let portOnePos, portTwoPos = Symbol.getTwoPortLocations wModel.Symbol (InputPortId newInputPort) (OutputPortId newOutputPort)
-                let segmentList = makeInitialSegmentsList newId (portOnePos, portTwoPos)
+    /// Dispatch a MouseMsg (compensated for zoom)
+    let mouseOp op (ev:Types.MouseEvent) =
+        //printfn "%s" $"Op:{ev.movementX},{ev.movementY}"
+        dispatch <| MouseMsg {
+            Op = op ; 
+            Movement = {X= ev.movementX;Y=ev.movementY}
+            Pos = { 
+                X = (ev.pageX + model.ScrollPos.X) / model.Zoom  ; 
+                Y = (ev.pageY - headerHeight + model.ScrollPos.Y) / model.Zoom}
+            }
+        // dispatch <| MouseMsg {Op = op ; Pos = { X = (ev.pageX + model.ScrollPos.X) / model.Zoom  ; Y = (ev.pageY - topMenuBarHeight + model.ScrollPos.Y) / model.Zoom }}
+    let scrollUpdate () =
+        let canvas = document.getElementById "Canvas"
+        dispatch <| UpdateScrollPos (canvas.scrollLeft, canvas.scrollTop) // Add the new scroll offset to the model
+    let wheelUpdate (ev: Types.WheelEvent) =
+        if Set.contains "CONTROL" model.CurrentKeyPresses then
+            // ev.preventDefault()
+            if ev.deltaY > 0.0 then // Wheel Down
+                dispatch <| KeyPress ZoomOut
+            else
+                dispatch <| KeyPress ZoomIn
+        else () // Scroll normally if Ctrl is not held down
+    let cursorText = model.CursorType.Text()
+
+    div [ HTMLAttr.Id "Canvas"
+          Key cursorText // force cursor change to be rendered
+          Style (CSSProp.Cursor cursorText :: style)
+          OnMouseDown (fun ev -> (mouseOp Down ev)) 
+          OnMouseUp (fun ev -> (mouseOp Up ev)) 
+          OnMouseMove (fun ev -> mouseOp (if mDown ev then Drag else Move) ev)
+          OnScroll (fun _ -> scrollUpdate ())
+          Ref (fun el -> 
+            canvasDiv <- Some el
+            if not (isNull el) then
+                // in case this element is newly created, set scroll position from model
+                el.scrollLeft <- model.ScrollPos.X
+                el.scrollTop <- model.ScrollPos.Y)
+          OnWheel wheelUpdate
+        ]
+        [ 
+          svg
+            [ Style 
                 [
-                    {
-                        oldWire with
-                            Id = newId;
-                            InputPort = InputPortId newInputPort;
-                            OutputPort = OutputPortId newOutputPort;
-                            Segments = segmentList;
-                    }
+                    Height sizeInPixels
+                    Width sizeInPixels 
                 ]
-            | None -> []
-        
-        wModel.CopiedWX
-        |> Map.toList
-        |> List.map snd
-        |> List.collect createNewWire
-        |> List.map (fun wire -> wire.Id, wire)
-        |> Map.ofList
-    
-    let newWireMap = Map.fold ( fun acc newKey newVal -> Map.add newKey newVal acc ) pastedWires wModel.WX
-    let pastedConnIds =
-        pastedWires
-        |> Map.toList
-        |> List.map fst
-        
-    { wModel with WX = newWireMap }, pastedConnIds
+            ]
+            [ g // group list of elements with list of attributes
+                [ Style [Transform (sprintf "scale(%f)" model.Zoom)]] // top-level transform style attribute for zoom  
+                svgReact // the application code
+            ]
+        ]
 
-/// not used in the code: was used in sheets though
-let getPortIdsOfWires (model: Model) (connIds: ConnectionId list) : (InputPortId list * OutputPortId list) =
-    (([], []), connIds)
-    ||> List.fold (fun (inputPorts, outputPorts) connId ->
-            (model.WX[connId].InputPort :: inputPorts, model.WX[connId].OutputPort :: outputPorts))
+/// View function, displays symbols / wires and possibly also a grid / drag-to-select box / connecting ports line / snap-to-grid visualisation
+let view (model:Model) (headerHeight: float) (style) (dispatch : Msg -> unit) =
+    let start = TimeHelpers.getTimeMs()
+    let wDispatch wMsg = dispatch (Wire wMsg)
+    let wireSvg = BusWire.view model.Wire wDispatch
+    
+    let wholeCanvas = $"{max 100.0 (100.0 / model.Zoom)}" + "%" 
+    let grid =
+        svg [ SVGAttr.Width wholeCanvas; SVGAttr.Height wholeCanvas; SVGAttr.XmlSpace "http://www.w3.org/2000/svg" ] [
+            defs [] [
+                pattern [
+                    Id "Grid"
+                    SVGAttr.Width $"{gridSize}"
+                    SVGAttr.Height $"{gridSize}"
+                    SVGAttr.PatternUnits "userSpaceOnUse"
+                ] [
+                    path [
+                        SVGAttr.D $"M {gridSize} 0 L 0 0 0 {gridSize}"
+                        SVGAttr.Fill "None"
+                        SVGAttr.Stroke "Gray"
+                        SVGAttr.StrokeWidth "0.5"
+                        ] []
+                ]
+            ] 
+            rect [SVGAttr.Width wholeCanvas; SVGAttr.Height wholeCanvas; SVGAttr.Fill "url(#Grid)"] []
+        ]
+        
+    let dragToSelectBox =
+        let {BoundingBox.X=fX; Y=fY; H=fH; W=fW} = model.DragToSelectBox
+        let polygonPoints = $"{fX},{fY} {fX+fW},{fY} {fX+fW},{fY+fH} {fX},{fY+fH}"
+        let selectionBox = { defaultPolygon with Stroke = "Black"; StrokeWidth = "0.1px"; Fill = "Blue"; FillOpacity = 0.05 }
+        
+        makePolygon polygonPoints selectionBox
+    
+    let snapIndicatorLine = { defaultLine with Stroke = "Red"; StrokeWidth = "0.5px"; StrokeDashArray = "5, 5" }
+        
+    let connectingPortsWire =
+        let connectPortsLine = { defaultLine with Stroke = "Green"; StrokeWidth = "2.0px"; StrokeDashArray = "5, 5" }
+        let {XYPos.X = x1; Y = y1}, {XYPos.X = x2; Y = y2} = model.ConnectPortsLine
+        [ makeLine x1 y1 x2 y2 connectPortsLine
+          makeCircle x2 y2 { portCircle with Fill = "Green" }
+        ]
+        
+    let snapIndicatorLineX =
+        match model.SnapIndicator.XLine with
+        | Some xPos ->
+            [ makeLine xPos 0.0 xPos wholeCanvas snapIndicatorLine ]
+        | None ->
+            []
+    
+    let snapIndicatorLineY =
+        match model.SnapIndicator.YLine with
+        | Some yPos ->
+            [ makeLine 0.0 yPos wholeCanvas yPos snapIndicatorLine ]
+        | None ->
+            []
+    
+    let displayElements =
+        if model.ShowGrid
+        then [ grid; wireSvg ]
+        else [ wireSvg ]
+        
+    match model.Action with // Display differently depending on what state Sheet is in
+    | Selecting ->
+        displaySvgWithZoom model headerHeight style ( displayElements @ [ dragToSelectBox ] ) dispatch
+    | ConnectingInput _ | ConnectingOutput _ ->
+        displaySvgWithZoom model headerHeight style ( displayElements @ connectingPortsWire ) dispatch
+    | MovingSymbols | DragAndDrop ->
+        displaySvgWithZoom model headerHeight style ( displayElements @ snapIndicatorLineX @ snapIndicatorLineY ) dispatch
+    | _ ->
+        displaySvgWithZoom model headerHeight style displayElements dispatch
+    |> TimeHelpers.instrumentInterval "SheetView" start
+
+/// Init function
+let init () = 
+    let wireModel, cmds = (BusWire.init ())
+    let boundingBoxes = Symbol.getBoundingBoxes wireModel.Symbol
+    
+    {
+        Wire = wireModel
+        BoundingBoxes = boundingBoxes
+        LastValidBoundingBoxes = boundingBoxes
+        SelectedComponents = []
+        SelectedWires = []
+        NearbyComponents = []
+        ErrorComponents = []
+        DragToSelectBox = {X=0.0; Y=0.0; H=0.0; W=0.0}
+        ConnectPortsLine = {X=0.0; Y=0.0}, {X=0.0; Y=0.0}
+        TargetPortId = ""
+        Action = Idle
+        ShowGrid = true
+        LastMousePos = { X = 0.0; Y = 0.0 }
+        Snap = { XSnap = None; YSnap = None}
+        SnapIndicator = { XLine = None; YLine = None }
+        CursorType = Default
+        ScrollPos = { X = 0.0; Y = 0.0 }
+        LastValidPos = { X = 0.0; Y = 0.0 }
+        CurrentKeyPresses = Set.empty
+        UndoList = []
+        RedoList = []
+        TmpModel = None
+        Zoom = 1.0
+        AutomaticScrolling = false
+        ScrollingLastMousePos = {Pos={ X = 0.0; Y = 0.0 }; Move={X = 0.0; Y  =0.0}}
+        MouseCounter = 0
+        LastMousePosForSnap = { X = 0.0; Y = 0.0 }
+        Toggle = false
+        IsWaveSim = false
+        PrevWireSelection = []
+    }, Cmd.none
