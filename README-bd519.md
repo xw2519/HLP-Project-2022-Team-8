@@ -197,28 +197,32 @@ Your code will all be assessed anyway, so this is optional.
 
 # Extensions
 
-Extensions are required for mark > 70 and optional for mark below 70. High marks on 
-the first two sections cannot boost extensions mark if this is lower than them.
+1.  Switch to calculate jumps or circles
 
-$baseMark = \min (70, code * 20/35 + analysis * 15/35)$
+     a. [`ChangeMode`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/7da6be6db998d9690aa2e6057a629895ee314a77/src/Renderer/DrawBlock/BusWire.fs#L2395-L2406):
+     It allows along the modification made in Sheet.fs and Renderer.fs the definition of a new command Ctrl+M. This command allows you to switch mode from a list of three: OldFashioned Radiussed or Modern, using a match case to jump from one mode to the next upon pressing the command. It will store the selected Mode using a new type definition declared as a DU part of the Model: type Modes. It calls the function `updateOrResetWireSegmentJumps` to reset the parameters after changing modes.
+     
+     b. [`updateOrResetWireSegmentJumps`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2102-L2109):
+     Modified this function in order to know which function to call depending on the mode we are in. This is done by adding a match statement based on "model.Mode" and iterating through all the possibilities. If the mode is Radiussed we just return the model without modifications as its dealt with in another part.
+     
+     c. [`computeWireSplitCoord`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2024-L2088):
+     This function retrieves the coordinates of the Splits happening on the wires of the model.
+          
+          c.1. `makeWireGrid`:
+          We first create a grid containing all possible pairs/combination of wires in the model
+          
+          c.3. `getPorts`:
+          Once we have definied the grid containing all pairs, we are going to iterate throught all the possibilities verifying two conditions:
+          do they have the say OutputPort and if they have, do they have different InputPort. The pairs satisfying both conditions go to the next stages filtering out both the ones not having Split wires and the pairs of same wires.
+          
+          c.2. `findCircle`
+          Converting the List to sequences and then zipping them allows us to reduce the size of the biggest to the smallest segment list of the two wires, avoiding lenght issues while zipping. This creates a sequence of Segment pairs.
+          We then use the function Seq.tryFind to get the first segment pair which has the same Starting but not the same Ending coordinates.
+          Finally, in order to get the coordinate of the splitting point we iterate through all the cases, using the directions of the segment's vector. Either giving back the start Position of the segments if opposite directions, else the end position of the shortest vector distance of the given segments.
+          
+          
 
-$extendedMark = code * 20/50 + analysis * 15/50  + extensions * 15/50$
-
-$overallMark = \max (baseMark, extendedMark)$
-
-* This section can be missing if you have not done significant extension work.
-* Extension code, if well documented (in the code) and clearly written, can be assessed without working 
-  (if it is demonstrated it depends on other people's code not yet written). 
-* Don't bother writing this section unless you have significant extension work, because the mark here 
-  will usually not be counted in that case (see the marking scheme). Marks for extensions will be awarded 
-only for work of C level or above.
-
-* delete the above comemnts and add your satement of extensions as below*
-
-1.  List as numbered points the extensions (features) your code will support
-
-     a. Use nested letters for the functions you have written extra, 
-     or changed, to allow this, and for concise comments concise comments about why they work.
+    
 
 
 
