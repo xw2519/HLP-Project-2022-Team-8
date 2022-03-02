@@ -2395,7 +2395,6 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                     | Radiussed -> ModernCircuit
                     | ModernCircuit -> OldFashionedCircuit
         let newWX = { wModel with Mode = mode }
-        printfn $"{mode}"
         let resetWireModel = updateOrResetWireSegmentJumps [] (newWX)    // Reset Wire Segment
         
         resetWireModel, Cmd.none
