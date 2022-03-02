@@ -133,6 +133,7 @@ Your code will all be assessed anyway, so this is optional.
 
 * The new function uses pipeline (Array.map, Array.fold...) by creating a Grid, making an array of all possible pairs of wires in the model and iterating through those to check intersection. It then updates the given model with the modified Map<ConnectionId,Wire>. This is much more readable and agrees with F# guidelines.
 
+* `splithorizontalVertical`: splits the given Segment array and extracts from that two arrays one for Horizontal and the other for Vertical. Also check if it has to do the processing given if the Segment Id is in wiresWithNoJumpsA.
 * `makeHoriVertiGrid`: creates an array of Segment pairs. Those pairs are composed of an horizontal and a Vertical Segment.
 * `registerAllJumps`: extracts an array of SegmentId and float out of the Grid, when the two segments in the pairs intersect.
 * `changeSegment`: iterate through all the segments in the model and checks if their ids are included in the jump array obtained before. If yes then we update its JumpCoordinateList component else we set it to an empty list.
@@ -152,7 +153,14 @@ Your code will all be assessed anyway, so this is optional.
 * The old version was composed of an if else statement, which wasn't clear enough.
 
 * The new function now operates a match statement and makes more readable code when dealing with carried if else statements.
+* Also renamed the parameter "fullyConnected" into "InOutConnected" which is more understandable.
 
+[`update`](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/d27d4c07909365bae120d256b34ba3fb0002b7ec/src/Renderer/DrawBlock/BusWire.fs#L2137-L2403)
+
+* Defines a list of functions that update the model and communicates with others with the use of Cmd messages (defined as outputs).
+
+* `AddWire`: This function allows the systems to add a wire to the existing model. 
+* * I removed the "wireWidthFromSymbol" parameter definition as it was not used anywhere.
 
 
 
