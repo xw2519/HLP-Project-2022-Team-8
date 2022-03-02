@@ -1,35 +1,18 @@
 # README for individual code submission - tlp19
 
-## Instructions
-
-***REMOVE THIS AT THE END***
-
-* This file should be submitted (changed) on branch `hlp22-indiv-assess-<login>` of either your own repo or your group repo
-   * replace `<login>` in filename `README-<login>.md` by your login - in his example `<login> = tomcl`
-   * name the branch as above, including your login. This branch is used only for your submission.
-
-* A link to the repo and branch must be on the `indiv` sheet of Tom Clarke's Team [google spreadsheet](https://docs.google.com/spreadsheets/d/1prQ5usnpu36FgtbsMO8j6_mwbdd34haSMOQKN2OkLBA/edit?usp=sharing)
-
-* The repo you use **must have your marker added as collaborator** (github login is on indiv assessment spreadsheet page)
-
-* Link to the sourcefile your code is contained in (drawblock or symbol) with an **absolute** hyperlink 
-to your repo and branch
-
-
-
 ## Admin and quick access links
 
 ***-- UPDATE THIS AT THE END: WITH MAIN SECTION AND TRADED FUNCTIONS IN SECTION 1 --***
 
 [Common repo Team8 file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
-[Buswire (section 2)](./src/Renderer/DrawBlock/BusWire.fs)
+[Buswire (section 2)](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-tlp19/src/Renderer/DrawBlock/BusWire.fs)
 
 Section 2 on my file is lines : **1310-1850** - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L1310)
 
 I am also responsible for lines **325-410** (functions `xyVerticesToSegments`, `makeInitialSegmentsList`) - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L325)
 
-I have also worked on implementing the Extension for BusWire section 2, which is to implement AutoRouting for rotated Symbols. This part of my code is in the file Autorouted.fs - [Link to file](./src/Renderer/DrawBlock/Autorouted.fs) - but is currently not included in the compile script, as adding it in caused the following error when compiling: [Link to EdStem Post](https://edstem.org/us/courses/17809/discussion/1222697). I am hoping this part of my code can also be assessed, as a basis for coding style (even though it does not work).
+I have also worked on implementing the Extension for BusWire section 2, which is to implement AutoRouting for rotated Symbols. This part of my code is in the file Autorouted.fs - [Link to file](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-tlp19/src/Renderer/DrawBlock/Autorouted.fs) - but is currently not included in the compile script, as adding it in caused the following error when compiling: [Link to EdStem Post](https://edstem.org/us/courses/17809/discussion/1222697). I am hoping this part of my code can also be assessed, as a basis for coding style (even though it does not work).
  
 
 ## Code Quality
@@ -82,10 +65,6 @@ Highlights:
 
 
 ### Analysis of how/why code works
-
-* *A good way to show code works is to explain how it differs from existing working code and how existing*
-*functionality is preserved.*
-
 
 1. Function `getClickedSegment` - **Detecting which segment is clicked**
     - The function establishes a bounding bow around the coordinates that the user has clicked at (given that it is on a wire) and checks which of the wire's segments was clicked on.
