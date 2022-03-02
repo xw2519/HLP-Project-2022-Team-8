@@ -1,4 +1,4 @@
-﻿(*
+(*
   This module coordinates the draw block user interface managing component selection, moving, auto-scrolling etc
 *)
 
@@ -349,7 +349,7 @@ let isBBoxAllVisible (bb: BoundingBox) =
 let getWireBBox (wire: BusWire.Wire) (model: Model) =
     let coords = 
         wire.Segments
-        |> List.collect (fun seg -> [seg.Start; seg.End])
+        |> List.collect (fun seg -> [seg.Start; BusWire.getEndPoint seg])
     let xCoords =  coords |> List.map (fun xy -> xy.X)
     let yCoords =  coords |> List.map (fun xy -> xy.Y)
     let lh,rh = List.min xCoords, List.max xCoords
@@ -911,8 +911,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             el.scrollLeft <- paras.ScrollX
             { model with Zoom = paras.MagToUse}, Cmd.ofMsg (UpdateScrollPos (el.scrollLeft, el.scrollTop))
     | KeyPress CtrlM ->
-        // let inputPorts, outputPorts = BusWire.getPortIdsOfWires model.Wire wireUnion
-        model, Cmd.batch [ wireCmd (BusWire.ChangeMode)] // Delete Wires before components so nothing bad happens
+        model, Cmd.batch [ wireCmd (BusWire.ChangeMode)]
 
     | ToggleSelectionOpen ->
         //if List.isEmpty model.SelectedComponents && List.isEmpty model.SelectedWires then  
