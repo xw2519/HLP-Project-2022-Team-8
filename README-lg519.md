@@ -3,13 +3,10 @@
 ## Instructions
 
 
-* A link to the repo and branch must be on the `indiv` sheet of Tom Clarke's Team [google spreadsheet](https://docs.google.com/spreadsheets/d/1prQ5usnpu36FgtbsMO8j6_mwbdd34haSMOQKN2OkLBA/edit?usp=sharing)
 * The repo you use **must have your marker added as collaborator** (github login is on indiv assessment spreadsheet page)
 
 Keep the headings and **replace the admin section links and notes with correct ones**.
-* Link to the sourcefile your code is contained in (drawblock or symbol) with an absolute hyperlink 
-to your repo and branch
-* Specify which code section and file you are doing as in my ppt (1,2,3), (buswire,symbol)
+
 * Add any changes to my section code allocations. This must be consistent with what has been 
 recorded in your team's file in my Team contributions repo](https://github.com/tomcl/hlp22docs/blob/main/README.md)  
 main branch ./TeamN.md (N = 1 - 9) file. The team contrib repo is as official record. This file will be 
@@ -26,15 +23,19 @@ cannot easily find everything via links from this README.
 *link to your teamN.md file*
 [Common repo TeamN file](https://github.com/xw2519/hlp22docs/blob/main/Team8.md)
 
-[Symbol (section 2)](src/Renderer/DrawBlock/Symbol.fs)
+[Symbol (section 2)]([src/Renderer/DrawBlock/Symbol.fs](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-lg519/src/Renderer/DrawBlock/Symbol.fs))
 
 Section 2 on my file is lines : 627- 1104
 
-I am also responsible for lines 850-851 in [Sheet](src/Renderer/DrawBlock/Sheet.fs) (Rotation of symbols pressing key R)
+I am also responsible for lines 850-851 in [Sheet](src/Renderer/DrawBlock/Sheet.fs) (Rotation of symbols pressing key R).
+xw2519 implemented R keypress to rotate symbols initially as a functionality to test his code (27 Feb: Line 824 - 1112: Sheet.fs: update - xw2519).
+I simplified the logic, removed redundant functions and modified xw2519 code to comply with Elmish MVU guidelines. I have also added functionality to rotate multiple symbols.
 
 I am also responsible for the Rotaton and Center field of Symbol (together with xw2519). Lines 41 and 51
 
 I am also responsible for the SymbolsCount field of model. Line 59
+
+
 
 
 ## Code Quality
