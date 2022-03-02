@@ -1898,6 +1898,9 @@ let updateWire (model : Model) (wire : Wire) (inInputPort : InOut) =
     // Otherwise, if it didn't work, re-autoRoute fully the wire
     |> Option.defaultValue (autorouteWire model wire)
 
+//---------------------------------------------------------------------------------//
+//--------------------bd519 CODE SECTION STARTS-------------------------------------//
+//---------------------------------------------------------------------------------//
 
 /// Updates the JumpCoordinateList component of every segment in the model
 /// To do so, it creates a grid of all possible wire combinations and check for intersection
@@ -2472,3 +2475,7 @@ let getPortIdsOfWires (model: Model) (connIds: ConnectionId list) : (InputPortId
     (([], []), connIds)
     ||> List.fold (fun (inputPorts, outputPorts) connId ->
             (model.WX[connId].InputPort :: inputPorts, model.WX[connId].OutputPort :: outputPorts))
+
+//---------------------------------------------------------------------------------//
+//--------------------bd519 CODE SECTION ENDS-------------------------------------//
+//---------------------------------------------------------------------------------//
