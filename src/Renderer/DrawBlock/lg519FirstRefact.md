@@ -98,10 +98,10 @@ times it is displayed in the current model
 - ok. TODO: Discuss this funtion with team
 
 **changeNumberOfBitsf**
-- renamed to updateCmpNumOfBits
+- renamed to updateCmpBits
   
 **changeLsbf**
-- renamed to updateLSBNumOfBits
+- renamed to updateCmpLSBBits
 
 **changeConstantf**
 - renamed to updateConstant
