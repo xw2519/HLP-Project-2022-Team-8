@@ -74,6 +74,10 @@ type Msg =
     | WriteMemoryType of ComponentId * ComponentType
     | RotateSymbols of ComponentId list
 
+//------------------------------------------------------------------------//
+//---------------------- XW2519 CODE SECTION STARTS ----------------------//
+//------------------------------------------------------------------------//
+
 //--------------------------------- Helper functions ---------------------------------//
 let convertDegtoRad degree = System.Math.PI * degree / 180.0 
 
@@ -81,7 +85,7 @@ let convertRelativeToSymbolCenter (symbol: Symbol) (portPos: XYPos) : XYPos =
     { X = portPos.X-(float(symbol.Component.W)/2.0)
       Y = portPos.Y-(float(symbol.Component.H)/2.0) }
 
-let convertRelativeToTopLeft (symbol: Symbol) (portPos: XYPos) : XYPos =
+let convertRelativeToSymbolTopLeft (symbol: Symbol) (portPos: XYPos) : XYPos =
     { X = portPos.X+(float(symbol.Component.W)/2.0)
       Y = portPos.Y+(float(symbol.Component.H)/2.0) }
 
@@ -120,7 +124,7 @@ let rotateSymbol (symbol: Symbol) =
         symbol.SymbolPoints
         |> List.map (convertRelativeToSymbolCenter symbol)
         |> List.map (rotatePoint 90.0)
-        |> List.map (convertRelativeToTopLeft symbol)
+        |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     {symbol with Rotation = nextRotation.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
 
@@ -157,14 +161,14 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
         | ComponentType.Output (a) -> (1, 0, GridSize, 2*GridSize) 
         | ComponentType.Viewer a -> (1, 0, GridSize, GridSize) 
         | ComponentType.IOLabel  ->(1, 1, GridSize, 2*GridSize) 
-        | Decode4 ->(2, 4 , 4*GridSize, 3*GridSize) 
-        | Constant1 (a, b,_) | Constant(a, b) -> (0, 1, GridSize, 2*GridSize) 
+        | Decode4 ->(2, 4, 4*GridSize, 3*GridSize) 
+        | Constant1 (a, b, _) | Constant(a, b) -> (0, 1, GridSize, 2*GridSize) 
         | MergeWires -> (2, 1, 2*GridSize, 2*GridSize) 
         | SplitWire (a) ->(1, 2, 2*GridSize, 2*GridSize) 
         | Mux2 -> (3, 1, 3*GridSize, 2*GridSize) 
         | Demux2 ->(2, 2, 3*GridSize, 2*GridSize) 
         | BusSelection (a, b) -> (1, 1, GridSize, 2*GridSize) 
-        | BusCompare (a, b) -> (1 , 1, GridSize, 2*GridSize) 
+        | BusCompare (a, b) -> (1, 1, GridSize, 2*GridSize) 
         | DFF -> (1, 1, 3*GridSize, 3*GridSize) 
         | DFFE -> (2, 1, 3*GridSize, 3*GridSize) 
         | Register (a) -> (1, 1, 3*GridSize, 4*GridSize )
@@ -322,7 +326,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     { X = posX; Y = posY }
     |> convertRelativeToSymbolCenter symbol
     |> rotatePoint symbol.Rotation
-    |> convertRelativeToTopLeft symbol
+    |> convertRelativeToSymbolTopLeft symbol
 
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
@@ -382,20 +386,20 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
 
 let addPortTitle (comp: Component) = 
     match comp.Type with
-    | AsyncRAM1 _ -> (["Addr"; "Din";"Wen" ],["Dout"])
-    | Custom x -> (List.map fst x.InputLabels), (List.map fst x.OutputLabels)
-    | Decode4 -> (["Sel";"Data"],["0"; "1";"2"; "3"])
-    | Demux2 -> (["IN" ; "SEL"],["0"; "1"])
-    | DFF -> (["D"],["Q"])
-    | DFFE -> (["D";"EN"],["Q"])
-    | Mux2 -> (["0"; "1";"SEL"],["OUT"])
-    | NbitsAdder _ -> (["Cin";"A";"B"],["Sum "; "Cout"])
-    | NbitsXor _ -> (["P"; "Q"], ["Out"])
-    | Register _ -> (["D"],["Q"])
-    | RegisterE _ -> (["D"; "EN"],["Q"])
-    | ROM1 _ |AsyncROM1 _ -> (["Addr"],["Dout"])
-    | RAM1 _ -> (["Addr"; "Din";"Wen" ],["Dout"])
-    |_ -> ([],[])
+    | AsyncRAM1 _ -> (["Addr"; "Din"; "Wen" ] , ["Dout"])
+    | Custom x -> ((List.map fst x.InputLabels) , (List.map fst x.OutputLabels))
+    | Decode4 -> (["Sel"; "Data"] , ["0"; "1"; "2"; "3"])
+    | Demux2 -> (["IN"; "SEL"] , ["0"; "1"])
+    | DFF -> (["D"] , ["Q"])
+    | DFFE -> (["D"; "EN"] , ["Q"])
+    | Mux2 -> (["0"; "1"; "SEL"] , ["OUT"])
+    | NbitsAdder _ -> (["Cin"; "A"; "B"] , ["Sum "; "Cout"])
+    | NbitsXor _ -> (["P"; "Q"] , ["Out"])
+    | Register _ -> (["D"] , ["Q"])
+    | RegisterE _ -> (["D"; "EN"] , ["Q"])
+    | ROM1 _ |AsyncROM1 _ -> (["Addr"] , ["Dout"])
+    | RAM1 _ -> (["Addr"; "Din"; "Wen" ] , ["Dout"])
+    |_ -> ([] , [])
 
     // EXTENSION: Extra Components made that are not currently in Issie. Can be extended later by using this code as it is .
     // |Mux4 -> (["0"; "1"; "2"; "3" ;"SEL"],["OUT"])
@@ -553,7 +557,7 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
         points 
         |> List.map (convertRelativeToSymbolCenter symbol) 
         |> List.map (rotatePoint -symbol.Rotation) 
-        |> List.map (convertRelativeToTopLeft symbol)
+        |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     let trianglePoints =
         [ { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y = originalSymbolPoints[1].Y+6.0 }
@@ -561,7 +565,7 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
           { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0 + 6.0; Y = originalSymbolPoints[1].Y } ]
         |> List.map (convertRelativeToSymbolCenter symbol)
         |> List.map (rotatePoint symbol.Rotation) 
-        |> List.map (convertRelativeToTopLeft symbol)
+        |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     drawBiColorPolygon (convertSymbolPointsToString trianglePoints) colour outlineColor opacity strokeWidth
 
@@ -570,7 +574,7 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
         [{ X = posX; Y = posY }; { X = posX+9.0; Y = posY }; { X = posX; Y = posY-8.0 }]
         |> List.map (convertRelativeToSymbolCenter symbol)
         |> List.map (rotatePoint symbol.Rotation)
-        |> List.map (convertRelativeToTopLeft symbol)
+        |> List.map (convertRelativeToSymbolTopLeft symbol)
         |> convertSymbolPointsToString
         |> createPolygon colour opacity
 
@@ -579,7 +583,7 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
             [{ X = posX; Y = posY-1.0}; { X = posX; Y = posY-13.0}; { X = posX+8.0; Y = posY-7.0 }]
             |> List.map (convertRelativeToSymbolCenter symbol)
             |> List.map (rotatePoint symbol.Rotation)
-            |> List.map (convertRelativeToTopLeft symbol)
+            |> List.map (convertRelativeToSymbolTopLeft symbol)
         
         // let addClockText = 
         //     match symbol.Rotation with 
@@ -727,6 +731,10 @@ let view (model: Model) (dispatch: Msg -> unit) =
               key = id })
     |> ofList
     |> TimeHelpers.instrumentInterval "SymbolView" startTime
+
+//------------------------------------------------------------------------//
+//---------------------- LG519 CODE SECTION STARTS ----------------------//
+//------------------------------------------------------------------------//
 
 //------------------------GET BOUNDING BOXES FUNCS--------------------------------used by sheet.
 // Function that returns the bounding box of a symbol. It is defined by the height and the width as well as the x,y position of the symbol

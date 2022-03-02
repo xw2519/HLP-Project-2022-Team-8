@@ -1,93 +1,75 @@
-# Example README for individual code submission
-
-## Instructions
-
-* This file should be submitted (changed) on branch `hlp22-indiv-assess-<login>` of either your own repo or your group repo
-   * replace `<login>` in filename `README-<login>.md` by your login - in his example `<login> = tomcl`
-   * name the branch as above, including your login. This branch is used only for your submission.
-* A link to the repo and branch must be on the `indiv` sheet of Tom Clarke's Team [google spreadsheet](https://docs.google.com/spreadsheets/d/1prQ5usnpu36FgtbsMO8j6_mwbdd34haSMOQKN2OkLBA/edit?usp=sharing)
-* The repo you use **must have your marker added as collaborator** (github login is on indiv assessment spreadsheet page)
-* Delete these instructions from your version of this readme
-* Delete my comments from your version of the readme (it is an example, not something you add lines to). 
-Keep the headings and **replace the admin section links and notes with correct ones**.
-* Link to the sourcefile your code is contained in (drawblock or symbol) with an absolute hyperlink 
-to your repo and branch
-* Specify which code section and file you are doing as in my ppt (1,2,3), (buswire,symbol)
-* Add any changes to my section code allocations. This must be consistent with what has been 
-recorded in your team's file in my Team contributions repo](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)  
-main branch ./TeamN.md (N = 1 - 9) file. The team contrib repo is as official record. This file will be 
-used marking and should have line numbers for easy access. Expect to be marked down if your marker
-cannot easily find everything via links from this README.
-
-## Team Shared Team.md
-
-[Team Contribution Repo](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
+# Team 8 - xw2519 - Individual Code Submission
 
 ## Admin and quick access links
 
 [Common repo Team 8 file](https://github.com/tomcl/hlp22docs/blob/main/Team8.md)
 
-[Symbols (Section 1)]([src/renderer/drawblock/buswire.fs](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-xw2519/src/Renderer/DrawBlock/Symbol.fs))
+[Symbols (Section 1)](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-xw2519/src/Renderer/DrawBlock/Symbol.fs)
 
-Section 1 on my file is lines : 22 - 737
+Section 1 on my file is lines : 22 - 729
+
+--- 
 
 ## Code Quality
 
 This will be assessed based on the code. You can **but do not have to** highlight here things you are particularly proud of and want markers to look at (up to 3) as short bullet points:
 
-1. Reactoring of original function `drawSymbol` into `createSymbol` which divides the function into: Drawing and Adding text
-2. Addition of new `Symbol` attribute `SymbolPoints` which stores the coordinates of shapes which are all initialised at the beginning in the function `initSymbolPoints` 
+1. Linking rotation operation to Key `R`. All selected symbols can be rotated by pressing the Key `R`.
+2. Addition of new `Symbol` attribute `SymbolPoints` which stores the coordinates of shapes which are all initialised at the beginning in the function `initSymbolPoints`. 
+3. Renamed symbol names `MergeWires -> Bus Merge` and `SplitWire -> Bus Split` and addition of directional arrows onto those symbols to help differentiate the symbols when they are rotated. 
+
+--- 
 
 ## Analysis
 
-This combines analysis of **issues in existing code** with **proof or analysis of how/why the new code works**. 
-The marking combines both parts. If new code already works and is well written (especially if it is 
-demonstrated to have significant value in terms of ability to support extensions (see Extensions below)
-less evidence will be needed for a high mark in this section.
-The analysis here demonstrates that you understand the problems in the old code. 
-If the old code has no or few problems you can say this.
-
-Anything you say here may if necessary be tested in the 5 min feedback interview to check understanding.
-
 ### Issues in Existing Code
 
-#### Bad Function list
+#### <u> Bad Functions </u>
 
-List any problems with the existing code **concisely**  as numbered points one function per point. State why
-the problem exists. List only functions with **significant problems**. You can should refer to XML comments 
-in your refactored code where this helps. You may note the worst 3 functions even if they have problems that are not
-significant.
+- [Symbol.fs: Line 80 - 86](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/0e517e099437c23ac5792b14e940bec50300685d/src/Renderer/DrawBlock/Symbol.fs#L80): Converting points between relative to symbol top-left and symbol center
 
-* if function is poorly documented say why this is necessary (what is not obvious from a good name + 
-* parameter names + types).
-* if function has bad name say why this is confusing
-* if a function is poorly written indicate what rewriting would improve this (briefly). You can 
-refer to your code if this helps.
+    Current code implements rotation with points where the origin is the top-left corner of the symbol. Sections with rotation can be simplified if all the points of the symbol are changed to be all relative to the symbol center which is rotation-invariant. 
 
-#### Other problems
+    Person responsible for the second part of Symbol (lg519) has already modified the `Pos` field of `Symbol` type to contain the coordinate of the center of the symbol. To build on, the `SymbolPoints` field can be changed to draw the symbol based on the center. 
 
-State **concisely** Issues with existing code, or in refactoring for new types, that do not fit into per function list. 
-Again numbered points, at most 3. Choose the most inmportant if you have too much to say. You can should
-refer to documentation (not XML docs) in code where this helps.
+- [Symbol.fs: Line 339 - 495](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/0e517e099437c23ac5792b14e940bec50300685d/src/Renderer/DrawBlock/Symbol.fs#L339): Manually adjusting the coordinate of the symbol text depending on rotation
+
+    This leads to long code that is very specific and inefficient. With the location of the symbol center, symbol text can be generated relative to the center and, with rotations, can change the text to be vertical. 
+
+    This would fix the current problem with symbols like `Bus Select` and `Bus Compare` where the symbol text (in horizontal form) does not fit when the symbol rotates. 
+
+#### <u> Other Problems </u> 
+
+- Rotated symbol orientation are not preserved when the sheets are saved. 
+- `Bus Select` and `Bus Compare` symbol text do not rotate and would not fit into symbol shape if rotated 90 degrees and 270 degrees.
+- Port connections to rotated symbols do not connect directly onto the displayed port. But simulation functionalities are still preserved.
 
 ### Analysis of how/why code works
 
-This section need not contain analysis if the code can be demonstarted working. In 
-that case list as bullet points the features you will demonstarte (quickly) in the 5 min
-interview.
+- Rotation of symbol triggered by pressing Key `R` 
+  - Show the symbol shape rotating and port titles rotating along with it 
 
-* If code works fully and can be demonstrated in the 5 minute feedback interview no analysis is needed. 
-* If code will be manually tested in interview say what the tests are that supplement your analysis
-* Interview code must be the assessed branch (not something else, or using later group code)
-* A good way to show code works is to explain how it differs from existing working code and how existing
-functionality is preserved.
+- Displaying `Bus Merge` and `Bus Split` 
+  - Show the directional arrows and how it helps in rotation
 
-# Extensions
+- Creating a simple circuit with AND gate in normal orientation and rotated orientation
+  - Show that the simulation functionalities are preserved
 
-1.  List as numbered points the extensions (features) your code will support
+--- 
 
-     a. Use nested letters for the functions you have written extra, 
-     or changed, to allow this, and for concise comments concise comments about why they work.
+## Extensions
+
+List as numbered points the extensions (features) your code will support
+
+1. Symbol rotation:
+   
+   a. Rotation functionality triggered when pressing Key `R` 
+
+   b. Clock and inverted shapes rotate with symbol 
+
+   c. Symbol title and port titles support rotations
+
+
 
 
 
