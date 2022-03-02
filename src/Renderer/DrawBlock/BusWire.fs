@@ -332,8 +332,66 @@ let pp segs (model: Model)=
 /// wire vertices
 /// 
 /// 
+(*
+let makeInitialSegmentsListFromRISegs connId (portCoords : XYPos * XYPos) : Segment list =
+    // adjust length of segments 0 and 6 - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
+    let s = 
+        let d = List.max [ abs (xs - Xt) ; abs (ys - Yt) ; Wire.stickLength / 4.0 ]
+        if (Xt - xs > 0.0) then
+            min d (Wire.stickLength / 2.0)
+        else
+            Wire.stickLength / 2.0
+    
+    // Coordinates of the ports
+    let startPort = snd(portCoords)
+    let endPort = fst(portCoords)
 
+    // Rotation of the symbols - Constants for DEMO
+    let startSymbolRotation = 0
+    let endSymbolRotation = 0
 
+    // Rotation of the ports
+    let startPortRotation = startSymbolRotation
+    let endPortRotation = (endSymbolRotation - 180) % 360
+
+    // Overall rotation of the wire
+    let wireRotation = startPortRotation
+
+    let differenceInX, differenceInY = (endPort.X - startPort.X), (endPort.Y - startPort.Y) 
+
+    // Get the NORMALIZED differences between the X and Y coordinates of the ports
+    let diffX, diffY =
+        match wireRotation with
+        | 0 | _ -> differenceInX, differenceInY
+        | 90 -> - differenceInY, differenceInX
+        | 180 -> - differenceInX, - differenceInY
+        | 270 -> differenceInY, - differenceInX
+
+    let normalizedEndPortRotation = startPortRotation - wireRotation
+
+    let lengthList = 
+        match normalizedEndPortRotation with
+        // Same orientation
+        | 0 when (diffX >= 0) -> [s, 0, diffX, diffY, 0, 0, s]
+        | 0 when (diffX < 0) -> [s, 0, 0, diffY, diffX, 0, s]
+        // Opposite orientation
+        | 180 when (diffX >= 0) -> [s, 0, (diffX - 2*s)/2, diffY, (diffX - 2*s)/2, 0, s]
+        | 180 when (diffX < 0) -> [s, 0, diffY/2, (diffX + 2 * s), diffY/2, 0, s]
+        // Perpendicular orientation: if startPort points to the right, endPort points down
+        | 90 when ((diffX >= 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, s]
+        | 90 when ((diffX >= 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, s]
+        | 90 when ((diffX < 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, s]
+        | 90 when ((diffX < 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, s]
+        // Perpendicular orientation: if startPort points to the right, endPort points up
+        | 270 when ((diffX >= 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, s]
+        | 270 when ((diffX >= 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, s]
+        | 270 when ((diffX < 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, s]
+        | 270 when ((diffX < 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, s]
+        // Edge case that should never happen
+        | _ -> [s, 0, 0, 0, 0, 0, s]
+    
+    lengthList |> List.map buildRiSegList |> riSegListToASegList wireRotation
+*)
 
 let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
     let xs, ys, Xt, Yt = snd(portCoords).X, snd(portCoords).Y, fst(portCoords).X, fst(portCoords).Y
