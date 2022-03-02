@@ -550,8 +550,6 @@ let drawVerticalColorLine posY1 posY2 posX opacity (color: string) =
 //--------------------------------- Symbol Draw Functions ---------------------------------//
 
 let private drawPorts (portList: Port List) (printPorts: bool) (symbol: Symbol) = 
-    print printPorts
-    print portList.Length
     if (portList.Length > 0) && printPorts then 
         [0..(portList.Length-1)] |> List.collect (fun x -> (drawPortCircle (getPortPos symbol portList[x]).X (getPortPos symbol portList[x]).Y))
     else 
