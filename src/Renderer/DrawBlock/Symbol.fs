@@ -659,11 +659,11 @@ let getCmpBoundingBox (model: Model) (compId: ComponentId ): BoundingBox =
 
 //------------------------------------- GETTING PORTS AND THEIR LOCATIONS INTERFACE FUNCTIONS -------------------------------------//
 
-///Returns the port associated with portId
+/// Returns the port associated with portId
 let getPort (model: Model) (portId: string) =
     model.Ports[portId]
 
-///Returns the Input Ports and Output Ports locations associated with componentIds
+/// Returns the Input Ports and Output Ports locations associated with componentIds
 let getCmpsPortLocations (model: Model) (componentIds: ComponentId list) = 
     let getInputPortsPositionMap (model: Model) (symbols: Symbol list)  = 
         symbols
@@ -689,7 +689,7 @@ let getCmpsPortLocations (model: Model) (componentIds: ComponentId list) =
        
     InputPortsPositions , OutputPortsPositions
 
-///Returns the location of the input port associated with inPortId  
+/// Returns the location of the input port associated with inPortId  
 let getInputPortLocation (model:Model) (inPortId: InputPortId)  =     
     match inPortId with
     | InputPortId(str) -> 
@@ -698,7 +698,7 @@ let getInputPortLocation (model:Model) (inPortId: InputPortId)  =
         posAdd (getModelPortPos model inPort) {X= symbol.Component.X; Y=symbol.Component.Y}
     
     
-//Returns the location of the output port associated with outPortId
+/// Returns the location of the output port associated with outPortId
 let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
     match outPortId with
     | OutputPortId(str) -> 
@@ -733,59 +733,70 @@ let addSymToSymbolsCount cmpType model  =
             // Add new componentType to map with count of 1
             Map.add cmpType 1 model.SymbolsCount
 
-// Updates the model's SymbolsCount by decreasing the count associated with cmpIds
+/// Updates the model's SymbolsCount by decreasing the count associated with cmpIds
 let removeSymsFromSymbolsCount cmpIds model =
+
     let getCmpIndex (str : string) = 
         let index = Regex.Match(str, @"\d+$")
         match index with
         | null -> 0
         | _ -> int index.Value
+
     let removeSym model symbolCount cmpId =
-            let cmpType = model.Symbols[cmpId].Component.Type
-            let cmpIndex = getCmpIndex model.Symbols[cmpId].Component.Label
-            Map.change cmpType (Option.map (fun n -> if n = cmpIndex then n-1 else n)) symbolCount
+        let cmpType = model.Symbols[cmpId].Component.Type
+        let cmpIndex = getCmpIndex model.Symbols[cmpId].Component.Label
+        Map.change cmpType (Option.map (fun n -> if n = cmpIndex then n-1 else n)) symbolCount
+
     List.fold (removeSym model) model.SymbolsCount cmpIds
 
-/// Given a model return a model with a new Symbol and also the component id
-let addSymToModel (model: Model) symPos cmpType symLabel =
-    let sym = makeSymbol symPos cmpType symLabel
+/// Return an updated model containing a new Symbol.
+/// The Symbol is centered at symCenter, contains a Component of type cmpType
+/// and has a label symLabel
+let addSymToModel (model: Model) symCenter cmpType symLabel =
+    let sym = makeSymbol symCenter cmpType symLabel
     let ports = addToPortModel model sym
     let updatedSyms = Map.add sym.ComponentId sym model.Symbols
     let updatedCount = addSymToSymbolsCount sym.Component.Type model 
     { model with Symbols = updatedSyms; Ports = ports; SymbolsCount = updatedCount }, sym.ComponentId
 
 
-
-/// Interface function to get componentIds of the copied symbols
+/// Returns the componentIds of the Symbols in CopiedSymbols
 let getCopiedSymbolsIds (model: Model) : (ComponentId list) =
     model.CopiedSymbols
     |> Map.toList
     |> List.map fst
 
-/// Interface function to paste symbols. Is a function instead of a message because we want an output
+
+/// Retrns a tuple (updatedModel, pastedSymbolsIds).
+/// updatedModel is a new model where the symbols in model.CopiedSymbols have been added to model.Symbols.
+/// pastedSymbolsIds is a list containing pasted symbols Ids
 let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
     
     /// folder function used to update the State (Model, list of pasted symbols) with a list of copied symbols
     let genPastedSyms (referencePos: XYPos) ((currModel, pastedIds) : Model * ComponentId List) (copiedSym: Symbol): Model * ComponentId List =
-        
         // generate pastedSymbol
-        let Id' = JSHelpers.uuid()
+        let id = JSHelpers.uuid()
         let offsetFromReferencePos = posDiff copiedSym.Center referencePos
         let pastedSymCenter = posAdd offsetFromReferencePos mousePos
-        let pastedCmp = initialiseComponent pastedSymCenter copiedSym.Component.Type Id' (genCmpLabel { model with Symbols = currModel.Symbols } copiedSym.Component.Type )
+        let pastedSymLabel = genCmpLabel { model with Symbols = currModel.Symbols } copiedSym.Component.Type
+        let pastedCmp = initialiseComponent pastedSymCenter copiedSym.Component.Type id pastedSymLabel
 
         let pastedSymbol =
             { copiedSym with
-                ComponentId = ComponentId Id'
+                ComponentId = ComponentId id
                 Component = pastedCmp 
                 Center = pastedSymCenter
                 ShowInputPorts = false
                 ShowOutputPorts = false }
                 
         // update currModel with pastedSymbol  
-        let currSymbols' = currModel.Symbols.Add ((ComponentId Id'), pastedSymbol) // List needs to be in this order
-        let currPorts' = addToPortModel currModel pastedSymbol
-        { currModel with Symbols = currSymbols'; Ports = currPorts' }, pastedIds @ [ pastedSymbol.ComponentId ]
+        let updatedSymbols = currModel.Symbols.Add ((ComponentId id), pastedSymbol) 
+        let updatedPorts = addToPortModel currModel pastedSymbol
+        let updatedModel = { currModel with Symbols = updatedSymbols; Ports = updatedPorts }
+
+        // update pastedSymbolsIds with pastedSymbol
+        let pastedSymbolsIds = pastedIds @ [ pastedSymbol.ComponentId ]
+        updatedModel, pastedSymbolsIds
 
     // Symbols that need to be pasted  
     let copiedSyms =
@@ -799,7 +810,8 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
     match copiedSymsSorted with
     | referenceSymbol :: _ ->
         let referencePos = referenceSymbol.Center 
-        ((model, []), copiedSyms) ||> List.fold (genPastedSyms referencePos)
+        let updatedModel, pastedSymbolsIds = ((model, []), copiedSyms) ||> List.fold (genPastedSyms referencePos)
+        updatedModel, pastedSymbolsIds
     | [] -> model, []
 
     
