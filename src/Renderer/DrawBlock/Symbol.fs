@@ -944,47 +944,47 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
             (List.fold moveSym resetSymbols compIds)
         { model with Symbols = newSymbols }, Cmd.none
 
-    | SymbolsHaveError compList ->
+    | SymbolsHaveError compIds ->
         let resetSymbols = Map.map (fun _ sym -> {sym with Colour = "Lightgray"}) model.Symbols
         let newSymbols =
-            (List.fold (fun prevSymbols sId -> Map.add sId {resetSymbols[sId] with Colour = "Red"} prevSymbols) resetSymbols compList)
+            (List.fold (fun prevSymbols cmpId -> Map.add cmpId {resetSymbols[cmpId] with Colour = "Red"} prevSymbols) resetSymbols compIds)
         { model with Symbols = newSymbols }, Cmd.none
 
-    | SelectSymbols compList -> //select a symbol (shown in demo for a random component, sheet gives list in group phase)
+    | SelectSymbols compIds -> 
         let resetSymbols = Map.map (fun _ sym ->  { sym with Colour = "Lightgray"; Opacity = 1.0 }) model.Symbols
         let newSymbols =
-            (List.fold (fun prevSymbols sId -> Map.add sId {resetSymbols[sId] with Colour = "lightgreen"} prevSymbols) resetSymbols compList)
+            (List.fold (fun prevSymbols cmpId -> Map.add cmpId {resetSymbols[cmpId] with Colour = "lightgreen"} prevSymbols) resetSymbols compIds)
         { model with Symbols = newSymbols }, Cmd.none  
 
-    | ErrorSymbols (errorCompList,selectCompList,isDragAndDrop) -> 
+    | ErrorSymbols (errorCompIds,selectCompIds,isDragAndDrop) -> 
         let resetSymbols = Map.map (fun _ sym ->  { sym with Colour = "Lightgray"; Opacity = 1.0 }) model.Symbols
         let selectSymbols =
-            List.fold (fun prevSymbols sId -> 
+            List.fold (fun prevSymbols cmpId -> 
                             if not isDragAndDrop then 
-                                Map.add sId {resetSymbols[sId] with Colour = "lightgreen"} prevSymbols
+                                Map.add cmpId {resetSymbols[cmpId] with Colour = "lightgreen"} prevSymbols
                             else 
-                                Map.add sId { resetSymbols[sId] with Opacity = 0.2 } prevSymbols
-                        ) resetSymbols selectCompList
+                                Map.add cmpId { resetSymbols[cmpId] with Opacity = 0.2 } prevSymbols
+                        ) resetSymbols selectCompIds
         let newSymbols = 
-            (List.fold (fun prevSymbols sId -> Map.add sId {resetSymbols[sId] with Colour = "Red"} prevSymbols) selectSymbols errorCompList)
+            (List.fold (fun prevSymbols cmpId -> Map.add cmpId {resetSymbols[cmpId] with Colour = "Red"} prevSymbols) selectSymbols errorCompIds)
         { model with Symbols = newSymbols }, Cmd.none 
         
-    | MouseMsg _ -> model, Cmd.none // allow unused mouse messags
+    | MouseMsg _ -> model, Cmd.none 
 
-    | ChangeLabel (sId, newLabel) ->
-        let tempsym = Map.find sId model.Symbols
-        let newcompo = {tempsym.Component with Label = newLabel}
-        let addsym = {tempsym with Component = newcompo}
-        { model with Symbols = Map.add sId addsym model.Symbols }, Cmd.none
+    | ChangeLabel (cmpId, newLabel) ->
+        let sym = Map.find cmpId model.Symbols
+        let updatedCmp = {sym.Component with Label = newLabel}
+        let updatedSym = {sym with Component = updatedCmp}
+        { model with Symbols = Map.add cmpId updatedSym model.Symbols }, Cmd.none
 
-    | PasteSymbols compList ->
+    | PasteSymbols compIds ->
         let newSymbols =
-            (List.fold (fun prevSymbols sId -> Map.add sId { model.Symbols[sId] with Opacity = 0.4 } prevSymbols) model.Symbols compList)
+            (List.fold (fun prevSymbols sId -> Map.add sId { model.Symbols[sId] with Opacity = 0.4 } prevSymbols) model.Symbols compIds)
         { model with Symbols = newSymbols }, Cmd.none  
     
-    | ColorSymbols (compList, colour) -> 
+    | ColorSymbols (compIds, colour) -> 
         let newSymbols = 
-            Map.map (fun sId sym -> if List.contains sId compList then {sym with Colour = string colour} else sym) model.Symbols
+            Map.map (fun sId sym -> if List.contains sId compIds then {sym with Colour = string colour} else sym) model.Symbols
         { model with Symbols = newSymbols }, Cmd.none 
     
     | ChangeNumberOfBits (compId, newBits) ->
