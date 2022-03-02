@@ -2,25 +2,18 @@
 
 ## Instructions
 
-*** REMOVE THIS AT THE END***
+***REMOVE THIS AT THE END***
 
 * This file should be submitted (changed) on branch `hlp22-indiv-assess-<login>` of either your own repo or your group repo
    * replace `<login>` in filename `README-<login>.md` by your login - in his example `<login> = tomcl`
    * name the branch as above, including your login. This branch is used only for your submission.
-* A link to the repo and branch must be on the `indiv` sheet of Tom Clarke's Team [google spreadsheet](https://docs.google.com/spreadsheets/d/1prQ5usnpu36FgtbsMO8j6_mwbdd34haSMOQKN2OkLBA/edit?usp=sharing)
-* The repo you use **must have your marker added as collaborator** (github login is on indiv assessment spreadsheet page)
-* Delete these instructions from your version of this readme
-* Delete my comments from your version of the readme (it is an example, not something you add lines to). 
-Keep the headings and **replace the admin section links and notes with correct ones**.
-* Link to the sourcefile your code is contained in (drawblock or symbol) with an absolute hyperlink 
-to your repo and branch
-* Specify which code section and file you are doing as in my ppt (1,2,3), (buswire,symbol)
-* Add any changes to my section code allocations. This must be consistent with what has been 
-recorded in your team's file in my Team contributions repo](https://github.com/tomcl/hlp22docs/blob/main/README.md)  
-main branch ./TeamN.md (N = 1 - 9) file. The team contrib repo is as official record. This file will be 
-used marking and should have line numbers for easy access. Expect to be marked down if your marker
-cannot easily find everything via links from this README.
 
+* A link to the repo and branch must be on the `indiv` sheet of Tom Clarke's Team [google spreadsheet](https://docs.google.com/spreadsheets/d/1prQ5usnpu36FgtbsMO8j6_mwbdd34haSMOQKN2OkLBA/edit?usp=sharing)
+
+* The repo you use **must have your marker added as collaborator** (github login is on indiv assessment spreadsheet page)
+
+* Link to the sourcefile your code is contained in (drawblock or symbol) with an **absolute** hyperlink 
+to your repo and branch
 
 
 
@@ -32,18 +25,18 @@ cannot easily find everything via links from this README.
 
 [Buswire (section 2)](./src/Renderer/DrawBlock/BusWire.fs)
 
-Section 2 on my file is lines : **1310-1860** - [Link](./src/Renderer/DrawBlock/BusWire.fs#L1310)
+Section 2 on my file is lines : **1310-1850** - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L1310)
 
-I am also responsible for lines **325-410** (functions `xyVerticesToSegments`, `makeInitialSegmentsList`) - [Link](./src/Renderer/DrawBlock/BusWire.fs#L325)
+I am also responsible for lines **325-410** (functions `xyVerticesToSegments`, `makeInitialSegmentsList`) - [Link to code section](./src/Renderer/DrawBlock/BusWire.fs#L325)
 
-I have also worked on implementing the Extension for BusWire section 2, which is to implement AutoRouting for rotated Symbols. This part of my code is in the file Autorouted.fs - [Link](./src/Renderer/DrawBlock/Autorouted.fs) - but is currently not included in the compile script, as adding it in caused the following error when compiling: [Link to EdStem Post](https://edstem.org/us/courses/17809/discussion/1222697). I am hoping this part of my code can also be assessed, as a basis for coding style (even though it does not work).
+I have also worked on implementing the Extension for BusWire section 2, which is to implement AutoRouting for rotated Symbols. This part of my code is in the file Autorouted.fs - [Link to file](./src/Renderer/DrawBlock/Autorouted.fs) - but is currently not included in the compile script, as adding it in caused the following error when compiling: [Link to EdStem Post](https://edstem.org/us/courses/17809/discussion/1222697). I am hoping this part of my code can also be assessed, as a basis for coding style (even though it does not work).
  
 
 ## Code Quality
 
 Highlights:
 
-* New types: Segment using a Vector as parameter, as well as a Start position, to represent both the Length and Direction of the Segment.
+* New types: The refactored type `Segment` uses a `Vector` as a component, instead of an `End` point. This allows both the Length and Direction of the Segment to be represented in a simple and intuitive data type (`XYPos`). This allows multiple calculations throughout the code to be simplified.
 
 
 ## Analysis
@@ -87,11 +80,8 @@ Highlights:
 
 1. The code only allowed for 7-segment wires. This is very restrictive, although it can represent most of the wire shapes. The code should be extended to allow for wires with different number of segments.
 
-### Analysis of how/why code works
 
-*This section need not contain analysis if the code can be demonstarted working. In *
-*that case list as bullet points the features you will demonstarte (quickly) in the 5 min*
-*interview.*
+### Analysis of how/why code works
 
 * *A good way to show code works is to explain how it differs from existing working code and how existing*
 *functionality is preserved.*
@@ -108,21 +98,28 @@ Highlights:
     - `moveSegment` gets called once a segment is clicked and is being dragged by the user. It performs the appropriate modifications to the position of the segment being dragged, and to its neighbours that have their Vector component being incremented by the amount moved, and one of them also has their start point being moved as well.
         - The function `getSafeDistanceForMove` is used to restrict the distance that a segment can be moved by, according to if it is going to collide with either one of the Symbols on the ends of the wire.
         - In parallel of the segments being moved, `removeRedundantSegments` is called to adjust any two segments going in opposite direction and canceling each other.
+        - Moving a wire manually sets its `Autorouted` boolean to false, disabling Autorouting for this segment, fixing it in its position (under certain conditions, see function `updateWire` bellow).
     - `moveWire`, on the other hand, gets called whenever a whole wire is selected by a click-and-drag form the user, and simply translates all segments of the selected wire in the direction and distance of the mouse-drag.
         - The local function `translateSegment` is called, and it simply operates the translation on the start of each segment, as their end is defined relative to their start using their `Segment.Vector` component. This is different from the previous segment type, where both the start and end of a segment had to be translated by the function. Changing the type of Segment to include a `Autorouted` boolean component allows this function to be greatly simplified, as we no longer need to operate on the absolute values of the coordinates of the segment. 
 
 1. Function `updateWire` - **Partial Routing**
-    -
-    - 
-    -
+    - The function `updateWire` gets called whenever the user clicks on a Symbol and moves it. It receives as parameters the port of the component that moved, as well as if this port is an Input or Output port via the `inInputPort` boolean.
+    - This function will first get the new coordinates of the port that moved, either by looking it up in the list of Input Ports of the Symbol model, or in the list of Output Ports, according to the `inInputPort` boolean.
+    - Then, if the port was an Input Port, then we know that it was on the end of the wire. We therefore reverse the list of segments to re-route all of them using the `tryPartialAutoRoute` function. This function returns an Option of whether or not the partial routing worked.
+        - `tryPartialAutoRoute` performs two main checks on the wire:
+            - Using `tryGetIndexOfFirstManuallyRoutedSegment`, the index of the first manually routed segment is returned as an Option. If there are no manually routed in the wire, it returns None and the check fails. To find this index, it performs a `List.takeWhile` on the segments with the condition that their `Autorouted` boolean is set to true.
+            - Using `checkTopologyChangeOption`, it checks if the end of the wire being moved goes into another quadrant w.r.t. the fixed end of the manually routed segment.
+        -  If both of those checks are met, then it re-routes partially the wire:
+            - The function `scaleAutoroutedSegments` takes the index of the first manually routed segment, and performs scaling on the appropriate segments in order for the Wire to remain intact and coherent.
+    - If the partial routing failed, either because no segments are currently manually routed or because the topology of the wire changed, then the function `updateWire` defaults back to operating a full autorouting on the wire...
 
 1. Function `autorouteWire` - **AutoRouting**
-    - 
-
+    - Given a wire, this function finds the two ports that its ends are connected to, and then calls `makeInitialSegmentsList` to build an auto routed list of segments to replace the current one of the wire.
+    - The `makeInitialSegmentsList` function first computes the appropriate length of the 'sticks'. Those sticks are the first and last segment of a wire's segment list, making the visual connection between the wire and the ports it is connected to. They are not draggable and have fixed length. It then establishes a basic pattern of X-Y coordinates that the wire should follow in order to join the two ports, each segment being perpendicular to the previous one.
+    - `xyVerticesToSegments` is then called in order to first convert those coordinates into pairs of end points of segments, and then convert those pairs of endpoints back into regular Segments with a start position and a vector.
 
 
 # Extensions
-
 
 1.  Attempt at full autorouting for rotated components
 

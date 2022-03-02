@@ -1481,7 +1481,7 @@ let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (dist
 
 /// Adjust wire (input type is Segment list) so that two adjacent horizontal segments that are in opposite directions
 /// get eliminated
-let removeRedundantSegments  (segs: Segment list) =
+let removeRedundantSegments (segs: Segment list) =
     /// Set the X comp of the Start of the segment to 'x', keeping the sign
     let setStartX x (seg:Segment) = {seg with Start = {X = x ; Y = seg.Start.Y}}
 
@@ -1493,7 +1493,7 @@ let removeRedundantSegments  (segs: Segment list) =
         // Get their direction
         let xDirection1, xDirection2 = seg1.Vector.X, seg2.Vector.X
         // If they are horizontal and of opposite direction
-        if (getOrientation seg1) = Horizontal && 
+        if (getOrientation seg1) = Horizontal &&                //TODO: ADD CHECK IF THEY ARE SMALL POINTS?
            (getOrientation seg2) = Horizontal && 
            sign xDirection1 <> sign xDirection2
         then
