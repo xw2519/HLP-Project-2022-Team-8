@@ -57,7 +57,7 @@ Highlights:
 
 #### Other problems
 
-1. The use of negated coordinates to denote Manual routing as opposed to Autorouting is a very bad implementation choice. This can easily be replaced by a simple boolean called `Autorouted` is the new Segment type, allowing the to be simpler, clearer and safer.
+1. The use of negated coordinates to denote Manual routing as opposed to Autorouting in a segment is a very bad implementation choice. This can easily be replaced by a simple boolean called `Autorouted` is the new Segment type, allowing the code to be simpler, clearer and safer.
 
 1. The code only allowed for 7-segment wires. This is very restrictive, although it can represent most of the wire shapes. The code should be extended to allow for wires with different number of segments.
 
