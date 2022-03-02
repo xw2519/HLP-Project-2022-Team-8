@@ -332,6 +332,7 @@ let pp segs (model: Model)=
 /// wire vertices
 /// 
 /// 
+
 (*
 let makeInitialSegmentsListFromRISegs connId (portCoords : XYPos * XYPos) : Segment list =
     // adjust length of segments 0 and 6 - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
@@ -376,21 +377,21 @@ let makeInitialSegmentsListFromRISegs connId (portCoords : XYPos * XYPos) : Segm
         | 0 when (diffX < 0) -> [s, 0, 0, diffY, diffX, 0, s]
         // Opposite orientation
         | 180 when (diffX >= 0) -> [s, 0, (diffX - 2*s)/2, diffY, (diffX - 2*s)/2, 0, s]
-        | 180 when (diffX < 0) -> [s, 0, diffY/2, (diffX + 2 * s), diffY/2, 0, s]
+        | 180 when (diffX < 0) -> [s, diffY/2, (diffX + 2 * s), diffY/2, 0, 0, s]
         // Perpendicular orientation: if startPort points to the right, endPort points down
-        | 90 when ((diffX >= 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, s]
-        | 90 when ((diffX >= 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, s]
-        | 90 when ((diffX < 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, s]
-        | 90 when ((diffX < 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, s]
+        | 90 when ((diffX >= 0) && (diffY >= 0)) -> [s, 0, (diffX + s)/2, (diffY + s), (diffX + s)/2, 0, 0, s]
+        | 90 when ((diffX >= 0) && (diffY < 0)) -> [s, 0, (diffX - s), (diffY - s), 0, 0, 0, s]
+        | 90 when ((diffX < 0) && (diffY >= 0)) -> [s, 0, 0, (diffY + s), (diffX + s), 0, 0, s]
+        | 90 when ((diffX < 0) && (diffY < 0)) -> [s, 0, 0, (diffY-s)/2, (diffX+s), (diffY-s)/2, 0, s]
         // Perpendicular orientation: if startPort points to the right, endPort points up
-        | 270 when ((diffX >= 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, s]
-        | 270 when ((diffX >= 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, s]
-        | 270 when ((diffX < 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, s]
-        | 270 when ((diffX < 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, s]
+        | 270 when ((diffX >= 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, 0, s]
+        | 270 when ((diffX >= 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, 0, s]        //TODO: find scheme for B rotated 270°
+        | 270 when ((diffX < 0) && (diffY >= 0)) -> [s, 0, 0, 0, 0, 0, 0, s]
+        | 270 when ((diffX < 0) && (diffY < 0)) -> [s, 0, 0, 0, 0, 0, 0, s]
         // Edge case that should never happen
         | _ -> [s, 0, 0, 0, 0, 0, s]
     
-    lengthList |> List.map buildRiSegList |> riSegListToASegList wireRotation
+    lengthList |> List.map buildRiSegList |> riSegListToASegList wireRotation       //TODO: implement 'buildRiSegList' and 'riSegListToASegList'
 *)
 
 let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
