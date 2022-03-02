@@ -1,7 +1,3 @@
-# Example README for individual code submission
-
-## Instructions
-
 ## Team Shared Team.md
 
 [Team Contribution Repo](https://github.com/xw2519/HLP-Project-2022-Team-8.git)
@@ -14,13 +10,13 @@
 
 [Symbol (section 2)](src/Renderer/DrawBlock/Symbol.fs](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-lg519/src/Renderer/DrawBlock/Symbol.fs))
 
-Section 2 on my file is lines : 627- 1104
+Section 2 on my file is lines : [Lines 627- 1104](src/Renderer/DrawBlock/Symbol.fs](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/hlp22-indiv-assess-lg519/src/Renderer/DrawBlock/Symbol.fs))
 
-I am responsible for the Center field of Symbol . Line 41 
+I am responsible for the Center field of Symbol . [Line 41](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/f29ce21fc1e91d86da592cd761a321e8f555150a/src/Renderer/DrawBlock/Symbol.fs#L41)
 
-I am responsible for the SymbolsCount field of model. Line 59
+I am responsible for the SymbolsCount field of model. [Line 59](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/f29ce21fc1e91d86da592cd761a321e8f555150a/src/Renderer/DrawBlock/Symbol.fs#L59)
 
-I am responsible for lines 850-851 in [Sheet](src/Renderer/DrawBlock/Sheet.fs) (Rotation of symbols pressing key R).
+I am responsible for lines 850-851 in [Sheet]([src/Renderer/DrawBlock/Sheet.fs](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/f29ce21fc1e91d86da592cd761a321e8f555150a/src/Renderer/DrawBlock/Sheet.fs#L851)) (Rotation of symbols pressing key R).
 For the extension "UI to rotate selected symbols by pressing R key" it should be noted that:
 - Xw2519 implemented R keypress to rotate symbols initially as a functionality to test his code.
 - I then simplified the logic, removed redundant functions and modified xw2519 code heavily to comply with Elmish MVU guidelines. I have also added functionality to rotate multiple symbols. 
@@ -43,70 +39,70 @@ For the extension "UI to rotate selected symbols by pressing R key" it should be
 
 #### Bad Function list
 
-**getBoundingBoxofSymbol**
+**getBoundingBoxofSymbol** [Line 510-512](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L511)
 - unnecessary long name
 - uses symbol Pos field (redundant field) rather than coordinates from Symbol.Component
 
 -------------------------------------------------------------------------------------
-**getSymbolPos**
+**getSymbolPos** [Line 524-526](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L524)
 - function not used anywhere. Removed
 
-**getInputPortsPositionMap**
+**getInputPortsPositionMap** [Line 531-535](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L531)
 - should be a subfunction of getPortLocations as it is only useful there
 
-**getOutputPortsPositionMap**
+**getOutputPortsPositionMap** [Line 540-544](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L540)
 - should be a subfunction of getPortLocations as it is only useful there
 
-**getPortLocations**
+**getPortLocations** [Line 551-556](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L551)
 - bad name. renamed to getCmpsPortLocations to make clear that the input is a list of Component Ids
 
-**getInputPortLocation**
+**getInputPortLocation** [Line 564-571](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L564)
 - Rather than generating getInputPortsPositionMap it should look up the port from Model.Ports. This would improve efficiency and code maintainability.
 
-**getOutputPortLocation**
+**getOutputPortLocation** [Line 575-582](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L575)
 - Rather than generating getOutputPortsPositionMap it should look up the port from Model.Ports. This would improve efficiency and code maintainability.
 
-**getOnePortLocation**
+**getOnePortLocation** [Line 585-590](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L585)
 - function not used anywhere. Removed
 
-**getOnePortLocationNew**
+**getOnePortLocationNew** [Line 594-602](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L594)
 - redundant. Substituted with getInputPortLocation and getOutputPortLocation for efficiency and code maintainability.
 
-**getTwoPortLocations**
+**getTwoPortLocations** [Line 606-609](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L606)
 - redundant. Substituted with getInputPortLocation and getOutputPortLocation for efficiency and code maintainability
 
 ---------------------------------------------------------------------------------
 
-**getCopiedSymbols**
+**getCopiedSymbols** [Line 612-615](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L612)
 - bad name. It returns a list of ComponentIds not Symbols. renamed to getCopiedSymbolsIds
 
-**getCompList**
+**getCompList** [Line 634-731](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L634)
 - removed. Only used in genCmpIndex to return the Index associated 
 with each component. Created new datastracture (SymbolsCount) in model that contains type of each component and how many
 times it is displayed in the current model to make up for this function. This improves efficiency and code maintainability
 
-**filterString**
+**filterString** [Line 619-625](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L619)
 - removed. Equivalent to String.ToUpper
 
-**regex**
+**regex** [Line 629-632](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L628)
 - bad name. Renamed to getCmpIndex to make purpose of the function obvious. Restructured to work with SymbolCount.
 
-**labelGenNumber**
+**labelGenNumber** [Line 748-752](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L748)
 - removed. same functionality as generateLabel
 
-**generateLabel**
+**generateLabel** [Line 755-756](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L755)
 - bad name. Renamed to genCmpLabel to make clear that the input is a field of Component
 
-**pasteSymbols**
+**pasteSymbols** [Line 760-788](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L760)
 - vague documentation and bad variables/subfunction names. Documentation has been rewritten to explain what the function does. New variable names and comments have been introduced within the function body to explain the algorithm
 
-**getEquivalentCopiedPorts**
+**getEquivalentCopiedPorts** [Line 794-823](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L794)
 - bad name and confusing documentation. Concept of equivalent port is unclear unless you go through the function. Renamed to getPastedPortsIdsFromCopiedPortsIds (long name necessary in my opinion) to make function itent clear. Simplified documentation by removing equivalent port concept.
 
-**changeNumberOfBitsf**
+**changeNumberOfBitsf** [Line 834-853](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L834)
 - long and unclear name. renamed to updateCmpBits to make clear that the input is a Component Id
   
-**changeLsbf**
+**changeLsbf** [Line 856-865](https://github.com/xw2519/HLP-Project-2022-Team-8/blob/cc57081d5213e7f671d90e73de99beebeda5640d/src/Renderer/DrawBlock/Symbol.fs#L834)
 - Unclear name. renamed to updateCmpLsbBits to make clear that the input is a Component Id
 
 
