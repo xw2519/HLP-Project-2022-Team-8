@@ -173,7 +173,10 @@ let editMenu dispatch =
                makeElmItem "Delete"  (if isMac then "Backspace" else "delete") (fun () -> dispatch Sheet.KeyboardMsg.DEL)
                makeElmItem "Undo" "CmdOrCtrl+Z" (fun () -> dispatch Sheet.KeyboardMsg.CtrlZ)
                makeElmItem "Redo" "CmdOrCtrl+Y" (fun () -> dispatch Sheet.KeyboardMsg.CtrlY)
-               makeElmItem "Cancel" "ESC" (fun () -> dispatch Sheet.KeyboardMsg.ESC)|]
+               makeElmItem "Cancel" "ESC" (fun () -> dispatch Sheet.KeyboardMsg.ESC)
+               makeElmItem "Change Mode" "CmdOrCtrl+M" (fun () -> dispatch Sheet.KeyboardMsg.CtrlM)|]
+
+
             |> ResizeArray
             |> U2.Case1
             |> Some
