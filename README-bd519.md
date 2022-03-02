@@ -159,51 +159,41 @@ Your code will all be assessed anyway, so this is optional.
 
 * Defines a list of functions that update the model and communicates with others with the use of Cmd messages (defined as outputs).
 
-* `AddWire`: This function allows the systems to add a wire to the existing model. 
+* `AddWire`: Allows the systems to add a wire to the existing model. 
    * Removed the "wireWidthFromSymbol" parameter definition as it was not used anywhere.
-   * Modified the calling of the function "updateWireSegmentJumps" to "updateOrResetWireSegmentJumps" by removing the unused ConnectionId list for Update.
+   * Modified the calling of the function `updateWireSegmentJumps` to `updateOrResetWireSegmentJumps` by removing the unused ConnectionId list for Update.
 * `BusWidths`: Updates the width of wires and Segments linked to there state in the model: SplitWire/MergeWire
    * Transformed the if else statement for "newColor" into a match statement to simplify visualisation and conform to "width"
    * `addSymbolWidthFolder` bad naming for the map component "m" changed to "mapSymbolId".
-* `CopyWires`: iterates through every wires in the model and checks if their id is inside the selection for copy.
-* `ErrorWires`: Change the colors of wires if it detected an error in the system (not connected or misconnected, etc).
+* `CopyWires`: Iterates through every wires in the model and checks if their id is inside the selection for copy.
+* `ErrorWires`: Changes the colors of wires if it detected an error in the system (not connected or misconnected, etc).
    * Hesitated in changing the if else statement into a match case but decided that it is actually clearer the way it is.
    * Reformatted the model declaration for clarity as it wasn't super clear before.
-
-
-
-### Issues in Existing Code
-
-#### Bad Function list
-
-List any problems with the existing code **concisely**  as numbered points one function per point. State why
-the problem exists. List only functions with **significant problems**. You can should refer to XML comments 
-in your refactored code where this helps. You may note the worst 3 functions even if they have problems that are not
-significant.
-
-* if function is poorly documented say why this is necessary (what is not obvious from a good name + 
-* parameter names + types).
-* if function has bad name say why this is confusing
-* if a function is poorly written indicate what rewriting would improve this (briefly). You can 
-refer to your code if this helps.
-
-#### Other problems
-
-State **concisely** Issues with existing code, or in refactoring for new types, that do not fit into per function list. 
-Again numbered points, at most 3. Choose the most inmportant if you have too much to say. You can should
-refer to documentation (not XML docs) in code where this helps.
-
-### Analysis of how/why code works
-
-This section need not contain analysis if the code can be demonstarted working. In 
-that case list as bullet points the features you will demonstarte (quickly) in the 5 min
-interview.
-
-* If code works fully and can be demonstrated in the 5 minute feedback interview no analysis is needed. 
-* If code will be manually tested in interview say what the tests are that supplement your analysis
-* Interview code must be the assessed branch (not something else, or using later group code)
-* A good way to show code works is to explain how it differs from existing working code and how existing
-functionality is preserved.
+* `SelectWires`: Updates the model wires by changing their color flagging that they have been selected. Every color will describe a different case, the normal one being purple.
+   * Changing from an if else statement to a match case helps a lot xith the clarity of the code, allowing you to easily understand every cases.
+* `DeleteWires`: Creates a new model without the wires with Id component contained in connectionIds.
+   * Changing the name of the variable "newModel" into "resetWireModel" which is more descriptive in the context.
+   * Replacing the function `resetWireSegmentJumps` into `updateOrResetWireSegmentJumps` to adapt to my new function. As it was Reset we keep the ConnectionId list as is.
+   * removing the wire component from the lambda and changing it to _, it just takes place and confuses the reader.
+* `DragWire`: Describes every stage of dragging a wire by calling the right functions each time, verifying that the segment is draggable.
+   * Changed the function in order to gather all the second parts of the return type, Cmb.none at the end as they do not change through out the function.
+   * Modified the implementation of segment extraction, instead of using recursion, I used List.tryFind doing the same but neater embedded in a match statement to extract the Some value or else throwing an error.
+* `ColorWires`: Changes the color of a wire with a given color.
+   * Added the arguments types in order to protect the function parameter.
+   * Changed the name of "newWires" to "newWiresMap" as it also contains the ConnectionId.
+   * Changed the name of "prevWires" to "oldWiresMap" for the same reason and because it is more understandable.
+* `ResetJumps`: As the name indicates it reinitialise the JumpCoordinate list of all segments whose ids are include in the ConnectionId list.
+   * Changed the function to call the new `updateOrResetWireSegmentJumps` keeping the ConnectionId list as is for Reset type.
+* `MakeJumps`: Updates the JumpCoordinate list of the segments in the model.
+   * Changed the parameter connids to _ as not required for update type of function
+   * Changed the function to call the new `updateOrResetWireSegmentJumps` removing the ConnectionId list as in Update type.
+* `ResetModel`:
+   * Reformated the model declaration for clarity.
+* `LoadConnections`:
+   * Renamed the component variable "conn" into "connections" making more sense as well as declaring its type for safety.
+   * Removed the Lambda function which had no sense and did nothing except debugging.
+   * Creating a DU for the inOut component of the function `makeWirePosMatchSymbol` and changing from true to input and false to output.
+   
 
 # Extensions
 
