@@ -1611,7 +1611,6 @@ let init () =
     } , Cmd.none
 
 
-// NOT USED IN THIS FILE, but breaks functionnality if removed
 ///Returns the wires connected to a list of components given by componentIds
 let getConnectedWires (wModel : Model) (compIds : list<ComponentId>) =
     let inputPorts, outputPorts = Symbol.getPortLocations wModel.Symbol compIds
