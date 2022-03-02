@@ -119,7 +119,9 @@ State **concisely** Issues with existing code, or in refactoring for new types, 
 Again numbered points, at most 3. Choose the most important if you have too much to say. You can should
 refer to documentation (not XML docs) in code where this helps.
 
-***-- FILL THIS IN --***
+1. The use of negated coordinates to denote Manual routing as opposed to Autorouting is a very bad implementation choice. This can easily be replaced by a simple boolean called `Autorouted` is the new Segment type, allowing the to be simpler, clearer and safer.
+
+1. The code only allowed for 7-segment wires. This is very restrictive, although it can represent most of the wire shapes. The code should be extended to allow for wires with different number of segments.
 
 ### Analysis of how/why code works
 
