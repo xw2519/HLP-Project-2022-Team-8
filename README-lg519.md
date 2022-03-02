@@ -38,23 +38,15 @@ I am also responsible for lines 850-851 (Rotation of symbols pressing key R)
 ## Code Quality
 
 
-
-
-
 This will be assessed based on the code. You can **but do not have to** highlight here things you are particularly proud of and want markers to look at (up to 3) as short bullet points:
 
+- added a new Symbol field Center to substitute the redundant Pos field. This new field allows us to implement rotation easily because the center of a symbol is rotation invariant
+
+- added a new Model field SymbolsCount that is used to label symbols. This allows us to get rid of the highly unreadable getCompList match statement facilitates code mantainance. It also allowes us to implement a new extension in the project work: having specific gate names and counts for the Not,And,Or... components which are currently all labeled with G<index> where <index> is the number of components on the screen
+  
+- Improved efficiency of getInputPortLocation and getOutputPortLocation which now look up the port from Model.Ports. This allows to get rid of other functions (reduces code complexity) and makes the code easier to mantain because all of the info about ports is looked up from Model.Ports.
 
 
-
-
-
-* Naming of `myGoodName`, `myWonderfulLongName`
-* New function boundaries: `topfun` -> `firstfun`, `topfun` -> `secondFun`
-* New types: MyGoodType
-* Helper function `myHelper` which is higher order and really helpful
-* I cleaned up all the sprintf and printf statements to use interpolated strings
-
-Your code will all be assessed anyway, so this is optional.
 
 ## Analysis
 
@@ -88,13 +80,6 @@ refer to your code if this helps.
 - unnecessary long name
 - uses symbol Pos field (redundant field) rather than coordinates from Symbol.Component
 
-**getBoundingBoxes**
-- bad name. What bounding boxes? Renamed to getModelBoundingBoxes
-
-**getOneBoundingBox**
-- bad name. OneBoundingBox is too vague. Renamed to getCmpBoundingBox
-
-
 -------------------------------------------------------------------------------------
 **getSymbolPos**
 - function not used anywhere. Removed
@@ -109,19 +94,19 @@ refer to your code if this helps.
 - bad name. renamed to getCmpsPortLocations to make clear that the input is a list of Component Ids
 
 **getInputPortLocation**
-- improved efficiency and code maintainability. Rather than generating getInputPortsPositionMap it should look up the port from Model.Ports
+- Rather than generating getInputPortsPositionMap it should look up the port from Model.Ports. This would improve efficiency and code maintainability.
 
 **getOutputPortLocation**
-- improved efficiency and code maintainability. Rather than generating getOutputPortsPositionMap it should look up the port from Model.Ports
+- Rather than generating getOutputPortsPositionMap it should look up the port from Model.Ports. This would improve efficiency and code maintainability.
 
 **getOnePortLocation**
 - function not used anywhere. Removed
 
 **getOnePortLocationNew**
-- removed. Substituted with getInputPortLocation and getOutputPortLocation for efficiency and code maintainability.
+- redundant. Substituted with getInputPortLocation and getOutputPortLocation for efficiency and code maintainability.
 
 **getTwoPortLocations**
-- removed. Substituted with getInputPortLocation and getOutputPortLocation for efficiency and code maintainability
+- redundant. Substituted with getInputPortLocation and getOutputPortLocation for efficiency and code maintainability
 
 ---------------------------------------------------------------------------------
 
@@ -157,11 +142,6 @@ times it is displayed in the current model to make up for this function. This im
 **changeLsbf**
 - Unclear name. renamed to updateCmpLsbBits to make clear that the input is a Component Id
 
-**changeConstantf**
-- renamed to updateConstant for consistency.
-
-**update**
-- Structure of the function mostly ok. It needed some renaming of variables (for instance CompList->CompIds) to facilitate understandig.
 
 #### Other problems
 
@@ -169,39 +149,23 @@ State **concisely** Issues with existing code, or in refactoring for new types, 
 Again numbered points, at most 3. Choose the most inmportant if you have too much to say. You can should
 refer to documentation (not XML docs) in code where this helps.
 
+- Symbol Pos field is redundant. It represents the top-left corner of a symbol, which is also described by a component X and Y field.
+
+
 ### Analysis of how/why code works
 
-This section need not contain analysis if the code can be demonstarted working. In 
-that case list as bullet points the features you will demonstarte (quickly) in the 5 min
-interview.
-
-* If code works fully and can be demonstrated in the 5 minute feedback interview no analysis is needed. 
-* If code will be manually tested in interview say what the tests are that supplement your analysis
-* Interview code must be the assessed branch (not something else, or using later group code)
-* A good way to show code works is to explain how it differs from existing working code and how existing
-functionality is preserved.
+All of the code and the extensions are currently working. Some compatibility issues have been found for the labeling of Inputs and Outputs when incorporating the Symbol part 1 changes from hlp22-indiv-assess-xw2519 branch. It can be proved that the code for **getCompList** works fully by checking out 1b7c13adb1b10efe65eaf0fb94566359391cdc04 (the commit before the merge).
 
 # Extensions
 
-Extensions are required for mark > 70 and optional for mark below 70. High marks on 
-the first two sections cannot boost extensions mark if this is lower than them.
+1. Locate port position and orientation, given symbol position and orientation.
+    a. This extention did not require extra functions because the rotation has been implented w.r.t. the center of the symbol. The (new) Symbol field Center allows us to do this easily
 
-$baseMark = \min (70, code * 20/35 + analysis * 15/35)$
+2. UI to rotate selected symbols by pressing R key or by using the Edit Menu
+    a. Msg type in Symbol.fs was extended by adding extra type RotateSymbols of ComponentId list. 
+    b. Update function in Symbol.fs was modifed by adding an extra entry RotateSymbols. 
+    c. Update function in Sheet.fs was modified to forward message to symbol. 
+    d. EditMenu in Renderer.fs was modified by adding an extra entry "Rotate" "R"
 
-$extendedMark = code * 20/50 + analysis * 15/50  + extensions * 15/50$
-
-$overallMark = \max (baseMark, extendedMark)$
-
-* This section can be missing if you have not done significant extension work.
-* Extension code, if well documented (in the code) and clearly written, can be assessed without working 
-  (if it is demonstrated it depends on other people's code not yet written). 
-* Don't bother writing this section unless you have significant extension work, because the mark here 
-  will usually not be counted in that case (see the marking scheme). Marks for extensions will be awarded 
-only for work of C level or above.
-
-* delete the above comemnts and add your satement of extensions as below*
-
-1.  List as numbered points the extensions (features) your code will support
-
-     a. Use nested letters for the functions you have written extra, 
-     or changed, to allow this, and for concise comments concise comments about why they work.
+3. Make bounding box work with rotation
+   a. getSymBoundingBox was modified by taking into account the Rotation field of Symbol 
