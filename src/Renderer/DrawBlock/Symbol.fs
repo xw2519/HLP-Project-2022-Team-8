@@ -1002,7 +1002,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let newSymbols = Map.add compId newSymbol model.Symbols
         { model with Symbols = newSymbols }, Cmd.none
     
-    | ResetModel -> { model with Symbols = Map.empty; Ports = Map.empty }, Cmd.none
+    | ResetModel -> { model with Symbols = Map.empty; Ports = Map.empty; SymbolsCount = Map.empty }, Cmd.none
     
     | LoadComponents comps ->
         let compIdsWithSymbols =
