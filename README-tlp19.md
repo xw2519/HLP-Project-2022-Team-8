@@ -65,8 +65,8 @@ Highlights:
 ### Analysis of how/why code works
 
 1. Function `getClickedSegment` - **Detecting which segment is clicked**
-    - The function establishes a bounding bow around the coordinates that the user has clicked at (given that it is on a wire) and checks which of the wire's segments was clicked on.
-    - `getIntersectingSegments` is used to get the intersecting segments of the bounding box. It filters all segments of the current wire using the `isSegmentIntersectingBoundingBox` function.
+    - The function establishes a bounding box around the coordinates that the user has clicked at (given that it is on a wire) and checks which of the wire's segments was clicked on.
+    - `getIntersectingSegments` is used to get the segments intersecting the bounding box. It filters all segments of the current wire using the `isSegmentIntersectingBoundingBox` function.
         - This second function first finds the TopLeft and BottomRight corners of the bounding box with `getTopLeftAndBottomRightCorner`, and then tries to get any intersection with the current segment being filtered using `tryCoordinatesIfIntersection`. This function, as the name suggests, returns an Option that is `None` if there is no intersection, or `Some XYPos`reprensenting the coordinates of the intersection.
     - If one or more segments are found, then the segment recognized as being 'clicked' is the first one of them.
     - If no intersecting segments are found, the function `getClosestSegment` is called, and it returns the segment that is the closest to the mouse click, according to their Euclidian distance calculated by the `distanceFromPointToSegment` function.
@@ -74,10 +74,10 @@ Highlights:
 1. Functions `moveWire` and `moveSegment` - **Moving a wire manually**
     - `moveSegment` gets called once a segment is clicked and is being dragged by the user. It performs the appropriate modifications to the position of the segment being dragged, and to its neighbours that have their Vector component being incremented by the amount moved, and one of them also has their start point being moved as well.
         - The function `getSafeDistanceForMove` is used to restrict the distance that a segment can be moved by, according to if it is going to collide with either one of the Symbols on the ends of the wire.
-        - In parallel of the segments being moved, `removeRedundantSegments` is called to adjust any two segments going in opposite direction and canceling each other.
+        - In parallel of the segments being moved, `removeRedundantSegments` is called to adjust any two segments going in opposite directions and cancelling each other.
         - Moving a wire manually sets its `Autorouted` boolean to false, disabling Autorouting for this segment, fixing it in its position (under certain conditions, see function `updateWire` bellow).
     - `moveWire`, on the other hand, gets called whenever a whole wire is selected by a click-and-drag form the user, and simply translates all segments of the selected wire in the direction and distance of the mouse-drag.
-        - The local function `translateSegment` is called, and it simply operates the translation on the start of each segment, as their end is defined relative to their start using their `Segment.Vector` component. This is different from the previous segment type, where both the start and end of a segment had to be translated by the function. Changing the type of Segment to include a `Autorouted` boolean component allows this function to be greatly simplified, as we no longer need to operate on the absolute values of the coordinates of the segment. 
+        - The local function `translateSegment` is called, and it simply operates the translation on the start of each segment, as their end is defined relative to their start using their `Segment.Vector` component. This is different from the initial segment type, where both the start and end of a segment had to be translated by the function. Changing the type of Segment to include a `Autorouted` boolean component allows this function to be greatly simplified, as we no longer need to operate on the absolute values of the coordinates of the segment. 
 
 1. Function `updateWire` - **Partial Routing**
     - The function `updateWire` gets called whenever the user clicks on a Symbol and moves it. It receives as parameters the port of the component that moved, as well as if this port is an Input or Output port via the `inInputPort` boolean.
