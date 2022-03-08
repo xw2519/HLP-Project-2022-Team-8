@@ -649,11 +649,7 @@ let view (model : Model) (dispatch : Dispatch<Msg>) =
         |> Array.map
             (
                 fun wire ->
-                    let stringOutId =
-                        match wire.OutputPort with
-                        | OutputPortId stringId -> stringId
-                        
-                    let outputPortLocation = Symbol.getOnePortLocationNew model.Symbol stringOutId PortType.Output
+                    let outputPortLocation = Symbol.getOutputPortLocation model.Symbol wire.OutputPort
                     let props =
                         {
                             key = match wire.Id with | ConnectionId s -> s
@@ -763,7 +759,7 @@ let routeGivenWiresBasedOnPortPositions (wiresToBeRouted : list<ConnectionId>) (
         |> List.map
             (
                 fun wire -> 
-                    let posTuple = Symbol.getTwoPortLocations (model.Symbol) (wire.InputPort) (wire.OutputPort)
+                    let posTuple = (Symbol.getInputPortLocation model.Symbol wire.InputPort, Symbol.getOutputPortLocation model.Symbol wire.OutputPort)
                     (wire.Id, {wire with Segments = makeInitialSegmentsList wire.Id posTuple})
             )
         |> Map.ofList
@@ -951,7 +947,7 @@ let init () =
 
 ///Returns the wires connected to a list of components given by componentIds
 let getConnectedWires (wModel : Model) (compIds : list<ComponentId>) =
-    let inputPorts, outputPorts = Symbol.getPortLocations wModel.Symbol compIds
+    let inputPorts, outputPorts = Symbol.getCmpsPortLocations wModel.Symbol compIds
 
     wModel.WX
     |> Map.toList
@@ -962,7 +958,7 @@ let getConnectedWires (wModel : Model) (compIds : list<ComponentId>) =
 
 ///Returns a tuple of: wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
 let filterWiresByCompMoved (wModel : Model) (compIds : list<ComponentId>) =
-        let inputPorts, outputPorts = Symbol.getPortLocations wModel.Symbol compIds
+        let inputPorts, outputPorts = Symbol.getCmpsPortLocations wModel.Symbol compIds
         let lst = 
             wModel.WX
             |> Map.toList
@@ -990,7 +986,7 @@ let filterWiresByCompMoved (wModel : Model) (compIds : list<ComponentId>) =
 
 //Returns a newly autorouted wire given a model and wire
 let autorouteWire (model : Model) (wire : Wire) : Wire =
-    let posTuple = Symbol.getTwoPortLocations (model.Symbol) (wire.InputPort) (wire.OutputPort)
+    let posTuple = (Symbol.getInputPortLocation model.Symbol wire.InputPort, Symbol.getOutputPortLocation model.Symbol wire.OutputPort)
     {wire with Segments = makeInitialSegmentsList wire.Id posTuple}
 
 /// reverse segment order, and Start, End coordinates, so list can be processed from input to output
@@ -1256,7 +1252,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         updateWires model componentIdList diff, Cmd.none
 
     | AddWire ( (inputId, outputId) : (InputPortId * OutputPortId) ) ->
-        let portOnePos, portTwoPos = Symbol.getTwoPortLocations model.Symbol inputId outputId
+        let portOnePos, portTwoPos = Symbol.getInputPortLocation model.Symbol inputId, Symbol.getOutputPortLocation model.Symbol outputId
         let wireWidthFromSymbol = WireWidth.Configured 1
         let wireId = ConnectionId(JSHelpers.uuid())
         let segmentList = makeInitialSegmentsList wireId (portOnePos, portTwoPos)
@@ -1509,16 +1505,15 @@ let getWireIfClicked (wModel : Model) (pos : XYPos) (n : float) : ConnectionId O
 
 ///
 let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list<ConnectionId>) =
-    let oldCompIds = Symbol.getCopiedSymbols wModel.Symbol
+    let oldCompIds = Symbol.getCopiedSymbolsIds wModel.Symbol
     
     let pastedWires =
         let createNewWire (oldWire : Wire) : list<Wire> =
             let newId = ConnectionId(JSHelpers.uuid())
     
-            match Symbol.getEquivalentCopiedPorts wModel.Symbol oldCompIds newCompIds (oldWire.InputPort, oldWire.OutputPort) with
+            match Symbol.getPastedPortsIdsFromCopiedPortsIds wModel.Symbol oldCompIds newCompIds (oldWire.InputPort, oldWire.OutputPort) with
             | Some (newInputPort, newOutputPort) ->
-
-                let portOnePos, portTwoPos = Symbol.getTwoPortLocations wModel.Symbol (InputPortId newInputPort) (OutputPortId newOutputPort)
+                let portOnePos, portTwoPos = Symbol.getInputPortLocation wModel.Symbol (InputPortId newInputPort), Symbol.getOutputPortLocation wModel.Symbol (OutputPortId newOutputPort)
                 let segmentList = makeInitialSegmentsList newId (portOnePos, portTwoPos)
                 [
                     {

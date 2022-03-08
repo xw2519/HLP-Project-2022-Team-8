@@ -159,7 +159,7 @@ type Model = {
     
     /// Given a compType, return a label
     member this.GenerateLabel (compType: ComponentType) : string =
-        Symbol.generateLabel this.Wire.Symbol compType
+        Symbol.genCmpLabel this.Wire.Symbol compType
     
     /// Given a compId, return the corresponding component
     member this.GetComponentById (compId: ComponentId) =
@@ -366,7 +366,7 @@ let isAllVisible (model: Model)(conns: ConnectionId list) (comps: ComponentId li
         |> List.fold (&&) true
     let cVisible =
         comps
-        |> List.map (Symbol.getOneBoundingBox model.Wire.Symbol)
+        |> List.map (Symbol.getCmpBoundingBox model.Wire.Symbol)
         |> List.map isBBoxAllVisible
         |> List.fold (&&) true
     wVisible && cVisible
@@ -411,7 +411,7 @@ let mouseOnPort portList (pos: XYPos) (margin: float) =
 
 /// Returns the ports of all model.NearbyComponents
 let findNearbyPorts (model: Model) =
-    let inputPortsMap, outputPortsMap = Symbol.getPortLocations model.Wire.Symbol model.NearbyComponents
+    let inputPortsMap, outputPortsMap = Symbol.getCmpsPortLocations model.Wire.Symbol model.NearbyComponents
     
     (inputPortsMap, outputPortsMap) ||> (fun x y -> (Map.toList x), (Map.toList y))
 
@@ -582,7 +582,7 @@ let mDownUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
         | false -> model, Cmd.none
         | true -> 
             {model with
-                BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol // TODO: Improve here in group stage when we are concerned with efficiency
+                BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol // TODO: Improve here in group stage when we are concerned with efficiency
                 Action = Idle
                 Snap = {XSnap = None; YSnap = None}
                 SnapIndicator = {XLine = None; YLine = None}
@@ -787,8 +787,8 @@ let mMoveUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
     match model.Action with
     | DragAndDrop -> moveSymbols model mMsg
     | InitialisedCreateComponent (compType, lbl) ->
-        let labelTest = if lbl = "" then Symbol.generateLabel model.Wire.Symbol compType else lbl
-        let newSymbolModel, newCompId = Symbol.addSymbol model.Wire.Symbol mMsg.Pos compType labelTest
+        let labelTest = if lbl = "" then Symbol.genCmpLabel model.Wire.Symbol compType else lbl
+        let newSymbolModel, newCompId = Symbol.addSymToModel model.Wire.Symbol mMsg.Pos compType labelTest
 
         { model with Wire = { model.Wire with Symbol = newSymbolModel }
                      Action = DragAndDrop
@@ -851,7 +851,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         model, symbolCmd (Symbol.RotateSymbols model.SelectedComponents)
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
-        { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
+        { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
         Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1")); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
     | KeyPress AltShiftZ ->
         TimeHelpers.printStats() 
@@ -930,10 +930,10 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         | Drag -> mDragUpdate model mMsg
         | Up -> mUpUpdate model mMsg
         | Move -> mMoveUpdate model mMsg
-    | UpdateBoundingBoxes -> { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol }, Cmd.none
+    | UpdateBoundingBoxes -> { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol }, Cmd.none
     | UpdateSingleBoundingBox compId ->
         match Map.containsKey compId model.BoundingBoxes with
-        | true -> {model with BoundingBoxes = model.BoundingBoxes.Add (compId, (Symbol.getOneBoundingBox model.Wire.Symbol compId))}, Cmd.none
+        | true -> {model with BoundingBoxes = model.BoundingBoxes.Add (compId, (Symbol.getCmpBoundingBox model.Wire.Symbol compId))}, Cmd.none
         | false -> model, Cmd.none
     | UpdateScrollPos (scrollX, scrollY) ->
         let scrollDif = posDiff { X = scrollX; Y = scrollY } model.ScrollPos
@@ -1257,7 +1257,7 @@ let view (model:Model) (headerHeight: float) (style) (dispatch : Msg -> unit) =
 /// Init function
 let init () = 
     let wireModel, cmds = (BusWire.init ())
-    let boundingBoxes = Symbol.getBoundingBoxes wireModel.Symbol
+    let boundingBoxes = Symbol.getModelBoundingBoxes wireModel.Symbol
     
     {
         Wire = wireModel
