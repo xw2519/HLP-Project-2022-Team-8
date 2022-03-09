@@ -364,7 +364,7 @@ let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos lis
 /// Given the coordinates of two port locations that correspond
 /// to the endpoints of a wire, this function returns a list of
 /// wire vertices *)
-let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
+let makeInitialSegmentsListOld connId (portCoords : XYPos * XYPos)  =
     // Get the coordinates of the start port of the wire
     let xs, ys = snd(portCoords).X, snd(portCoords).Y
     // Get the coordinates of the end port of the wire
@@ -428,7 +428,7 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
     xyVerticesToSegments connId isLeftToRight vertlist
 
 
-let makeInitialSegmentsList1 connId (portCoords : XYPos * XYPos) : Segment list =
+let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
     // Coordinates of the ports
     let startPort: XYPos = snd(portCoords)
     let endPort: XYPos = fst(portCoords)
@@ -442,8 +442,8 @@ let makeInitialSegmentsList1 connId (portCoords : XYPos * XYPos) : Segment list 
             Wire.stickLength / 2.0
 
     // Rotation of the symbols - Constants for DEMO
-    let startSymbolRotation = 270
-    let endSymbolRotation = 270       //CHANGE HERE MANUALLY
+    let startSymbolRotation = 180
+    let endSymbolRotation = 0       //CHANGE HERE MANUALLY
 
     // Rotation of the ports
     let startPortRotation = startSymbolRotation
@@ -474,34 +474,37 @@ let makeInitialSegmentsList1 connId (portCoords : XYPos * XYPos) : Segment list 
         match ((endPortRotation - wireRotation) % 360) with
         | x when (x < 0) -> x + 360
         | x -> x
-    /// this function, if turned instead into a value, causes a FABLE compiler problem that crashes wepback
+
+    /// Clarke's message:
+    /// This function, if turned instead into a value, causes a FABLE compiler problem that crashes wepback
     /// However, it should probably in any case be a subfunction with paras diffX, diffY, s, taken out of this function
     /// so if done the way you would normally do it, it will also not crash.
-    /// it should be reported to FABLE as a compiler bug - but it is not an HLP student's job to do that
-    /// PS this match statement is very bad code. You should match on a tuple and not have the when clauses
-    /// matching on a tuple: normalizedEndPortRotation, diffX >= 0, diffY >= 0, you will I'm sure not get the error
-    let lengthList1() : float list = 
-        match normalizedEndPortRotation with
+    /// It should be reported to FABLE as a compiler bug - but it is not an HLP student's job to do that
+    /// PS this match statement is very bad code. You should match on a tuple and not have the when clauses.
+    /// Matching on a tuple: normalizedEndPortRotation, diffX >= 0, diffY >= 0, you will I'm sure not get the error
+    let generatelengthList (normalizedEndPortRotation: int) (s: float) (diffX: float) (diffY: float) : float list = 
+        match (normalizedEndPortRotation, (diffX >= 0.0), (diffY >= 0.0)) with
         // Same orientation
-        | 0 when (diffX >= 0) -> [s; 0; diffX; diffY; 0; 0; -s]                                                         // works
-        | 0 when (diffX < 0) -> [s; 0; 0; diffY; diffX; 0; -s]                                                          // works
+        | 0, true, _        -> [s; 0.0; diffX; diffY; 0.0; 0.0; -s]                                                   // works
+        | 0, false, _       -> [s; 0.0; 0.0; diffY; diffX; 0.0; -s]                                                   // works
         // Opposite orientation
-        | 180 when (diffX >= 0) -> [s; 0; (diffX - 2.0 * s)/2.0; diffY; (diffX - 2.0 * s)/2.0; 0; s]                    // works
-        | 180 when (diffX < 0) -> [s; diffY/2.0; (diffX - 2.0 * s); diffY/2.0; 0; 0; s]                                 // works
+        | 180, true, _      -> [s; 0.0; (diffX - 2.0 * s)/2.0; diffY; (diffX - 2.0 * s)/2.0; 0.0; s]                // works
+        | 180, false, _     -> [s; diffY/2.0; (diffX - 2.0 * s); diffY/2.0; 0.0; 0.0; s]                            // works
         // Perpendicular orientation: if startPort points to the right, endPort points down
-        | 90 when ((diffX >= 0) && (diffY >= 0)) -> [s; 0; (diffX - s)/2.0; (diffY + s); (diffX - s)/2.0; 0; 0; -s]     // works
-        | 90 when ((diffX >= 0) && (diffY < 0)) -> [s; 0; (diffX - s); (diffY + s); 0; 0; 0; -s]                        // works
-        | 90 when ((diffX < 0) && (diffY >= 0)) -> [s; 0; 0; (diffY + s); (diffX - s); 0; 0; -s]                        // works
-        | 90 when ((diffX < 0) && (diffY < 0)) -> [s; 0; 0; (diffY+s)/2.0; (diffX-s); (diffY+s)/2.0; 0; -s]             // works
+        | 90, true, true    -> [s; 0.0; (diffX - s)/2.0; (diffY + s); (diffX - s)/2.0; 0.0; 0.0; -s]                  // works
+        | 90, true, false   -> [s; 0.0; (diffX - s); (diffY + s); 0.0; 0.0; 0.0; -s]                                    // works
+        | 90, false, true   -> [s; 0.0; 0.0; (diffY + s); (diffX - s); 0.0; 0.0; -s]                                    // works
+        | 90, false, false  -> [s; 0.0; 0.0; (diffY+s)/2.0; (diffX-s); (diffY+s)/2.0; 0.0; -s]                        // works
         // Perpendicular orientation: if startPort points to the right, endPort points up
-        | 270 when ((diffX >= 0) && (diffY >= 0)) -> [s; 0; (diffX - s); (diffY - s); 0; 0; 0; s]                       // works
-        | 270 when ((diffX >= 0) && (diffY < 0)) -> [s; 0; (diffX - s)/2.0; (diffY - s); (diffX - s)/2.0; 0; 0; s]      // works
-        | 270 when ((diffX < 0) && (diffY >= 0)) -> [s; 0; 0; (diffY - s)/2.0; (diffX - s); (diffY - s)/2.0; 0; s]      // works
-        | 270 when ((diffX < 0) && (diffY < 0)) -> [s; 0; 0; (diffY - s); (diffX - s); 0; 0; s]                         // works
+        | 270, true, true   -> [s; 0.0; (diffX - s); (diffY - s); 0.0; 0.0; 0.0; s]                                     // works
+        | 270, true, false  -> [s; 0.0; (diffX - s)/2.0; (diffY - s); (diffX - s)/2.0; 0.0; 0.0; s]                   // works
+        | 270, false, true  -> [s; 0.0; 0.0; (diffY - s)/2.0; (diffX - s); (diffY - s)/2.0; 0.0; s]                   // works
+        | 270, false, false -> [s; 0.0; 0.0; (diffY - s); (diffX - s); 0.0; 0.0; s]                                     // works
         // Edge case that should never happen
-        | _ -> [s; 0; 0; 0; 0; 0; s]
+        | _                 -> [s; 0.0; 0.0; 0.0; 0.0; 0.0; s]
 
-    let lengthList = lengthList1()
+    let lengthList = generatelengthList normalizedEndPortRotation s diffX diffY
+
     let lastIndex = (lengthList.Length - 1)
 
     let buildRiSegListFromLengths (index:int) (length:float) : RotationInvariantSeg = {                                 // works
