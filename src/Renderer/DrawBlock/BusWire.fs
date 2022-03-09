@@ -363,7 +363,7 @@ let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos lis
 (*
 /// Given the coordinates of two port locations that correspond
 /// to the endpoints of a wire, this function returns a list of
-/// wire vertices
+/// wire vertices *)
 let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
     // Get the coordinates of the start port of the wire
     let xs, ys = snd(portCoords).X, snd(portCoords).Y
@@ -426,9 +426,9 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
             rightToLeft, false 
                 
     xyVerticesToSegments connId isLeftToRight vertlist
-*)
 
-let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
+
+let makeInitialSegmentsList1 connId (portCoords : XYPos * XYPos) : Segment list =
     // Coordinates of the ports
     let startPort: XYPos = snd(portCoords)
     let endPort: XYPos = fst(portCoords)
@@ -457,6 +457,7 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
     // Overall rotation of the wire
     let wireRotation = startPortRotation
 
+
     let differenceInX, differenceInY = (endPort.X - startPort.X), (endPort.Y - startPort.Y) 
 
     // TODO: CHECK that this is correct                                                                                 // --CHECK
@@ -473,8 +474,13 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
         match ((endPortRotation - wireRotation) % 360) with
         | x when (x < 0) -> x + 360
         | x -> x
-
-    let lengthList : float list = 
+    /// this function, if turned instead into a value, causes a FABLE compiler problem that crashes wepback
+    /// However, it should probably in any case be a subfunction with paras diffX, diffY, s, taken out of this function
+    /// so if done the way you would normally do it, it will also not crash.
+    /// it should be reported to FABLE as a compiler bug - but it is not an HLP student's job to do that
+    /// PS this match statement is very bad code. You should match on a tuple and not have the when clauses
+    /// matching on a tuple: normalizedEndPortRotation, diffX >= 0, diffY >= 0, you will I'm sure not get the error
+    let lengthList1() : float list = 
         match normalizedEndPortRotation with
         // Same orientation
         | 0 when (diffX >= 0) -> [s; 0; diffX; diffY; 0; 0; -s]                                                         // works
@@ -495,6 +501,7 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
         // Edge case that should never happen
         | _ -> [s; 0; 0; 0; 0; 0; s]
 
+    let lengthList = lengthList1()
     let lastIndex = (lengthList.Length - 1)
 
     let buildRiSegListFromLengths (index:int) (length:float) : RotationInvariantSeg = {                                 // works
@@ -742,7 +749,8 @@ let makeSegPos (seg : Segment) =
 /// using the data stored inside it),
 /// using the colour and width properties given.
 let renderRadiusedWire (segmentList: Segment List) (colour : string) (width : string) (numofSegments:int) : ReactElement List = 
-    
+    failwithf "not implemented"
+  
     let renderSegment (segment : Segment) (colour : string) (width : string) (index:int) (numofSegments:int) : ReactElement =
 
         let rendertype = if ( index = 0) then First
