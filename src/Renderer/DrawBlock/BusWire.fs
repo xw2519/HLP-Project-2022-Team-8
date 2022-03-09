@@ -127,6 +127,10 @@ type Msg =
 
 //-------------------------Helper Functions---------------------------------//
 
+/// Adds two XYPos together
+let addPositions (a: XYPos) (b: XYPos) : XYPos =
+    {X = a.X + b.X ; Y = a.Y + b.Y}
+
 /// Returns the XYPos of the end of a Segment
 let getEndPoint (segment: Segment) =
     {X=(segment.Start.X + segment.Vector.X);Y=(segment.Start.Y + segment.Vector.Y)}
@@ -138,41 +142,50 @@ let getOrientation (segment : Segment) =
     else Vertical
 
 /// Converts a list of RI segments to regular segments
-let convertRISegsToSegments (hostId: ConnectionId)(startPos: XYPos) (startDir: int) (riSegs: RotationInvariantSeg list) : Segment list =
+let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: int) (riSegs: RotationInvariantSeg list) : Segment list =
     
-    let firstVector:XYPos = if (startDir = 90) || (startDir = 270) then {X=1;Y=0}
-                            else {X=0;Y=1}
-    
-    let firstSeg:Segment = {Id= SegmentId(JSHelpers.uuid())
-                            Index = -1
-                            Start = startPos
-                            Vector = firstVector
-                            HostId = hostId
-                            JumpCoordinateList = []
-                            Autorouted = true
-                            Draggable = false
-                            }
+    let firstSeg:Segment =                                                                                                              // works
+        {
+            Id= SegmentId(JSHelpers.uuid())
+            Index = -1
+            Start = startPos
+            Vector = {X=0;Y=0}
+            HostId = hostId
+            JumpCoordinateList = []
+            Autorouted = true
+            Draggable = false
+        }
 
     // Folder used to convert a RI segment into a regular Segment
     let convertToSeg (oldState:Segment) (element:RotationInvariantSeg):Segment  =
-        // Current index of the segment
-        let index = oldState.Index + 1
-        // Compute the new start of the segment based on the old start + old vector
-        let newStart = if (index = 0) then oldState.Start
-                       else oldState.Start + oldState.Vector
-        // Define the new vector based on orientation of the previous one
-        let newBaseVector = if (oldState.Vector.X > 0)
-                            then {X=0;Y=element.Length}
-                            else {X=element.Length;Y=0}
-        // Adjust the values of the vectors based on the current index and wire start orientation
-        let newOrientedVector = match startDir with
-                                | 0 -> newBaseVector
-                                | 90 when ((index % 2) = 1) -> {newBaseVector with X = - newBaseVector.X ; Y = - newBaseVector.Y }
-                                | 180 -> {newBaseVector with X = - newBaseVector.X ; Y = - newBaseVector.Y }
-                                | 270 when ((index % 2) = 0) -> {newBaseVector with X = - newBaseVector.X ; Y = - newBaseVector.Y }
-                                | _ -> newBaseVector
         
-        let newDraggable = if(oldState.Index + 1 = 0) || (oldState.Index + 1 = riSegs.Length - 1) 
+        // Current index of the segment                                                                                                 // works
+        let index = oldState.Index + 1
+
+        // Compute the new start of the segment based on the old start + old vector                                                     // works
+        let newStart = addPositions oldState.Start oldState.Vector
+
+        // TODO: CHECK that this is correct                                                                                             // should be okay
+        // Define the new vector based on the wire start orientation and the current index
+        let newBaseVector = match startDir with
+                            | 0 | 180 when ((index % 2) = 0)    -> {X=element.Length;Y=0}
+                            | 0 | 180                           -> {X=0;Y=element.Length}
+                            | 90 | 270 when ((index % 2) = 0)   -> {X=0;Y=element.Length}
+                            | 90 | 270                          -> {X=element.Length;Y=0}
+                            | _ -> {X = 1 ; Y = 1} 
+
+        // TODO: CHECK that this is correct                                                                                             // --CHECK
+        // Adjust the values of the vectors based on the wire start orientation and current index:
+        // Invert the vector when at the right index
+        let newOrientedVector = match startDir with         // works
+                                | 0     -> newBaseVector
+                                | 90    -> {newBaseVector with X = - newBaseVector.X}
+                                | 180   -> {X = - newBaseVector.X ; Y = - newBaseVector.Y }
+                                | 270   -> {newBaseVector with Y = - newBaseVector.Y }
+                                | _     -> newBaseVector
+        
+        // Define if the new segment is draggable or not
+        let newDraggable = if(oldState.Index + 1 = 0) || (oldState.Index + 1 = riSegs.Length - 1)                                       // works
                            then false
                            else true 
         
@@ -191,9 +204,10 @@ let convertRISegsToSegments (hostId: ConnectionId)(startPos: XYPos) (startDir: i
     // Apply the folder to the list, and keep track of the changes
     let (segmentList:Segment list) = ((firstSeg, riSegs) ||> List.scan convertToSeg)
     // Return all but the head of the list
-    match segmentList with
+    match segmentList with                                                                                                              // works
     | hd::tl -> tl
     | _ -> []
+
 
 /// Converts a RotationInvariant Wire into a regular Wire
 let convertToWire (riWire:RotationInvariantWire) : Wire =
@@ -248,7 +262,7 @@ let convertToRIwire (wire:Wire) : RotationInvariantWire =
          Color = wire.Color
          Width = wire.Width
          Segments = newSegs
-     }
+    }
 
 
 //-------------------------Debugging functions---------------------------------//
@@ -346,6 +360,7 @@ let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos lis
                 Autorouted= true
             })
 
+(*
 /// Given the coordinates of two port locations that correspond
 /// to the endpoints of a wire, this function returns a list of
 /// wire vertices
@@ -411,6 +426,91 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos)  =
             rightToLeft, false 
                 
     xyVerticesToSegments connId isLeftToRight vertlist
+*)
+
+let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
+    // Coordinates of the ports
+    let startPort: XYPos = snd(portCoords)
+    let endPort: XYPos = fst(portCoords)
+
+    // adjust length of the first and last segments - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
+    let s = 
+        let d = List.max [ abs (startPort.X - endPort.X) ; abs (startPort.Y - endPort.Y) ; Wire.stickLength / 4.0 ]
+        if (endPort.X - startPort.X > 0.0) then
+            min d (Wire.stickLength / 2.0)
+        else
+            Wire.stickLength / 2.0
+
+    // Rotation of the symbols - Constants for DEMO
+    let startSymbolRotation = 270
+    let endSymbolRotation = 270       //CHANGE HERE MANUALLY
+
+    // Rotation of the ports
+    let startPortRotation = startSymbolRotation
+
+    let endPortRotation =                                                                                               // works
+        // modulo returns the remainder, but it is of the same sign as the first operand
+        match ((endSymbolRotation - 180) % 360) with
+        | x when (x < 0) -> x + 360
+        | x -> x
+
+    // Overall rotation of the wire
+    let wireRotation = startPortRotation
+
+    let differenceInX, differenceInY = (endPort.X - startPort.X), (endPort.Y - startPort.Y) 
+
+    // TODO: CHECK that this is correct                                                                                 // --CHECK
+    // Get the NORMALIZED differences between the X and Y coordinates of the ports                                      // checked and should be okay
+    let diffX, diffY =
+        match wireRotation with
+        | 0 -> differenceInX, differenceInY
+        | 90 -> differenceInY, - differenceInX
+        | 180 -> - differenceInX, - differenceInY
+        | 270 -> - differenceInY, differenceInX
+        | _ -> differenceInY, differenceInX
+
+    let normalizedEndPortRotation = 
+        match ((endPortRotation - wireRotation) % 360) with
+        | x when (x < 0) -> x + 360
+        | x -> x
+
+    let lengthList : float list = 
+        match normalizedEndPortRotation with
+        // Same orientation
+        | 0 when (diffX >= 0) -> [s; 0; diffX; diffY; 0; 0; -s]                                                         // works
+        | 0 when (diffX < 0) -> [s; 0; 0; diffY; diffX; 0; -s]                                                          // works
+        // Opposite orientation
+        | 180 when (diffX >= 0) -> [s; 0; (diffX - 2.0 * s)/2.0; diffY; (diffX - 2.0 * s)/2.0; 0; s]                    // works
+        | 180 when (diffX < 0) -> [s; diffY/2.0; (diffX - 2.0 * s); diffY/2.0; 0; 0; s]                                 // works
+        // Perpendicular orientation: if startPort points to the right, endPort points down
+        | 90 when ((diffX >= 0) && (diffY >= 0)) -> [s; 0; (diffX - s)/2.0; (diffY + s); (diffX - s)/2.0; 0; 0; -s]     // works
+        | 90 when ((diffX >= 0) && (diffY < 0)) -> [s; 0; (diffX - s); (diffY + s); 0; 0; 0; -s]                        // works
+        | 90 when ((diffX < 0) && (diffY >= 0)) -> [s; 0; 0; (diffY + s); (diffX - s); 0; 0; -s]                        // works
+        | 90 when ((diffX < 0) && (diffY < 0)) -> [s; 0; 0; (diffY+s)/2.0; (diffX-s); (diffY+s)/2.0; 0; -s]             // works
+        // Perpendicular orientation: if startPort points to the right, endPort points up
+        | 270 when ((diffX >= 0) && (diffY >= 0)) -> [s; 0; (diffX - s); (diffY - s); 0; 0; 0; s]                       // works
+        | 270 when ((diffX >= 0) && (diffY < 0)) -> [s; 0; (diffX - s)/2.0; (diffY - s); (diffX - s)/2.0; 0; 0; s]      // works
+        | 270 when ((diffX < 0) && (diffY >= 0)) -> [s; 0; 0; (diffY - s)/2.0; (diffX - s); (diffY - s)/2.0; 0; s]      // works
+        | 270 when ((diffX < 0) && (diffY < 0)) -> [s; 0; 0; (diffY - s); (diffX - s); 0; 0; s]                         // works
+        // Edge case that should never happen
+        | _ -> [s; 0; 0; 0; 0; 0; s]
+
+    let lastIndex = (lengthList.Length - 1)
+
+    let buildRiSegListFromLengths (index:int) (length:float) : RotationInvariantSeg = {                                 // works
+        Id = SegmentId(JSHelpers.uuid())
+        Length= length
+        HostId  = connId;
+        JumpCoordinateList = [];
+        Draggable = 
+            if (index = 0 || index = lastIndex) then false else true
+        Autorouted = true
+    }
+
+    let RISegs = lengthList |> List.mapi buildRiSegListFromLengths                                                      // works
+
+    RISegs |> convertRISegsToSegments connId startPort wireRotation                                // works (this line works, but check helper independantly)
+
 
 
 //--------------------------------------------------------------------------------//
@@ -1681,27 +1781,28 @@ let autorouteWire (model : Model) (wire : Wire) : Wire =
 //
 // ======================================================================================================================
 
-/// Adds two XYPos together, (X1+X2, Y1+Y2) similarly to adding two vectors
+(*/// Adds two XYPos together, (X1+X2, Y1+Y2) similarly to adding two vectors
 let inline addPositions (pos1: XYPos) (pos:XYPos) =
     {X = pos1.X + pos.X; Y = pos1.Y + pos.Y}
+*)
 
 /// Move the End of the Nth segment according to the suplied 'mover' function
-let inline moveEnd (mover: XYPos -> XYPos) (n:int) =
+let moveEnd (mover: XYPos -> XYPos) (n:int) =
     List.mapi (fun i (seg:Segment) -> if i = n then {seg with Vector = (mover (getEndPoint seg)) - seg.Start} else seg)
 
 /// Move the Start of the Nth segment according to the suplied 'mover' function
-let inline moveStart (mover: XYPos -> XYPos) (n:int) =
+let moveStart (mover: XYPos -> XYPos) (n:int) =
     List.mapi (fun i (seg:Segment) -> 
             let prevEnd = getEndPoint seg
             if i = n then {seg with Start = mover seg.Start ; Vector = (prevEnd - mover seg.Start)} else seg
         )
 
 /// Move both the Start and the End of the Nth segment according to the suplied 'mover' function (applied on both)
-let inline moveAll (mover: XYPos -> XYPos) (n : int) =
+let moveAll (mover: XYPos -> XYPos) (n : int) =
     List.mapi (fun i (seg:Segment) -> if i = n then {seg with Start = mover seg.Start} else seg)    //No need to move the vector
 
 /// Given 2 functions and a point, apply the first one on the X coordinate of the point, and the second on the Y coordinate
-let  transformXY tX tY (pos: XYPos) =
+let transformXY tX tY (pos: XYPos) =
     {pos with X = tX pos.X; Y = tY pos.Y}
 
 /// Given 2 functions, applies them respectively to the X and Y coordinates of the endpoints of the segment
