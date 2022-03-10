@@ -144,7 +144,7 @@ let getOrientation (segment : Segment) =
 /// Converts a list of RI segments to regular segments
 let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: int) (riSegs: RotationInvariantSeg list) : Segment list =
     
-    let firstSeg:Segment =                                                                                                              // works
+    let firstSeg:Segment =
         {
             Id= SegmentId(JSHelpers.uuid())
             Index = -1
@@ -159,13 +159,12 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
     // Folder used to convert a RI segment into a regular Segment
     let convertToSeg (oldState:Segment) (element:RotationInvariantSeg):Segment  =
         
-        // Current index of the segment                                                                                                 // works
+        // Current index of the segment
         let index = oldState.Index + 1
 
-        // Compute the new start of the segment based on the old start + old vector                                                     // works
+        // Compute the new start of the segment based on the old start + old vector
         let newStart = addPositions oldState.Start oldState.Vector
 
-        // TODO: CHECK that this is correct                                                                                             // should be okay
         // Define the new vector based on the wire start orientation and the current index
         let newBaseVector = match startDir with
                             | 0 | 180 when ((index % 2) = 0)    -> {X=element.Length;Y=0}
@@ -174,7 +173,6 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
                             | 90 | 270                          -> {X=element.Length;Y=0}
                             | _ -> {X = 1 ; Y = 1} 
 
-        // TODO: CHECK that this is correct                                                                                             // --CHECK
         // Adjust the values of the vectors based on the wire start orientation and current index:
         // Invert the vector when at the right index
         let newOrientedVector = match startDir with         // works
@@ -185,7 +183,7 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
                                 | _     -> newBaseVector
         
         // Define if the new segment is draggable or not
-        let newDraggable = if(oldState.Index + 1 = 0) || (oldState.Index + 1 = riSegs.Length - 1)                                       // works
+        let newDraggable = if(oldState.Index + 1 = 0) || (oldState.Index + 1 = riSegs.Length - 1)
                            then false
                            else true 
         
@@ -204,7 +202,7 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
     // Apply the folder to the list, and keep track of the changes
     let (segmentList:Segment list) = ((firstSeg, riSegs) ||> List.scan convertToSeg)
     // Return all but the head of the list
-    match segmentList with                                                                                                              // works
+    match segmentList with
     | hd::tl -> tl
     | _ -> []
 
@@ -442,13 +440,13 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
             Wire.stickLength / 2.0
 
     // Rotation of the symbols - Constants for DEMO
-    let startSymbolRotation = 180
-    let endSymbolRotation = 0       //CHANGE HERE MANUALLY
+    let startSymbolRotation = 270
+    let endSymbolRotation = 270       //CHANGE HERE MANUALLY
 
     // Rotation of the ports
     let startPortRotation = startSymbolRotation
 
-    let endPortRotation =                                                                                               // works
+    let endPortRotation =
         // modulo returns the remainder, but it is of the same sign as the first operand
         match ((endSymbolRotation - 180) % 360) with
         | x when (x < 0) -> x + 360
@@ -460,8 +458,7 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
 
     let differenceInX, differenceInY = (endPort.X - startPort.X), (endPort.Y - startPort.Y) 
 
-    // TODO: CHECK that this is correct                                                                                 // --CHECK
-    // Get the NORMALIZED differences between the X and Y coordinates of the ports                                      // checked and should be okay
+    // Get the NORMALIZED differences between the X and Y coordinates of the ports
     let diffX, diffY =
         match wireRotation with
         | 0 -> differenceInX, differenceInY
@@ -485,21 +482,21 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
     let generatelengthList (normalizedEndPortRotation: int) (s: float) (diffX: float) (diffY: float) : float list = 
         match (normalizedEndPortRotation, (diffX >= 0.0), (diffY >= 0.0)) with
         // Same orientation
-        | 0, true, _        -> [s; 0.0; diffX; diffY; 0.0; 0.0; -s]                                                   // works
-        | 0, false, _       -> [s; 0.0; 0.0; diffY; diffX; 0.0; -s]                                                   // works
+        | 0, true, _        -> [s; 0.0; diffX; diffY; 0.0; 0.0; -s]
+        | 0, false, _       -> [s; 0.0; 0.0; diffY; diffX; 0.0; -s]
         // Opposite orientation
-        | 180, true, _      -> [s; 0.0; (diffX - 2.0 * s)/2.0; diffY; (diffX - 2.0 * s)/2.0; 0.0; s]                // works
-        | 180, false, _     -> [s; diffY/2.0; (diffX - 2.0 * s); diffY/2.0; 0.0; 0.0; s]                            // works
+        | 180, true, _      -> [s; 0.0; (diffX - 2.0 * s)/2.0; diffY; (diffX - 2.0 * s)/2.0; 0.0; s]
+        | 180, false, _     -> [s; diffY/2.0; (diffX - 2.0 * s); diffY/2.0; 0.0; 0.0; s]
         // Perpendicular orientation: if startPort points to the right, endPort points down
-        | 90, true, true    -> [s; 0.0; (diffX - s)/2.0; (diffY + s); (diffX - s)/2.0; 0.0; 0.0; -s]                  // works
-        | 90, true, false   -> [s; 0.0; (diffX - s); (diffY + s); 0.0; 0.0; 0.0; -s]                                    // works
-        | 90, false, true   -> [s; 0.0; 0.0; (diffY + s); (diffX - s); 0.0; 0.0; -s]                                    // works
-        | 90, false, false  -> [s; 0.0; 0.0; (diffY+s)/2.0; (diffX-s); (diffY+s)/2.0; 0.0; -s]                        // works
+        | 90, true, true    -> [s; 0.0; (diffX - s)/2.0; (diffY + s); (diffX - s)/2.0; 0.0; 0.0; -s]
+        | 90, true, false   -> [s; 0.0; (diffX - s); (diffY + s); 0.0; 0.0; 0.0; -s]
+        | 90, false, true   -> [s; 0.0; 0.0; (diffY + s); (diffX - s); 0.0; 0.0; -s]
+        | 90, false, false  -> [s; 0.0; 0.0; (diffY+s)/2.0; (diffX-s); (diffY+s)/2.0; 0.0; -s]
         // Perpendicular orientation: if startPort points to the right, endPort points up
-        | 270, true, true   -> [s; 0.0; (diffX - s); (diffY - s); 0.0; 0.0; 0.0; s]                                     // works
-        | 270, true, false  -> [s; 0.0; (diffX - s)/2.0; (diffY - s); (diffX - s)/2.0; 0.0; 0.0; s]                   // works
-        | 270, false, true  -> [s; 0.0; 0.0; (diffY - s)/2.0; (diffX - s); (diffY - s)/2.0; 0.0; s]                   // works
-        | 270, false, false -> [s; 0.0; 0.0; (diffY - s); (diffX - s); 0.0; 0.0; s]                                     // works
+        | 270, true, true   -> [s; 0.0; (diffX - s); (diffY - s); 0.0; 0.0; 0.0; s]
+        | 270, true, false  -> [s; 0.0; (diffX - s)/2.0; (diffY - s); (diffX - s)/2.0; 0.0; 0.0; s]
+        | 270, false, true  -> [s; 0.0; 0.0; (diffY - s)/2.0; (diffX - s); (diffY - s)/2.0; 0.0; s]
+        | 270, false, false -> [s; 0.0; 0.0; (diffY - s); (diffX - s); 0.0; 0.0; s]
         // Edge case that should never happen
         | _                 -> [s; 0.0; 0.0; 0.0; 0.0; 0.0; s]
 
@@ -507,7 +504,7 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
 
     let lastIndex = (lengthList.Length - 1)
 
-    let buildRiSegListFromLengths (index:int) (length:float) : RotationInvariantSeg = {                                 // works
+    let buildRiSegListFromLengths (index:int) (length:float) : RotationInvariantSeg = {
         Id = SegmentId(JSHelpers.uuid())
         Length= length
         HostId  = connId;
@@ -517,9 +514,9 @@ let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
         Autorouted = true
     }
 
-    let RISegs = lengthList |> List.mapi buildRiSegListFromLengths                                                      // works
+    let RISegs = lengthList |> List.mapi buildRiSegListFromLengths
 
-    RISegs |> convertRISegsToSegments connId startPort wireRotation                                // works (this line works, but check helper independantly)
+    RISegs |> convertRISegsToSegments connId startPort wireRotation
 
 
 
