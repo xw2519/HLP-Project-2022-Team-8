@@ -13,6 +13,7 @@ open DrawHelpers
 
 let mutable canvasDiv:Types.Element option = None
 
+type Modes = OldFashionedCircuit | ModernCircuit | Radiussed
 
 /// Used to keep mouse movement (AKA velocity) info as well as position
 type XYPosMov = {
@@ -83,7 +84,7 @@ type SnapIndicator =
 
 /// For Keyboard messages
 type KeyboardMsg =
-    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC
+    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | F | R | CtrlM
 
 type Msg =
     | Wire of BusWire.Msg
@@ -159,7 +160,7 @@ type Model = {
     
     /// Given a compType, return a label
     member this.GenerateLabel (compType: ComponentType) : string =
-        Symbol.generateLabel this.Wire.Symbol compType
+        Symbol.genCmpLabel this.Wire.Symbol compType
     
     /// Given a compId, return the corresponding component
     member this.GetComponentById (compId: ComponentId) =
@@ -293,7 +294,7 @@ let boxUnion (box:BoundingBox) (box':BoundingBox) =
     }
 
 let symbolToBB (symbol:Symbol.Symbol) =
-    let co = symbol.Compo 
+    let co = symbol.Component 
     {X= float co.X; Y=float co.Y; W=float (co.W); H=float (co.H)}
     
 
@@ -348,7 +349,7 @@ let isBBoxAllVisible (bb: BoundingBox) =
 let getWireBBox (wire: BusWire.Wire) (model: Model) =
     let coords = 
         wire.Segments
-        |> List.collect (fun seg -> [seg.Start; seg.End])
+        |> List.collect (fun seg -> [seg.Start; (BusWire.getEndPoint seg)])
     let xCoords =  coords |> List.map (fun xy -> xy.X)
     let yCoords =  coords |> List.map (fun xy -> xy.Y)
     let lh,rh = List.min xCoords, List.max xCoords
@@ -366,14 +367,10 @@ let isAllVisible (model: Model)(conns: ConnectionId list) (comps: ComponentId li
         |> List.fold (&&) true
     let cVisible =
         comps
-        |> List.map (Symbol.getOneBoundingBox model.Wire.Symbol)
+        |> List.map (Symbol.getCmpBoundingBox model.Wire.Symbol)
         |> List.map isBBoxAllVisible
         |> List.fold (&&) true
     wVisible && cVisible
-
-    
-    
-
 
 /// Calculates if two bounding boxes intersect by comparing corner coordinates of each box
 let boxesIntersect (box1: BoundingBox) (box2: BoundingBox) =
@@ -415,7 +412,7 @@ let mouseOnPort portList (pos: XYPos) (margin: float) =
 
 /// Returns the ports of all model.NearbyComponents
 let findNearbyPorts (model: Model) =
-    let inputPortsMap, outputPortsMap = Symbol.getPortLocations model.Wire.Symbol model.NearbyComponents
+    let inputPortsMap, outputPortsMap = Symbol.getCmpsPortLocations model.Wire.Symbol model.NearbyComponents
     
     (inputPortsMap, outputPortsMap) ||> (fun x y -> (Map.toList x), (Map.toList y))
 
@@ -586,7 +583,7 @@ let mDownUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
         | false -> model, Cmd.none
         | true -> 
             {model with
-                BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol // TODO: Improve here in group stage when we are concerned with efficiency
+                BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol // TODO: Improve here in group stage when we are concerned with efficiency
                 Action = Idle
                 Snap = {XSnap = None; YSnap = None}
                 SnapIndicator = {XLine = None; YLine = None}
@@ -791,8 +788,8 @@ let mMoveUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
     match model.Action with
     | DragAndDrop -> moveSymbols model mMsg
     | InitialisedCreateComponent (compType, lbl) ->
-        let labelTest = if lbl = "" then Symbol.generateLabel model.Wire.Symbol compType else lbl
-        let newSymbolModel, newCompId = Symbol.addSymbol model.Wire.Symbol mMsg.Pos compType labelTest
+        let labelTest = if lbl = "" then Symbol.genCmpLabel model.Wire.Symbol compType else lbl
+        let newSymbolModel, newCompId = Symbol.addSymToModel model.Wire.Symbol mMsg.Pos compType labelTest
 
         { model with Wire = { model.Wire with Symbol = newSymbolModel }
                      Action = DragAndDrop
@@ -844,8 +841,18 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         Cmd.batch [ wireCmd (BusWire.DeleteWires wireUnion) // Delete Wires before components so nothing bad happens
                     symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
                     Cmd.ofMsg UpdateBoundingBoxes ]
+
+    // | KeyPress F -> 
+    //     let symbol = Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0]
+    //     let newSymbolModel = Symbol.flipSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
+
+    //     {model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
+
+    | KeyPress R -> 
+        model, symbolCmd (Symbol.RotateSymbols model.SelectedComponents)
+
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
-        { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
+        { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
         Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1")); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
     | KeyPress AltShiftZ ->
         TimeHelpers.printStats() 
@@ -909,6 +916,10 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             el.scrollTop <- paras.ScrollY
             el.scrollLeft <- paras.ScrollX
             { model with Zoom = paras.MagToUse}, Cmd.ofMsg (UpdateScrollPos (el.scrollLeft, el.scrollTop))
+    | KeyPress CtrlM ->  model, Cmd.batch [ wireCmd (BusWire.ChangeMode)]
+
+        // let inputPorts, outputPorts = BusWire.getPortIdsOfWires model.Wire wireUnion
+        // Delete Wires before components so nothing bad happens
     | ToggleSelectionOpen ->
         //if List.isEmpty model.SelectedComponents && List.isEmpty model.SelectedWires then  
         //    model, Cmd.none
@@ -924,10 +935,10 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         | Drag -> mDragUpdate model mMsg
         | Up -> mUpUpdate model mMsg
         | Move -> mMoveUpdate model mMsg
-    | UpdateBoundingBoxes -> { model with BoundingBoxes = Symbol.getBoundingBoxes model.Wire.Symbol }, Cmd.none
+    | UpdateBoundingBoxes -> { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol }, Cmd.none
     | UpdateSingleBoundingBox compId ->
         match Map.containsKey compId model.BoundingBoxes with
-        | true -> {model with BoundingBoxes = model.BoundingBoxes.Add (compId, (Symbol.getOneBoundingBox model.Wire.Symbol compId))}, Cmd.none
+        | true -> {model with BoundingBoxes = model.BoundingBoxes.Add (compId, (Symbol.getCmpBoundingBox model.Wire.Symbol compId))}, Cmd.none
         | false -> model, Cmd.none
     | UpdateScrollPos (scrollX, scrollY) ->
         let scrollDif = posDiff { X = scrollX; Y = scrollY } model.ScrollPos
@@ -1105,7 +1116,6 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
 
     | ToggleNet _ | DoNothing | _ -> model, Cmd.none
 
-
 /// This function zooms an SVG canvas by transforming its content and altering its size.
 /// Currently the zoom expands based on top left corner. 
 let displaySvgWithZoom (model: Model) (headerHeight: float) (style: CSSProp list) (svgReact: ReactElement List) (dispatch: Dispatch<Msg>)=
@@ -1180,7 +1190,7 @@ let displaySvgWithZoom (model: Model) (headerHeight: float) (style: CSSProp list
 let view (model:Model) (headerHeight: float) (style) (dispatch : Msg -> unit) =
     let start = TimeHelpers.getTimeMs()
     let wDispatch wMsg = dispatch (Wire wMsg)
-    let wireSvg = BusWire.view model.Wire wDispatch
+    let wireSvg = BusWire.RenderModel model.Wire wDispatch
     
     let wholeCanvas = $"{max 100.0 (100.0 / model.Zoom)}" + "%" 
     let grid =
@@ -1252,7 +1262,7 @@ let view (model:Model) (headerHeight: float) (style) (dispatch : Msg -> unit) =
 /// Init function
 let init () = 
     let wireModel, cmds = (BusWire.init ())
-    let boundingBoxes = Symbol.getBoundingBoxes wireModel.Symbol
+    let boundingBoxes = Symbol.getModelBoundingBoxes wireModel.Symbol
     
     {
         Wire = wireModel
