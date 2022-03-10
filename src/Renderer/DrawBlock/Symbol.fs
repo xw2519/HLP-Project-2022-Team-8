@@ -825,7 +825,7 @@ let getSymbolFromInPortId (model: Model) (inPortId: InputPortId) =
         let port = getPort model str
         let componentId = ComponentId port.HostId
         Map.find componentId model.Symbols
-        
+
 // Returns the symbol associated with outPortID
 let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) = 
     match outPortId with
@@ -840,7 +840,13 @@ let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) =
 let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
     let getCompLabel (compType: ComponentType) = 
             match compType with
-            | Not | And | Or | Xor | Nand | Nor | Xnor -> "G"
+            | Not -> "NOT"
+            | And -> "AND"
+            | Or -> "OR"
+            | Xor -> "XOR"
+            | Nand -> "NAND"
+            | Nor -> "NOR"
+            | Xnor -> "XNOR"
             | Mux2 -> "MUX"
             | Demux2 -> "DM"
             | NbitsAdder _ -> "A"
