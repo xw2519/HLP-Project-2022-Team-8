@@ -51,6 +51,8 @@ Modify this README.md file under [Current extensions being worked on](#current-e
 - [Xin] Changing relative symbol drawing point to be relative to the center 
 - [Xin] Automatic scaling of shapes based on the number of ports 
 - [Xin] Components are renamed in the properties tab when their name is numeric
+- [Xin] Changing mouse icons
+- [Xin] Zoom to fit (Easy to do)
 
 ## BusWires
 
@@ -63,6 +65,11 @@ Modify this README.md file under [Current extensions being worked on](#current-e
 
 ### **Xin** 
 - Symbol labels and component legends "adder" should always be horizontal
+  - Dependencies:
+    - None
+  - Files changes:
+    - Symbol.fs: Section 1 
+
 
 ## BusWires
 
