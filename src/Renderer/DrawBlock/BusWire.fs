@@ -297,7 +297,7 @@ let pp segs (model: Model)=
 
 
 
-let makeInitialSegmentsList connId (startPort : XYPos)  (endPort :XYPos) : Segment list =
+let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSymbolRotation: int) (endSymbolRotation: int) : Segment list =
 
     // adjust length of the first and last segments - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
     let s = 
@@ -308,8 +308,8 @@ let makeInitialSegmentsList connId (startPort : XYPos)  (endPort :XYPos) : Segme
             Wire.stickLength / 2.0
 
     // Rotation of the symbols - Constants for DEMO
-    let startSymbolRotation = 0
-    let endSymbolRotation = 180      //CHANGE HERE MANUALLY
+    //let startSymbolRotation = 0
+    //let endSymbolRotation = 180      //CHANGE HERE MANUALLY
 
     // Rotation of the ports
     let startPortRotation = startSymbolRotation
@@ -397,7 +397,7 @@ let issieVerticesToSegments (connId) (verticesList: list<float*float>) =
     let WireVertices =
         verticesList
         |> List.map (fun (x,y) -> {X=x;Y=y})
-    makeInitialSegmentsList connId WireVertices[0] WireVertices[WireVertices.Length - 1]
+    makeInitialSegmentsList connId WireVertices[0] WireVertices[WireVertices.Length - 1] 0 0
  
     
 //----------------------interface to Issie-----------------------//
@@ -1210,10 +1210,16 @@ let getWiresConnectedToPorts (wModel : Model) (compIds : list<ComponentId>) =
 /// FULL AUTOROUTING: 
 /// Returns a new fully autorouted wire given a model and wire
 let autorouteWire (model : Model) (wire : Wire) : Wire =
+    // Get the port positions
     let outputPortPos = Symbol.getOutputPortLocation model.Symbol wire.OutputPort
     let inputPortPos = Symbol.getInputPortLocation model.Symbol wire.InputPort
+    // Get the rotation of the input and output symbols
+    let outputSymbol = Symbol.getSymbolFromOutPortId model.Symbol wire.OutputPort
+    let outputSymbolRotation = int (outputSymbol.Rotation)
+    let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol wire.InputPort
+    let inputSymbolRotation = int (inputSymbol.Rotation)
     // Re-generate default Wire shape going from the InputPort to the OutputPort
-    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos}
+    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation}
 
 //
 //  ====================================================================================================================
@@ -1642,10 +1648,17 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         (updateWires model componentIdList diff, Cmd.none)
 
     | AddWire ( (inputId, outputId) : (InputPortId * OutputPortId) ) ->
+        // Get the port positions
         let outputPortPos = Symbol.getOutputPortLocation model.Symbol outputId
         let inputPortPos = Symbol.getInputPortLocation model.Symbol inputId
+        // Get the rotation of the input and output symbols
+        let outputSymbol = Symbol.getSymbolFromOutPortId model.Symbol outputId
+        let outputSymbolRotation = int (outputSymbol.Rotation)
+        let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol inputId
+        let inputSymbolRotation = int (inputSymbol.Rotation)
+
         let wireId = ConnectionId(JSHelpers.uuid())
-        let segmentList = makeInitialSegmentsList wireId outputPortPos inputPortPos
+        let segmentList = makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation
         
         let newWire = 
             {
@@ -1932,9 +1945,16 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
     
             match Symbol.getPastedPortsIdsFromCopiedPortsIds wModel.Symbol oldCompIds newCompIds (oldWire.InputPort, oldWire.OutputPort) with
             | Some (newInputPort, newOutputPort) ->
-                let inputPortPos = Symbol.getInputPortLocation wModel.Symbol (InputPortId newInputPort)
+                // Get the port positions
                 let outputPortPos = Symbol.getOutputPortLocation wModel.Symbol (OutputPortId newOutputPort)
-                let segmentList = makeInitialSegmentsList newId outputPortPos inputPortPos
+                let inputPortPos = Symbol.getInputPortLocation wModel.Symbol (InputPortId newInputPort)
+                // Get the rotation of the input and output symbols
+                let outputSymbol = Symbol.getSymbolFromOutPortId wModel.Symbol (OutputPortId newOutputPort)
+                let outputSymbolRotation = int (outputSymbol.Rotation)
+                let inputSymbol = Symbol.getSymbolFromInPortId wModel.Symbol (InputPortId newInputPort)
+                let inputSymbolRotation = int (inputSymbol.Rotation)
+
+                let segmentList = makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation
                 [
                     {
                         oldWire with
