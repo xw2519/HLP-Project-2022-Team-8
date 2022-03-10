@@ -140,8 +140,8 @@ let getEndPoint (segment: Segment) =
 
 /// Gets the orientation of a Segment
 let getOrientation (segment : Segment) =
-    if (segment.Vector.Y = 0) && (segment.Vector.X = 0) then Point 
-    elif (segment.Vector.Y = 0) then Horizontal
+    if (segment.Vector.Y = 0.0) && (segment.Vector.X = 0.0) then Point 
+    elif (segment.Vector.Y = 0.0) then Horizontal
     else Vertical
 
 /// Converts a list of RI segments to regular segments
@@ -152,7 +152,7 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
             Id= SegmentId(JSHelpers.uuid())
             Index = -1
             Start = startPos
-            Vector = {X=0;Y=0}
+            Vector = {X=0.0;Y=0.0}
             HostId = hostId
             JumpCoordinateList = []
             Autorouted = true
@@ -160,7 +160,7 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
         }
 
     // Folder used to convert a RI segment into a regular Segment
-    let convertToSeg (oldState:Segment) (element:RotationInvariantSeg):Segment  =
+    let convertToSeg (oldState: Segment) (element: RotationInvariantSeg) : Segment  =
         
         // Current index of the segment
         let index = oldState.Index + 1
@@ -170,10 +170,10 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
 
         // Define the new vector based on the wire start orientation and the current index
         let newBaseVector = match startDir with
-                            | 0 | 180 when ((index % 2) = 0)    -> {X=element.Length;Y=0}
-                            | 0 | 180                           -> {X=0;Y=element.Length}
-                            | 90 | 270 when ((index % 2) = 0)   -> {X=0;Y=element.Length}
-                            | 90 | 270                          -> {X=element.Length;Y=0}
+                            | 0 | 180 when ((index % 2) = 0)    -> {X=element.Length;Y=0.0}
+                            | 0 | 180                           -> {X=0.0;Y=element.Length}
+                            | 90 | 270 when ((index % 2) = 0)   -> {X=0.0;Y=element.Length}
+                            | 90 | 270                          -> {X=element.Length;Y=0.0}
                             | _ -> {X = 1 ; Y = 1} 
 
         // Adjust the values of the vectors based on the wire start orientation and current index:
@@ -203,7 +203,7 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
         }
         
     // Apply the folder to the list, and keep track of the changes
-    let (segmentList:Segment list) = ((firstSeg, riSegs) ||> List.scan convertToSeg)
+    let (segmentList: Segment list) = (firstSeg, riSegs) ||> List.scan convertToSeg
     // Return all but the head of the list
     match segmentList with
     | hd::tl -> tl
@@ -211,8 +211,8 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
 
 
 /// Converts a RotationInvariant Wire into a regular Wire
-let convertToWire (riWire:RotationInvariantWire) : Wire =
-    let (segmentList:Segment list) = convertRISegsToSegments riWire.Id riWire.Start riWire.StartDir riWire.Segments
+let convertToWire (riWire: RotationInvariantWire) : Wire =
+    let (segmentList: Segment list) = convertRISegsToSegments riWire.Id riWire.Start riWire.StartDir riWire.Segments
 
     {
         Id= riWire.Id
