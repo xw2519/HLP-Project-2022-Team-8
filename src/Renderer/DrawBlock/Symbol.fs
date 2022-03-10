@@ -332,6 +332,8 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
 
+
+
 //--------------------------------- Symbol Text Helper Functions ---------------------------------//
 
 let private addText posX posY name txtPos weight size =
@@ -770,6 +772,12 @@ let getCmpBoundingBox (model: Model) (compId: ComponentId ): BoundingBox =
 let getPort (model: Model) (portId: string) =
     model.Ports[portId]
 
+// Returns the symbol associated with portID
+let getSymbolFromPortId (model: Model) (portId: string) =
+    let port = getPort model portId
+    let componentId = ComponentId port.HostId
+    Map.find componentId model.Symbols 
+
 /// Returns the Input Ports and Output Ports locations associated with componentIds
 let getCmpsPortLocations (model: Model) (componentIds: ComponentId list) = 
     let getInputPortsPositionMap (model: Model) (symbols: Symbol list)  = 
@@ -811,6 +819,8 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
         let outPort = Map.find str model.Ports
         let symbol = Map.find (ComponentId(outPort.HostId)) model.Symbols
         posAdd (getModelPortPos model outPort) {X= symbol.Component.X; Y=symbol.Component.Y}
+
+
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
