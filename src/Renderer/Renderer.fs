@@ -150,6 +150,7 @@ let viewMenu dispatch =
         menuSeparator
         makeCondItem (JSHelpers.debugLevel <> 0) "Toggle Dev Tools" (Some devToolsKey) (fun _ -> 
             renderer.ipcRenderer.send("toggle-dev-tools", [||]) |> ignore)
+        makeElmItem "Change Display Mode" "CmdOrCtrl+M" (fun () -> dispatch Sheet.KeyboardMsg.CtrlM)
     ]
 
 

@@ -13,6 +13,7 @@ open DrawHelpers
 
 let mutable canvasDiv:Types.Element option = None
 
+type Modes = OldFashionedCircuit | ModernCircuit | Radiussed
 
 /// Used to keep mouse movement (AKA velocity) info as well as position
 type XYPosMov = {
@@ -83,7 +84,7 @@ type SnapIndicator =
 
 /// For Keyboard messages
 type KeyboardMsg =
-    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | F | R
+    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | F | R | CtrlM
 
 type Msg =
     | Wire of BusWire.Msg
@@ -348,7 +349,7 @@ let isBBoxAllVisible (bb: BoundingBox) =
 let getWireBBox (wire: BusWire.Wire) (model: Model) =
     let coords = 
         wire.Segments
-        |> List.collect (fun seg -> [seg.Start; seg.End])
+        |> List.collect (fun seg -> [seg.Start; (BusWire.getEndPoint seg)])
     let xCoords =  coords |> List.map (fun xy -> xy.X)
     let yCoords =  coords |> List.map (fun xy -> xy.Y)
     let lh,rh = List.min xCoords, List.max xCoords
@@ -915,6 +916,10 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             el.scrollTop <- paras.ScrollY
             el.scrollLeft <- paras.ScrollX
             { model with Zoom = paras.MagToUse}, Cmd.ofMsg (UpdateScrollPos (el.scrollLeft, el.scrollTop))
+    | KeyPress CtrlM ->  model, Cmd.batch [ wireCmd (BusWire.ChangeMode)]
+
+        // let inputPorts, outputPorts = BusWire.getPortIdsOfWires model.Wire wireUnion
+        // Delete Wires before components so nothing bad happens
     | ToggleSelectionOpen ->
         //if List.isEmpty model.SelectedComponents && List.isEmpty model.SelectedWires then  
         //    model, Cmd.none
@@ -1185,7 +1190,7 @@ let displaySvgWithZoom (model: Model) (headerHeight: float) (style: CSSProp list
 let view (model:Model) (headerHeight: float) (style) (dispatch : Msg -> unit) =
     let start = TimeHelpers.getTimeMs()
     let wDispatch wMsg = dispatch (Wire wMsg)
-    let wireSvg = BusWire.view model.Wire wDispatch
+    let wireSvg = BusWire.RenderModel model.Wire wDispatch
     
     let wholeCanvas = $"{max 100.0 (100.0 / model.Zoom)}" + "%" 
     let grid =
