@@ -772,12 +772,6 @@ let getCmpBoundingBox (model: Model) (compId: ComponentId ): BoundingBox =
 let getPort (model: Model) (portId: string) =
     model.Ports[portId]
 
-// Returns the symbol associated with portID
-let getSymbolFromPortId (model: Model) (portId: string) =
-    let port = getPort model portId
-    let componentId = ComponentId port.HostId
-    Map.find componentId model.Symbols 
-
 /// Returns the Input Ports and Output Ports locations associated with componentIds
 let getCmpsPortLocations (model: Model) (componentIds: ComponentId list) = 
     let getInputPortsPositionMap (model: Model) (symbols: Symbol list)  = 
@@ -821,6 +815,24 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
         posAdd (getModelPortPos model outPort) {X= symbol.Component.X; Y=symbol.Component.Y}
 
 
+
+//--------------------------- GET SYMBOLS FROM PORTIDS --------------------------------------//
+
+// Returns the symbol associated with inPortID
+let getSymbolFromInPortId (model: Model) (inPortId: InputPortId) = 
+    match inPortId with
+    | InputPortId(str) -> 
+        let port = getPort model str
+        let componentId = ComponentId port.HostId
+        Map.find componentId model.Symbols
+        
+// Returns the symbol associated with outPortID
+let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) = 
+    match outPortId with
+    | OutputPortId(str) -> 
+        let port = getPort model str
+        let componentId = ComponentId port.HostId
+        Map.find componentId model.Symbols
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
