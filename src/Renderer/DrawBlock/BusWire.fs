@@ -361,7 +361,7 @@ let xyVerticesToSegments connId (isLeftToRight: bool) (xyVerticesList: XYPos lis
 (*
 /// Given the coordinates of two port locations that correspond
 /// to the endpoints of a wire, this function returns a list of
-/// wire vertices *)
+/// wire vertices
 let makeInitialSegmentsListOld connId (portCoords : XYPos * XYPos)  =
     // Get the coordinates of the start port of the wire
     let xs, ys = snd(portCoords).X, snd(portCoords).Y
@@ -424,7 +424,7 @@ let makeInitialSegmentsListOld connId (portCoords : XYPos * XYPos)  =
             rightToLeft, false 
                 
     xyVerticesToSegments connId isLeftToRight vertlist
-
+*)
 
 let makeInitialSegmentsList connId (portCoords : XYPos * XYPos) : Segment list =
     // Coordinates of the ports
@@ -1462,7 +1462,7 @@ let getTopLeftAndBottomRightCorner (box : BoundingBox) : XYPos * XYPos =
 /// This function is given a Segment and a BoundingBox
 /// and it returns:
 /// - (false, None) if the segment does not intersect the bounding box
-/// - (true, None) if the segment is fully included inside the bounding box                         
+/// - (true, None) if the segment is fully included inside the bounding box 
 /// - (true, Some coordinate)  if the segment intersects the bounding box
 let isSegmentIntersectingBoundingBox (seg : Segment) (bb : BoundingBox) : bool =
     // Get the absolute coordinates of the segment
