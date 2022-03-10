@@ -849,7 +849,11 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
     //     {model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
 
     | KeyPress R -> 
-        model, symbolCmd (Symbol.RotateSymbols model.SelectedComponents)
+        model, 
+        Cmd.batch [ 
+            symbolCmd (Symbol.RotateSymbols model.SelectedComponents)
+            wireCmd (BusWire.RotatedSymbol model.SelectedComponents)
+        ]
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},

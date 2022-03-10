@@ -128,6 +128,8 @@ type Msg =
     | ResetModel // For Issie Integration
     | LoadConnections of list<Connection>
     | ChangeMode // For Issie Integration
+    | RotatedSymbol of list<ComponentId>
+
 /// Adds two XYPos together
 let addPositions (a: XYPos) (b: XYPos) : XYPos =
     {X = a.X + b.X ; Y = a.Y + b.Y}
@@ -1612,13 +1614,12 @@ let updateOrResetWireSegmentJumps (wireList: ConnectionId list) (wModel: Model) 
 /// Otherwise it will auto-route wires connected to components that have moved.
 let updateWires (model : Model) (compIdList : ComponentId list) (diff : XYPos) =
 
-    ///Returns a tuple of: wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
+    // Returns an anonymous record of: 
+    // wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
     let wiresConnectedToPorts = getWiresConnectedToPorts model compIdList
     let inputWires = wiresConnectedToPorts.InputWires
     let outputWires = wiresConnectedToPorts.OutputWires
     let InOutConnected = wiresConnectedToPorts.FullyConnectedWires
-
-
 
     let newWires = 
         model.WX
@@ -1908,6 +1909,31 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         let resetWireModel = updateOrResetWireSegmentJumps [] (newWX)    // Reset Wire Segment
         
         resetWireModel, Cmd.none
+
+    | RotatedSymbol componentIdList ->
+
+        // Returns an anonymous record of: 
+        // wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
+        let wiresConnectedToPorts = getWiresConnectedToPorts model componentIdList
+        let inputWires = wiresConnectedToPorts.InputWires
+        let outputWires = wiresConnectedToPorts.OutputWires
+        let InOutConnected = wiresConnectedToPorts.FullyConnectedWires
+        
+        // If a Wire is connected in some way to the components that have been rotated, re-autoroute them fully
+        let newWires = 
+            model.WX
+            |> Map.toList
+            |> List.map (fun (connectionId, wire) ->
+                match (List.contains connectionId InOutConnected) || (List.contains connectionId inputWires)
+                      || (List.contains connectionId outputWires) with
+                | true -> (connectionId, autorouteWire model wire)
+                | false -> (connectionId, wire)
+                )
+            |> Map.ofList
+        
+        // Return the model with the updated wires
+        let newRotatedWiresModel = {model with WX = newWires}
+        newRotatedWiresModel, Cmd.none
 
 //---------------Other interface functions--------------------//
 
