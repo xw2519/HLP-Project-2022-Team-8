@@ -291,12 +291,10 @@ let pp segs (model: Model)=
         | None -> "XX")
     |> String.concat ";"
 
-//-------------------------------Implementation code----------------------------//
-//START INTERFACE CONVERSIONS
 
-//---------------------------------------------------------------------------------//
-//--------------------DAC219 CODE SECTION STARTS-------------------------------------//
-//---------------------------------------------------------------------------------//
+
+//-------------------------------------Implementation code----------------------------------//
+
 
 
 let makeInitialSegmentsList connId (startPort : XYPos)  (endPort :XYPos) : Segment list =
@@ -387,6 +385,12 @@ let makeInitialSegmentsList connId (startPort : XYPos)  (endPort :XYPos) : Segme
     let RISegs = lengthList |> List.mapi buildRiSegListFromLengths
 
     RISegs |> convertRISegsToSegments connId startPort wireRotation
+
+
+ 
+// ----------------------------------------------------------------------------------------------------------------------------------
+
+
 
 /// Convert a (possibly legacy) issie Connection stored as a list of vertices to Wire
 let issieVerticesToSegments (connId) (verticesList: list<float*float>) =
@@ -861,9 +865,12 @@ let RenderModel (model : Model) (dispatch : Dispatch<Msg>) =
     //return the rendered wires and rendered symbols
     g [] [(g [] RenderedWires); symbols]
     |> TimeHelpers.instrumentInterval "WireView" start
-//---------------------------------------------------------------------------------//
-//--------------------DAC219 CODE SECTION STOPS-------------------------------------//
-//---------------------------------------------------------------------------------//
+
+
+
+// ----------------------------------------------------------------------------------------------------------------------------------
+
+
 
 /// This function is given two couples of
 /// points that define two line segments and it returns:
@@ -1376,6 +1383,11 @@ let updateWire (model : Model) (wire : Wire) (inInputPort : InOut) =
     |> Option.map (fun segs -> {wire with Segments = segs})
     // Otherwise, if it didn't work, re-autoRoute fully the wire
     |> Option.defaultValue (autorouteWire model wire)
+
+
+
+// ----------------------------------------------------------------------------------------------------------------------------------
+
 
 
 /// Updates the JumpCoordinateList component of every segment in the model
