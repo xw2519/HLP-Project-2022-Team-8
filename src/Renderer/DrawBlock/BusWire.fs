@@ -1294,21 +1294,28 @@ let revSegments (segs:Segment list) =
 /// up till the first dragged (manually routed) segment.
 /// This always done in the order of the segment list, it needs to be reversed before calling the function
 let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
-    // Get where the first movable segment of the wire starts
-    let wirePos = getEndPoint segs[0]
+    
     // Get the previous portPos
     let portPos = segs[0].Start
+
+    // Get where the first movable segment of the wire starts
+    let wirePos = getEndPoint segs[0]
     // Keep the same clearance from the port than previously, and move the first segment with the port
     let newWirePos = {newPortPos with X = newPortPos.X + (abs wirePos.X - portPos.X) }
+
     // Get by how much the port has moved
-    let (diff:XYPos) = {X=newPortPos.X-portPos.X; Y= newPortPos.Y - portPos.Y}
+    let (diff: XYPos) = {X=newPortPos.X-portPos.X ; Y= newPortPos.Y - portPos.Y}
     
     /// Returns the index of the first index that is manually routed
     let tryGetIndexOfFirstManuallyRoutedSegment =
         segs
-        |> List.takeWhile (fun seg -> seg.Autorouted)   // Checks to see if a Segment is autorouted
-        |> List.length
-        |> (fun n -> if n > 5 then None else Some (n))
+        // Append to the new list all segments until one of them is not autorouted
+        |> List.takeWhile (fun seg -> seg.Autorouted)
+        // Get the index of the next segment to come, as Length = lastIndexOfTheList + 1, so the first manually routed segment
+        |> List.length                                  
+        // If all segments are autorouted, then the length of the list of autorouted segments will be equal to the length of the initial list of segments.
+        // In that case, fail the partial routing to just fully autoroute the segment list.
+        |> (fun n -> if n >= (List.length segs) then None else Some (n))
 
     /// Check if we are still in the same quadrant as the other end of the wire
     let checkTopologyChangeOption index =
@@ -1325,35 +1332,43 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
         else
             None
 
-    /// Scale all the segments between the end of seg[0] and the end of the last manually routed segment.
+    /// Scale all the segments between the end of seg[0] and the end of the first manually routed segment.
     let scaleAutoroutedSegments segIndex =
-        // Get the first segment that is manually routed (its End is fixed)
+        // Get the first segment that is manually routed (we want its End to be fixed)
         let seg = segs[segIndex]
-        // Get its fixed End's coordinates
+        // Get its End's coordinates
         let fixedPt = getEndPoint seg
-        // Scale the segments by the amount needed
-        let scale x fx nx wx =
-            if nx = fx then x else ((abs x - fx)*(nx-fx)/(abs wx - fx) + fx) * float (sign x)
-        // Get the start of the wire that we are moving
+        // Get the start of the wire that we are moving (according to if we can afford to keep a constant length for the stick)
         let startPos = if segIndex = 1 then portPos else wirePos
         let newStartPos = if segIndex = 1 then newPortPos else newWirePos
+        
+        // Scale the segments by the amount needed
+        let scale x fixedX newX prevX =
+            // If the coordinate along the specific axis is the same
+            if newX = fixedX 
+            // Don't do any scaling
+            then x
+            // Otherwise compute a scaling factor proportional to the distance moved
+            else ((x-fixedX)*(newX-fixedX)/(prevX-fixedX) + fixedX) * float (sign x)
+        
         // Curried functions for scaling the X and Y "lengths" of segments
         let scaleX x = scale x fixedPt.X newStartPos.X startPos.X
         let scaleY y = scale y fixedPt.Y newStartPos.Y startPos.Y
-        // Extract the n+1 segments to be scaled
+
+        // Extract the n segments to be scaled
         match List.splitAt (segIndex+1) segs, segIndex with
-        // If the first manually routed segment's index is 1
+        // If the last autorouted segment's index is 1, scale the stick and the first segment
         | ((scaledSegs), otherSegs), 1 ->
             Some ((List.map (transformSeg scaleX scaleY) scaledSegs) @ otherSegs)
-        // Otherwise, if we can extract the head, which is the segment connected to the moving port, we just translate it, and scale the other segs
+        // Otherwise, if we can extract the head, which is the segment connected to the moving port (i.e. the stick), we just translate it, and scale the other segs
         | ((firstSeg :: scaledSegs), otherSegs), _ ->
-            Some ((moveAll (addPositions diff) 0 [firstSeg] @ List.map (transformSeg scaleX scaleY) scaledSegs) @ otherSegs)
-        // If we can't, then return None to fully autoRoute everything
+            Some ((moveAll (addPositions diff) 0 [firstSeg]) @ (List.map (transformSeg scaleX scaleY) scaledSegs) @ otherSegs)
+        // If we can't, then return None to fully autoRoute everything (edge case)
         | _ -> None
 
 
-    tryGetIndexOfFirstManuallyRoutedSegment      //Get index: None if all segments are autorouted
-    |> Option.bind checkTopologyChangeOption    //Check: None if we change quadrants (between moving endpoint and first manually fixed end)
+    tryGetIndexOfFirstManuallyRoutedSegment     // Get index: None if all segments are autorouted
+    |> Option.bind checkTopologyChangeOption    // Check: None if we change quadrants (between moving endpoint and first manually fixed end)
     |> Option.bind scaleAutoroutedSegments
 
 
