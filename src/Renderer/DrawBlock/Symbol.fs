@@ -332,6 +332,8 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
 
+
+
 //--------------------------------- Symbol Text Helper Functions ---------------------------------//
 
 let private addText posX posY name txtPos weight size =
@@ -812,13 +814,39 @@ let getOutputPortLocation (model:Model) (outPortId : OutputPortId) =
         let symbol = Map.find (ComponentId(outPort.HostId)) model.Symbols
         posAdd (getModelPortPos model outPort) {X= symbol.Component.X; Y=symbol.Component.Y}
 
+
+
+//--------------------------- GET SYMBOLS FROM PORTIDS --------------------------------------//
+
+// Returns the symbol associated with inPortID
+let getSymbolFromInPortId (model: Model) (inPortId: InputPortId) = 
+    match inPortId with
+    | InputPortId(str) -> 
+        let port = getPort model str
+        let componentId = ComponentId port.HostId
+        Map.find componentId model.Symbols
+
+// Returns the symbol associated with outPortID
+let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) = 
+    match outPortId with
+    | OutputPortId(str) -> 
+        let port = getPort model str
+        let componentId = ComponentId port.HostId
+        Map.find componentId model.Symbols
+
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
 ///Generates the label for a given ComponentType
 let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
     let getCompLabel (compType: ComponentType) = 
             match compType with
-            | Not | And | Or | Xor | Nand | Nor | Xnor -> "G"
+            | Not -> "NOT"
+            | And -> "AND"
+            | Or -> "OR"
+            | Xor -> "XOR"
+            | Nand -> "NAND"
+            | Nor -> "NOR"
+            | Xnor -> "XNOR"
             | Mux2 -> "MUX"
             | Demux2 -> "DM"
             | NbitsAdder _ -> "A"
