@@ -1007,11 +1007,11 @@ let getClickedSegment (model:Model) (wireId: ConnectionId) (pos: XYPos) : Segmen
 // EXTENSION: adapt that to horizontal as well
 /// Called for segments 1, 2, 3, 4, 5 - if they are vertical and move horizontally.
 /// The function returns distance reduced, if it needs to be, to prevent wires from moving into components.
-// Note: approx equality test is safer tehn exact equality - but probably not needed.
+// Note: approx equality test is safer than exact equality - but probably not needed.
 let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (distance:float) =
     /// Check if 2 floats are notEqual according to some threshold
     let areFloatsNotEquals (x: float) (y: float) : bool =
-        abs (abs x - abs y) > 0.0001
+        abs (x - y) > 0.0001
 
     let segEnd = getEndPoint seg
     let segLastEnd = getEndPoint segLast
@@ -1028,11 +1028,11 @@ let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (dist
         let minDistance = (seg0.Start.X + Wire.stickLength * shrink) - segEnd.X
         max minDistance distance
     | 4 | 5 ->
-        let maxDistance = segLastEnd.X -  Wire.stickLength * shrink - seg.Start.X
+        let maxDistance = (segLastEnd.X - Wire.stickLength * shrink) - seg.Start.X
         min maxDistance distance
     | 3 when distance < 0.0 && (areFloatsNotEquals seg0.Start.Y seg.Start.Y) ->    // If Seg3 is not merged with Seg0, can do anything
         distance
-    | 3 when distance > 0.0 && (areFloatsNotEquals segLast.Start.Y segEnd.Y) ->      // If Seg3 is not merged with last Seg, can do anything
+    | 3 when distance > 0.0 && (areFloatsNotEquals segLast.Start.Y segEnd.Y) ->    // If Seg3 is not merged with last Seg, can do anything
         distance
     | 3 ->
         let minDistance = seg0.Start.X + Wire.stickLength * shrink - seg.Start.X
