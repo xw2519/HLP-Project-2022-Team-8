@@ -140,8 +140,8 @@ let getEndPoint (segment: Segment) =
 
 /// Gets the orientation of a Segment
 let getOrientation (segment : Segment) =
-    if (segment.Vector.Y = 0.0) && (segment.Vector.X = 0.0) then Point 
-    elif (segment.Vector.Y = 0.0) then Horizontal
+    if (segment.Vector.Y < 0.001) && (segment.Vector.X < 0.001) then Point 
+    elif (segment.Vector.Y < 0.001) then Horizontal
     else Vertical
 
 /// Converts a list of RI segments to regular segments
@@ -1274,9 +1274,14 @@ let transformXY tX tY (pos: XYPos) =
 
 /// Given 2 functions, applies them respectively to the X and Y coordinates of the endpoints of the segment
 let transformSeg tX tY (seg: Segment) =
+    printfn " --- SegIndex: %A ---" seg.Index
+    printfn "prevStart: %A" seg.Start
+    printfn "prevVector: %A" seg.Vector
     let trans = transformXY tX tY
     let transStart = trans seg.Start
+    printfn "transStart: %A" transStart
     let transVector = (trans (getEndPoint seg)) - transStart
+    printfn "transVector: %A" transVector
     {seg with Start = trans seg.Start ; Vector = transVector }
 
 /// Returns a tuple containing the sign of the difference of the X coordinates, and the sign of the difference of the Y coordinates
@@ -1298,10 +1303,12 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
     // Get the previous portPos
     let portPos = segs[0].Start
 
-    // Get where the first movable segment of the wire starts
+    // Get where the first movable segment of the wire started previously
     let wirePos = getEndPoint segs[0]
-    // Keep the same clearance from the port than previously, and move the first segment with the port
-    let newWirePos = {newPortPos with X = newPortPos.X + (abs wirePos.X - portPos.X) }
+    // Keep the same "clearance" (the stick) from the port than previously, 
+    // and compute where the first movable segment of the wire should now start
+    let newWirePos = addPositions newPortPos segs[0].Vector
+    //{newPortPos with X = newPortPos.X + (abs wirePos.X - portPos.X) } //old way, only considering horizontal sticks
 
     // Get by how much the port has moved
     let (diff: XYPos) = {X=newPortPos.X-portPos.X ; Y= newPortPos.Y - portPos.Y}
@@ -1333,30 +1340,45 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
             None
 
     /// Scale all the segments between the end of seg[0] and the end of the first manually routed segment.
-    let scaleAutoroutedSegments segIndex =
+    let scaleAutoroutedSegments manualSegIndex =
         // Get the first segment that is manually routed (we want its End to be fixed)
-        let seg = segs[segIndex]
+        let manualSeg = segs[manualSegIndex]
         // Get its End's coordinates
-        let fixedPt = getEndPoint seg
+        let fixedPt = getEndPoint manualSeg
         // Get the start of the wire that we are moving (according to if we can afford to keep a constant length for the stick)
-        let startPos = if segIndex = 1 then portPos else wirePos
-        let newStartPos = if segIndex = 1 then newPortPos else newWirePos
+        let startPos = if manualSegIndex = 1 then portPos else wirePos
+        let newStartPos = if manualSegIndex = 1 then newPortPos else newWirePos
+
+        printfn ""
+        printfn "===== Scale Fn ======"
+        printfn "fixedPt: %A" fixedPt
+        printfn "prevStartPos: %A" startPos
+        printfn "newStartPos: %A" newStartPos
+        printfn "X (newStart-fixed): %A" (newStartPos.X-fixedPt.X)
+        printfn "X (prevStart-fixed): %A" (startPos.X-fixedPt.X)
+        printfn "ratio X (newStart-fixed)/(prevStart-fixed): %A" ((newStartPos.X-fixedPt.X)/(startPos.X-fixedPt.X))
+        printfn "Y (newStart-fixed): %A" (newStartPos.Y-fixedPt.Y)
+        printfn "Y (prevStart-fixed): %A" (startPos.Y-fixedPt.Y)
+        printfn "ratio Y (newStart-fixed)/(prevStart-fixed): %A" ((newStartPos.Y-fixedPt.Y)/(startPos.Y-fixedPt.Y))
+        printfn "====================="
         
         // Scale the segments by the amount needed
-        let scale x fixedX newX prevX =
+        let scale x fixedX newStartX prevStartX =
             // If the coordinate along the specific axis is the same
-            if newX = fixedX 
+            if newStartX = fixedX 
             // Don't do any scaling
             then x
             // Otherwise compute a scaling factor proportional to the distance moved
-            else ((x-fixedX)*(newX-fixedX)/(prevX-fixedX) + fixedX) * float (sign x)
+            else 
+                ((x-fixedX)*(newStartX-fixedX)/(prevStartX-fixedX) + fixedX) //* float (sign x)
+                //((x-fixedX)*(newStartX-fixedX)/(prevStartX-fixedX) + fixedX) //* float (sign x)
         
         // Curried functions for scaling the X and Y "lengths" of segments
         let scaleX x = scale x fixedPt.X newStartPos.X startPos.X
         let scaleY y = scale y fixedPt.Y newStartPos.Y startPos.Y
 
         // Extract the n segments to be scaled
-        match List.splitAt (segIndex+1) segs, segIndex with
+        match List.splitAt (manualSegIndex+1) segs, manualSegIndex with
         // If the last autorouted segment's index is 1, scale the stick and the first segment
         | ((scaledSegs), otherSegs), 1 ->
             Some ((List.map (transformSeg scaleX scaleY) scaledSegs) @ otherSegs)
