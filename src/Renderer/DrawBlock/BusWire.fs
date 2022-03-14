@@ -16,6 +16,16 @@ open DrawHelpers
 //Static Vars
 let minSegLen = 5.
 
+/// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
+/// (The bigger, the more forgiving it is.)
+/// Used to enforce a safe distance between a segment and a port.
+let onStickAxisThreshold : float = 1.0
+/// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
+/// (The bigger, the more forgiving it is.)
+/// Used to determine if two opposite segments are close enough and should cancel each other.
+let onRedundantSegmentAxisThreshold : float = 5.0
+
+
 //------------------------------------------------------------------------//
 //------------------------------BusWire Types-----------------------------//
 //------------------------------------------------------------------------//
@@ -143,6 +153,13 @@ let getOrientation (segment : Segment) : Orientation =
     if ((abs segment.Vector.Y) < 0.001) && ((abs segment.Vector.X) < 0.001) then Point 
     elif ((abs segment.Vector.Y) < 0.001) then Horizontal
     else Vertical
+
+/// Returns the length of a Segment
+let getLength (seg: Segment) : float =
+    match getOrientation seg with
+    | Horizontal -> abs seg.Vector.X
+    | Vertical   -> abs seg.Vector.Y
+    | Point      -> 0.0
 
 /// Converts a list of RI segments to regular segments
 let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: int) (riSegs: RotationInvariantSeg list) : Segment list =
@@ -1027,7 +1044,7 @@ let revSegments (segs:Segment list) =
 let getSafeDistanceForMoveFromStart (index: int) (segments: Segment list) (distance:float) =
     /// Check if 2 floats are notEqual according to some threshold
     let areFloatsClose (x: float) (y: float) : bool =
-        (abs (x - y)) < 0.5
+        (abs (x - y)) < onStickAxisThreshold
 
     // Get the orientation of the stick and of the segment being moved
     let stickOrientation = getOrientation segments[0]
@@ -1095,7 +1112,11 @@ let getSafeDistanceForMove (index: int) (segments: Segment list) (distance:float
     
 /// Adjust wire (input type is Segment list) so that two adjacent parallel segments that are in opposite directions
 /// get eliminated
-let removeRedundantSegments (segs: Segment list) =    
+let removeRedundantSegments (segs: Segment list) =
+    /// Returns the negated Vector of the segment
+    let negVector (seg: Segment) : XYPos = 
+        {X = - seg.Vector.X ; Y = - seg.Vector.Y}
+
     /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
     let adjust seg1 seg2 =
         // Get their directions
@@ -1115,11 +1136,11 @@ let removeRedundantSegments (segs: Segment list) =
             if abs seg1Length > abs seg2Length then
                 // replace the end of segment 1 with the end of segment 2, and the start of segment 2 with its end (making it of length 0)
                 ({seg1 with Vector = addPositions seg1.Vector seg2.Vector}, 
-                 {seg2 with Start = getEndPoint seg2})
+                 {seg2 with Start = addPositions seg2.Start seg2.Vector ; Vector = {X=0.0 ; Y=0.0}})
             else
                 // do the opposite
-                ({seg1 with Start = getEndPoint seg1}, 
-                 {seg2 with Vector = addPositions seg1.Vector seg2.Vector})
+                ({seg1 with Vector = {X=0.0 ; Y=0.0}}, 
+                 {seg2 with Start = addPositions seg2.Start (negVector seg1) ; Vector = addPositions seg1.Vector seg2.Vector})
         else
             // Otherwise, do nothing
             (seg1,seg2)
@@ -1130,6 +1151,86 @@ let removeRedundantSegments (segs: Segment list) =
     let adjustedSegSecToLast, adjustedSegLast = adjust segs[segs.Length - 2] segs[segs.Length - 1]
 
     [adjustedSeg0 ; adjustedSeg1] @ segs[2..(segs.Length - 3)] @ [adjustedSegSecToLast ; adjustedSegLast]
+
+
+/// Adjust wire (input type is Segment list) around the moved segment's index,
+/// so that two adjacent parallel segments that are in opposite directions
+/// get eliminated
+let removeRedundantSegmentsExt (index: int) (segs: Segment list) = 
+    /// Checks if the length of a segment is less than a threshold
+    let isSmall (seg: Segment) : bool =
+        (getLength seg) <= onRedundantSegmentAxisThreshold
+
+    /// Returns the negated Vector of the segment
+    let negVector (seg: Segment) : XYPos = 
+        {X = - seg.Vector.X ; Y = - seg.Vector.Y}
+
+    // Check if a segment is a Stick, and if it is of a minimum length
+    let preservesStick (seg: Segment) : bool = 
+        match ((seg.Index = 0) || (seg.Index = segs.Length-1)) with
+        | true  -> ((getLength seg) >= Wire.stickLength)
+        | false -> true
+
+    /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
+    let adjust (seg1: Segment) (segMiddle: Segment) (seg2: Segment) =
+        // Get their directions
+        let seg1Length = match (getOrientation seg1) with
+                            | Horizontal -> seg1.Vector.X
+                            | Vertical   -> seg1.Vector.Y
+                            | _          -> 0.0
+        let seg2Length = match (getOrientation seg2) with
+                            | Horizontal -> seg2.Vector.X
+                            | Vertical   -> seg2.Vector.Y
+                            | _          -> 0.0
+        // If they are horizontal and of opposite direction/length, with a small/Point/invisible segment in between them
+        if ((getOrientation seg1) = (getOrientation seg2))
+           && ((sign seg1Length) <> (sign seg2Length))
+           && (isSmall segMiddle)
+           && (preservesStick seg1)
+           && (preservesStick seg2)
+        then
+            // If the first segment is longer than the second one
+            if abs seg1Length > abs seg2Length then
+                // replace the end of segment 1 with the end of segment 2, and the start of segment 2 with its end (making it of length 0)
+                ({seg1 with Vector = addPositions seg1.Vector seg2.Vector}, 
+                 {segMiddle with Start = addPositions segMiddle.Start seg2.Vector},
+                 {seg2 with Start = addPositions seg2.Start seg2.Vector ; Vector = {X=0.0 ; Y=0.0}})
+            else
+                // do the opposite
+                ({seg1 with Vector = {X=0.0 ; Y=0.0}},
+                 {segMiddle with Start = addPositions segMiddle.Start (negVector seg1)},
+                 {seg2 with Start = addPositions seg2.Start (negVector seg1) ; Vector = addPositions seg1.Vector seg2.Vector})
+        else
+            // Otherwise, do nothing
+            (seg1, segMiddle, seg2)
+    
+    // Check which sides of the wire, around the moved segment, have enough segments to perform redundancy removal
+    match ((index >= 3), (index < segs.Length-3)) with
+    | true, true   -> 
+        // Adjust the segments that have possible redundancy on both sides
+        let adjSegM3, adjSegM2, adjSegM1 = adjust segs[index-3] segs[index-2] segs[index-1]
+        let adjSegP1, adjSegP2, adjSegP3 = adjust segs[index+1] segs[index+2] segs[index+3]
+        // Assemble the adjusted segment list
+        segs[0..(index - 4)]
+        @ [adjSegM3 ; adjSegM2 ; adjSegM1 ; segs[index] ; adjSegP1 ; adjSegP2 ; adjSegP3]
+        @ segs[(index + 4)..(segs.Length-1)]
+    | true, false  -> 
+        // Adjust the segments that have possible redundancy on the "left"/"smaller indexes" side
+        let adjSegM3, adjSegM2, adjSegM1 = adjust segs[index-3] segs[index-2] segs[index-1]
+        // Assemble the adjusted segment list
+        segs[0..(index - 4)]
+        @ [adjSegM3 ; adjSegM2 ; adjSegM1]
+        @ segs[index..(segs.Length-1)]
+    | false, true  ->
+        // Adjust the segments that have possible redundancy on the "right"/"greater indexes" side
+        let adjSegP1, adjSegP2, adjSegP3 = adjust segs[index+1] segs[index+2] segs[index+3]
+        // Assemble the adjusted segment list
+        segs[0..index]
+        @ [adjSegP1 ; adjSegP2 ; adjSegP3]
+        @ segs[(index + 4)..(segs.Length-1)]
+    | false, false ->
+        // If not enough segments around the moved segment to perform redundancy removal, don't do anything
+        segs
 
 
 /// MANUAL ROUTING: 
@@ -1192,7 +1293,7 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
             // Rebuild the list of segments of the wire with the updated segments at the right indexes
             let newSegments =
                 wire.Segments[.. index-2] @ [newPrevSeg; newSeg; newNextSeg] @ wire.Segments[index+2 ..]
-                |> removeRedundantSegments
+                |> removeRedundantSegmentsExt index
 
             // Update the list of segments in the wire object, and return it
             {wire with Segments = newSegments})
