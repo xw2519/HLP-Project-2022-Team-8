@@ -63,6 +63,7 @@ Modify this README.md file under [Current extensions being worked on](#current-e
 
 ### **Leo**
 
+
 ### **Xin** 
 - Symbol labels and component legends "adder" should always be horizontal
   - Dependencies:
@@ -86,6 +87,8 @@ Modify this README.md file under [Current extensions being worked on](#current-e
 ## Symbols 
 
 ### **Leo**
+- new names and labels for Gate components. (e.g. G3 -> AND3, G5 -> XOR5)
+- Implemented Flip for ports
 
 ### **Xin** 
 - Flips/rotates should keep port text legends nice 
