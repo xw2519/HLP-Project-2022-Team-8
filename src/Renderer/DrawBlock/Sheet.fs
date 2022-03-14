@@ -842,11 +842,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                     symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
                     Cmd.ofMsg UpdateBoundingBoxes ]
 
-    // | KeyPress F -> 
-    //     let symbol = Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0]
-    //     let newSymbolModel = Symbol.flipSymbol (Symbol.extractSymbol model.Wire.Symbol model.SelectedComponents[0])
-
-    //     {model with Wire = { model.Wire with Symbol = (Symbol.updateModel model.Wire.Symbol newSymbolModel) }}, Cmd.none
+    | KeyPress F -> 
+        model, symbolCmd (Symbol.FlipSymbols model.SelectedComponents)
 
     | KeyPress R -> 
         model, 
