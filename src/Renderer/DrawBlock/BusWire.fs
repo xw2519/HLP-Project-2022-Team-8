@@ -146,7 +146,7 @@ let addPositions (a: XYPos) (b: XYPos) : XYPos =
 
 /// Returns the XYPos of the end of a Segment
 let getEndPoint (segment: Segment) : XYPos =
-    {X=(segment.Start.X + segment.Vector.X);Y=(segment.Start.Y + segment.Vector.Y)}
+    {X=(segment.Start.X + segment.Vector.X) ; Y=(segment.Start.Y + segment.Vector.Y)}
 
 /// Gets the orientation of a Segment
 let getOrientation (segment : Segment) : Orientation =
@@ -1160,15 +1160,17 @@ let removeRedundantSegments (index: int) (segs: Segment list) =
         then
             // If the first segment is longer than the second one
             if abs seg1Length > abs seg2Length then
-                // replace the end of segment 1 with the end of segment 2, and the start of segment 2 with its end (making it of length 0)
+                // replace the end of segment 1 with the end of segment 2 (add both vectors), 
+                // and the start of segment 2 with its end (and making it of length 0).
+                // also translate the middle segment by the vector of segment 2
                 ({seg1 with Vector = addPositions seg1.Vector seg2.Vector}, 
                  {segMiddle with Start = addPositions segMiddle.Start seg2.Vector},
-                 {seg2 with Start = addPositions seg2.Start seg2.Vector ; Vector = {X=0.0 ; Y=0.0}})
+                 {seg2 with Start = getEndPoint seg2 ; Vector = {X=0.0 ; Y=0.0}})
             else
                 // do the opposite
-                ({seg1 with Vector = {X=0.0 ; Y=0.0}},
-                 {segMiddle with Start = addPositions segMiddle.Start (negVector seg1)},
-                 {seg2 with Start = addPositions seg2.Start (negVector seg1) ; Vector = addPositions seg1.Vector seg2.Vector})
+                ({seg1 with Vector = {X=0.0 ; Y=0.0}},  // note: the start of seg1 is moved by the moveSegment function
+                 {segMiddle with Start = addPositions segMiddle.Start (negVector seg1)},    //translate middle segment
+                 {seg2 with Start = addPositions seg2.Start (negVector seg1) ; Vector = addPositions seg1.Vector seg2.Vector})  //move start of seg2 without moving the end
         else
             // Otherwise, do nothing
             (seg1, segMiddle, seg2)
@@ -1179,7 +1181,8 @@ let removeRedundantSegments (index: int) (segs: Segment list) =
         // Adjust the segments that have possible redundancy on both sides
         let adjSegM3, adjSegM2, adjSegM1 = adjust segs[index-3] segs[index-2] segs[index-1]
         let adjSegP1, adjSegP2, adjSegP3 = adjust segs[index+1] segs[index+2] segs[index+3]
-        // Assemble the adjusted segment list
+        // Assemble the adjusted segment list:
+        // firstSegs @ adjustedSegs @ lastSegs
         segs[0..(index - 4)]
         @ [adjSegM3 ; adjSegM2 ; adjSegM1 ; segs[index] ; adjSegP1 ; adjSegP2 ; adjSegP3]
         @ segs[(index + 4)..(segs.Length-1)]
