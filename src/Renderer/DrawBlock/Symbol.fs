@@ -313,11 +313,15 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         | MergeWires | SplitWire _ -> 0.25
         | _ -> 1.0
     
+
+    let flip = true
+    
     let (ports, posX) =
-        if port.PortType = (PortType.Input) then
-            symbol.Component.InputPorts, 0.0
-        else 
-            symbol.Component.OutputPorts, float(symbol.Component.W)
+        match port.PortType, flip with
+        | PortType.Input, false -> symbol.Component.InputPorts, 0.0
+        | PortType.Input, true -> symbol.Component.InputPorts, float(symbol.Component.W)
+        | PortType.Output, false -> symbol.Component.OutputPorts, float(symbol.Component.W)
+        | PortType.Output, true -> symbol.Component.OutputPorts, 0.0
 
     /// Calculate equidistant port spacing
     let index = float(List.findIndex (fun (p: Port) -> p = port) ports)
