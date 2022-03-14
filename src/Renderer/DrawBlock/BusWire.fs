@@ -1024,55 +1024,10 @@ let revSegments (segs:Segment list) =
     |> List.map (fun seg -> {seg with Start = (getEndPoint seg) ; Vector = {X = - seg.Vector.X ; Y = - seg.Vector.Y}})
 
        
-// EXTENSION: adapt that to horizontal as well
-/// Called for segments 1, 2, 3, 4, 5 - if they are vertical and move horizontally.
-/// The function returns distance reduced, if it needs to be, to prevent wires from moving into components.
-// Note: approx equality test is safer than exact equality - but probably not needed.
-let getSafeDistanceForMove (seg: Segment) (seg0:Segment) (segLast:Segment) (distance:float) =
-    /// Check if 2 floats are notEqual according to some threshold
-    let areFloatsNotEquals (x: float) (y: float) : bool =
-        abs (x - y) > 0.0001
-
-    let segEnd = getEndPoint seg
-    let segLastEnd = getEndPoint segLast
-
-    // Define a smaller shrink factor if the segment is not in the middle of the wire
-    let shrink = match seg.Index with 
-                 | 1 | 2 | 4 | 5 -> 0.5 
-                 | 3 | _ -> 1.0 
-                     
-    // Then, according to the index
-    match seg.Index with
-    | 1 | 2 ->   
-        //max distance you can do = X coordinate that you can't pass - where you are   (moving towards negative/smaller numbers)
-        let minDistance = (seg0.Start.X + Wire.stickLength * shrink) - segEnd.X
-        max minDistance distance
-    | 4 | 5 ->
-        let maxDistance = (segLastEnd.X - Wire.stickLength * shrink) - seg.Start.X
-        min maxDistance distance
-    | 3 when distance < 0.0 && (areFloatsNotEquals seg0.Start.Y seg.Start.Y) ->    // If Seg3 is not merged with Seg0, can do anything
-        distance
-    | 3 when distance > 0.0 && (areFloatsNotEquals segLast.Start.Y segEnd.Y) ->    // If Seg3 is not merged with last Seg, can do anything
-        distance
-    | 3 ->
-        let minDistance = seg0.Start.X + Wire.stickLength * shrink - seg.Start.X
-        let maxDistance = segLastEnd.X - Wire.stickLength * shrink - seg.Start.X
-        distance
-        |> max minDistance
-        |> min maxDistance
-    | _ -> 
-        distance
-
-
-
-
-
 let getSafeDistanceForMoveFromStart (index: int) (segments: Segment list) (distance:float) =
     /// Check if 2 floats are notEqual according to some threshold
     let areFloatsClose (x: float) (y: float) : bool =
         (abs (x - y)) < 0.5
-
-    printfn "Index: %A" index
 
     // Get the orientation of the stick and of the segment being moved
     let stickOrientation = getOrientation segments[0]
@@ -1081,15 +1036,11 @@ let getSafeDistanceForMoveFromStart (index: int) (segments: Segment list) (dista
     // Boolean to see if the segment being moved is perpendicular to the stick
     let isPerpendicularToStick = stickOrientation <> segOrientation
 
-    printfn "Orientations: %A" (stickOrientation, segOrientation, isPerpendicularToStick)
-
     // The shrink factor is 1 for all segments perpendicular to the stick
     // that are after the first perpendicular segment after the stick (which has index 2)
     let shrink = match isPerpendicularToStick with 
                  | true when (index > 2) -> 1.0
                  | _ -> 0.5
-
-    printfn "Shrink factor: %A" shrink
     
     // Start of seg has same X or Y as start of stick (depending on orientation of stick)
     let hasStartOnStickAxis =               
@@ -1107,8 +1058,6 @@ let getSafeDistanceForMoveFromStart (index: int) (segments: Segment list) (dista
         | Vertical   when (segments[0].Vector.Y >= 0.0) -> (distance < 0.0)
         | Vertical                                      -> (distance >= 0.0)
         | _                                             -> false
-    
-    printfn "hasStartOnStickAxis, isGoingTowardsStick: %A" (hasStartOnStickAxis, isGoingTowardsStick)
 
     // Distance, along the right axis, between the end of shrinked stick, and start of seg being moved
     let safeDistanceToShrinkedStick =      
@@ -1116,10 +1065,6 @@ let getSafeDistanceForMoveFromStart (index: int) (segments: Segment list) (dista
         | Horizontal -> (segments[0].Start.X + (float (sign segments[0].Vector.X) * Wire.stickLength * shrink)) - segments[index].Start.X
         | Vertical   -> (segments[0].Start.Y + (float (sign segments[0].Vector.Y) * Wire.stickLength * shrink)) - segments[index].Start.Y
         | _          -> 0.0
-
-    printfn "startStickX: %A" segments[0].Start.X
-    printfn "endStickX: %A" (segments[0].Start.X + (float (sign segments[0].Vector.X) * Wire.stickLength * shrink))
-    printfn "segStartX: %A" segments[index].Start.X
 
     // Compute the max distance that the segment can be moved by, while abiding by stick constraints
     let restreignedDistance = 
@@ -1129,24 +1074,16 @@ let getSafeDistanceForMoveFromStart (index: int) (segments: Segment list) (dista
         // If Distance is negative, take the MAX between Distance and 'distance between the seg start and end of stick' (assuming same sign)
         | false -> max distance safeDistanceToShrinkedStick
 
-    printfn "safeDistanceToShrinkedStick: %A" safeDistanceToShrinkedStick
-    printfn "restreignedDistance: %A" restreignedDistance
-
     // Then, if they are perpendicular, and the start of the segment being moved is on the same axis of the stick, restrict their movement
     match (isPerpendicularToStick, hasStartOnStickAxis, isGoingTowardsStick) with
     | (true, true, true) -> 
-        printfn " -> Restricted"
         restreignedDistance
     | _ -> distance
 
 
-let getSafeDistanceForMove2 (index: int) (segments: Segment list) (distance:float) =
-    printfn ""
-    printfn "=== getSafeDistanceForMove2 ==="
-    printfn "DISTANCE = %A" distance
+let getSafeDistanceForMove (index: int) (segments: Segment list) (distance:float) =
     // Get the safe distance from the start of the wire
     let safeDistanceFromStart = getSafeDistanceForMoveFromStart index segments distance
-    printfn "SAFE DIST FROM START = %A" safeDistanceFromStart
     
     // Reverse the wire and get the safe distance to the start of the reversed wire, i.e. the end of the initial wire
     let (revIndex: int) = (segments.Length - 1) - index
@@ -1154,9 +1091,7 @@ let getSafeDistanceForMove2 (index: int) (segments: Segment list) (distance:floa
     let safeDistanceFromStartAndEnd = getSafeDistanceForMoveFromStart revIndex revSegments safeDistanceFromStart
     
     // Return that final safe distance
-    printfn "FINAL RESULT = %A" safeDistanceFromStartAndEnd
     safeDistanceFromStartAndEnd
-
 
 
 /// Adjust wire (input type is Segment list) so that two adjacent horizontal segments that are in opposite directions
@@ -1212,14 +1147,13 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
     let nextSeg = wire.Segments[index+1]
 
     // If the segment has the same direction than any of it's neighbours, don't do anything
-    if (getOrientation seg) = (getOrientation prevSeg) || (getOrientation seg) = (getOrientation nextSeg) then
+    if ((getOrientation seg) = (getOrientation prevSeg)) || ((getOrientation seg) = (getOrientation nextSeg)) then
         wire
     // Else, move the segment, and update the neighbours
     else
         //runTestFable()
         distance      
-        //|> getSafeDistanceForMove seg wire.Segments[0] wire.Segments[wire.Segments.Length - 1]
-        |> getSafeDistanceForMove2 index wire.Segments
+        |> getSafeDistanceForMove index wire.Segments
         |> (fun (distance': float) ->
             // Define the updated coordinates of the segments based on the orientation of the segment being moved
             let newPrevVector, newSegStart, newNextStart, newNextVector = 
@@ -1340,35 +1274,7 @@ let autorouteWire (model : Model) (wire : Wire) : Wire =
     // Re-generate default Wire shape going from the InputPort to the OutputPort
     {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbol.Flip inputSymbol.Flip}
 
-//
-//  ====================================================================================================================
-//
-//                                        WIRE SEGMENTS FOR ROUTING
-//
-//
-// Segments, going from Start (output port) to End (input port) coords, are summarised as:
-// H => Horizontal (incr X)
-// V => Vertical (incr Y)
-// 0 => zero length segment (never used)
-//
-// segment qualifiers:
-// F => min length (next to output or input, cannot be shortened)
-//
-// "Simple" case where output.X < input.X and 3 segment autoroute is possible
-//  S0.FH  S1.0V  S2.H  S3.V  S4.H  S5.0V S6.FH
-//
-// "Complex" case where output.X > input.X and wire ends back for 5 segment autoroute
-//  S0.FH  S1.V  S2.H  S3.V  S4.H  S5.0V S6.FH (not sure if H and V are correct here)
-//
-// To determine adjustment on End change we just reverse the segment and apply the Start change algorithm
-// Adjustment => reverse list of segments, swap Start and End, and alter the sign of all coordinates
-//
-// ======================================================================================================================
 
-(*/// Adds two XYPos together, (X1+X2, Y1+Y2) similarly to adding two vectors
-let inline addPositions (pos1: XYPos) (pos:XYPos) =
-    {X = pos1.X + pos.X; Y = pos1.Y + pos.Y}
-*)
 
 /// Move the End of the Nth segment according to the suplied 'mover' function
 let moveEnd (mover: XYPos -> XYPos) (n:int) =
@@ -1391,14 +1297,9 @@ let transformXY tX tY (pos: XYPos) =
 
 /// Given 2 functions, applies them respectively to the X and Y coordinates of the endpoints of the segment
 let transformSeg tX tY (seg: Segment) =
-    printfn " --- SegIndex: %A ---" seg.Index
-    printfn "prevStart: %A" seg.Start
-    printfn "prevVector: %A" seg.Vector
     let trans = transformXY tX tY
     let transStart = trans seg.Start
-    printfn "transStart: %A" transStart
     let transVector = (trans (getEndPoint seg)) - transStart
-    printfn "transVector: %A" transVector
     {seg with Start = trans seg.Start ; Vector = transVector }
 
 /// Returns a tuple containing the sign of the difference of the X coordinates, and the sign of the difference of the Y coordinates
@@ -1410,7 +1311,6 @@ let topology (pos1: XYPos) (pos2:XYPos) =
 /// up till the first dragged (manually routed) segment.
 /// This always done in the order of the segment list, it needs to be reversed before calling the function
 let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
-    
     // Get the previous portPos
     let portPos = segs[0].Start
 
@@ -1459,19 +1359,6 @@ let tryPartialAutoRoute (segs: Segment list) (newPortPos: XYPos) =
         // Get the start of the wire that we are moving (according to if we can afford to keep a constant length for the stick)
         let startPos = if manualSegIndex = 1 then portPos else wirePos
         let newStartPos = if manualSegIndex = 1 then newPortPos else newWirePos
-
-        printfn ""
-        printfn "===== Scale Fn ======"
-        printfn "fixedPt: %A" fixedPt
-        printfn "prevStartPos: %A" startPos
-        printfn "newStartPos: %A" newStartPos
-        printfn "X (newStart-fixed): %A" (newStartPos.X-fixedPt.X)
-        printfn "X (prevStart-fixed): %A" (startPos.X-fixedPt.X)
-        printfn "ratio X (newStart-fixed)/(prevStart-fixed): %A" ((newStartPos.X-fixedPt.X)/(startPos.X-fixedPt.X))
-        printfn "Y (newStart-fixed): %A" (newStartPos.Y-fixedPt.Y)
-        printfn "Y (prevStart-fixed): %A" (startPos.Y-fixedPt.Y)
-        printfn "ratio Y (newStart-fixed)/(prevStart-fixed): %A" ((newStartPos.Y-fixedPt.Y)/(startPos.Y-fixedPt.Y))
-        printfn "====================="
         
         // Scale the segments by the amount needed
         let scale x fixedX newStartX prevStartX =
