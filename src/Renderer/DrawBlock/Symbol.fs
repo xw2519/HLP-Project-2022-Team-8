@@ -81,6 +81,8 @@ type Msg =
 //---------------------- XW2519 CODE SECTION STARTS ----------------------//
 //------------------------------------------------------------------------//
 
+let rotationMap = [ 0.0, 90.0; 90.0, 180.0; 180.0, 270.0; 270.0, 0.0 ] |> Map.ofList
+
 //--------------------------------- Helper functions ---------------------------------//
 let convertDegtoRad degree = System.Math.PI * degree / 180.0 
 
@@ -100,13 +102,13 @@ let convertSymbolPointsToString (xyPosL: XYPos list) =
 
     coordinateString[0 .. (String.length coordinateString) - 2]   
 
-let flipSymbol (symbol: Symbol) = 
-    let symbolCharacteristics = { symbol.SymbolCharacteristics with flip = not symbol.SymbolCharacteristics.flip }
-    
-    { symbol with SymbolCharacteristics = symbolCharacteristics }
+let getSymbolOrientation (symbol: Symbol) = 
+    match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with 
+    | (_, false) -> symbol.Rotation
+    | (_, true) -> rotationMap.[rotationMap.[symbol.Rotation]]
 
 let getSymbolPoints (symbol: Symbol) = convertSymbolPointsToString symbol.SymbolPoints
-
+    
 let posAdd (a: XYPos) (b: XYPos) = { X = a.X+b.X; Y = a.Y+b.Y }
 
 let posDiff (a: XYPos) (b: XYPos) = { X = a.X-b.X; Y = a.Y-b.Y }
@@ -118,20 +120,24 @@ let rotatePoint degree (xyPos: XYPos) : XYPos =
       Y = xyPos.X * System.Math.Sin(convertDegtoRad degree) + xyPos.Y * System.Math.Cos(convertDegtoRad degree) }
 
 let rotateSymbol (symbol: Symbol) = 
-    let nextRotation = 
-        [   0.0, 90.0;
-            90.0, 180.0;
-            180.0, 270.0;
-            270.0, 0.0  ]
-        |> Map.ofList
-
     let newSymbolPoints = 
         symbol.SymbolPoints
         |> List.map (convertRelativeToSymbolCenter symbol)
         |> List.map (rotatePoint 90.0)
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
-    {symbol with Rotation = nextRotation.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
+    {symbol with Rotation = rotationMap.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
+
+let flipSymbol (symbol: Symbol) = 
+    let symbolCharacteristics = { symbol.SymbolCharacteristics with flip = not symbol.SymbolCharacteristics.flip }
+
+    let newSymbolPoints = 
+        symbol.SymbolPoints
+        |> List.map (convertRelativeToSymbolCenter symbol)
+        |> List.map (rotatePoint 180.0)
+        |> List.map (convertRelativeToSymbolTopLeft symbol)
+    
+    { symbol with SymbolCharacteristics = symbolCharacteristics; SymbolPoints = newSymbolPoints }
 
 //--------------------------------- Skeleton Model Type for Symbols and Components ---------------------------------//
 
@@ -568,7 +574,7 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
     let originalSymbolPoints = 
         points 
         |> List.map (convertRelativeToSymbolCenter symbol) 
-        |> List.map (rotatePoint -symbol.Rotation) 
+        |> List.map (rotatePoint -(getSymbolOrientation symbol)) 
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     let trianglePoints =
@@ -576,7 +582,7 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
           { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y = originalSymbolPoints[1].Y-6.0 }
           { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0 + 6.0; Y = originalSymbolPoints[1].Y } ]
         |> List.map (convertRelativeToSymbolCenter symbol)
-        |> List.map (rotatePoint symbol.Rotation) 
+        |> List.map (rotatePoint (getSymbolOrientation symbol)) 
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     drawBiColorPolygon (convertSymbolPointsToString trianglePoints) colour outlineColor opacity strokeWidth
@@ -585,7 +591,7 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
     let addInvertor posX posY =
         [{ X = posX; Y = posY }; { X = posX+9.0; Y = posY }; { X = posX; Y = posY-8.0 }]
         |> List.map (convertRelativeToSymbolCenter symbol)
-        |> List.map (rotatePoint symbol.Rotation)
+        |> List.map (rotatePoint (getSymbolOrientation symbol))
         |> List.map (convertRelativeToSymbolTopLeft symbol)
         |> convertSymbolPointsToString
         |> createPolygon colour opacity
@@ -594,32 +600,20 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
         let clockPoints = 
             [{ X = posX; Y = posY-1.0}; { X = posX; Y = posY-13.0}; { X = posX+8.0; Y = posY-7.0 }]
             |> List.map (convertRelativeToSymbolCenter symbol)
-            |> List.map (rotatePoint symbol.Rotation)
+            |> List.map (rotatePoint (getSymbolOrientation symbol))
             |> List.map (convertRelativeToSymbolTopLeft symbol)
-        
-        // let addClockText = 
-        //     match symbol.Rotation with 
-        //     | 90.0 ->
-        //         addText (clockPoints[2].X) (clockPoints[2].Y) "clk" "middle" "normal" "10px"
-        //     | 180.0 ->
-        //         addText (clockPoints[2].X - 10.0) (clockPoints[2].Y - 6.0) "clk" "middle" "normal" "10px"
-        //     | 270.0 ->
-        //         addText (clockPoints[2].X) (clockPoints[2].Y - 13.0) "clk" "middle" "normal" "10px"
-        //     | _ -> 
-        //         addText (clockPoints[2].X + 2.0) (clockPoints[2].Y - 7.0) "clk" "start" "normal" "10px"
-
+            
         clockPoints
         |> convertSymbolPointsToString
         |> createPolygon colour opacity
-        // |> List.append addClockText
-        
+
     match symbol.SymbolCharacteristics with 
     | { clocked = false; inverted = true  } -> addInvertor (float(symbol.Component.W)) (float(symbol.Component.H) / 2.0)
     | { clocked = true;  inverted = false } -> addClock 0 symbol.Component.H
     | { clocked = true;  inverted = true  } -> addClock 0 symbol.Component.H @ addInvertor symbol.Component.X symbol.Component.Y
     | _ -> []
 
-let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
+let drawSymbolShape (symbol: Symbol) opacity colour : ReactElement list =
     let outlineColor, strokeWidth =
             match symbol.Component.Type with
             | SplitWire _ | MergeWires -> addOutlineColor colour, "2.0"
