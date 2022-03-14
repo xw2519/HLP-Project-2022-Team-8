@@ -114,26 +114,41 @@ let private createNbitsXorPopup (model:Model) dispatch =
     dialogPopup title body buttonText buttonAction isDisabled dispatch
 
 
+
 let private createSplitWirePopup model dispatch =
     let title = sprintf "Add Split Wire node" 
-    let beforeInt2 =
-        fun _ -> str "End Bit of Split Wire"
     let beforeInt =
-        fun _ -> str "Start Bit of Split Wire"
+        fun _ -> str "How many bits should go to the top (LSB) wire? The remaining bits will go to the bottom (MSB) wire."
+    let intDefault = 1
+    let body = dialogPopupBodyOnlyInt beforeInt intDefault dispatch
+    let buttonText = "Add"
+    let buttonAction =
+        fun (dialogData : PopupDialogData) ->
+            let inputInt = getInt dialogData
+            createCompStdLabel (SplitWire inputInt) model dispatch
+            dispatch ClosePopup
+    let isDisabled =
+        fun (dialogData : PopupDialogData) -> getInt dialogData < 1
+    dialogPopup title body buttonText buttonAction isDisabled dispatch
+
+let private createExtractWirePopup model dispatch =
+    let title = sprintf "Add Extract Wire node" 
+    let beforeInt2 =
+        fun _ -> str "End bit of extract wire."
+    let beforeInt =
+        fun _ -> str "Start bit of extract wire."
     let intDefault = 0
     let intDefault2 = 0
-
-    let body = dialogPopupBodyTwoInts (beforeInt,beforeInt2) (intDefault,intDefault2) "60px" dispatch
-
+    let body = dialogPopupBodyTwoInts (beforeInt, beforeInt2) (intDefault, intDefault2) "60px" dispatch
     let buttonText = "Add"
     let buttonAction =
         fun (dialogData : PopupDialogData) ->
             let startBit = getInt dialogData
             let endBit = getInt2 dialogData
-            createCompStdLabel (SplitWire (startBit,int endBit)) model dispatch
+            createCompStdLabel (ExtractWire (((int endBit)-startBit+1),startBit,int endBit)) model dispatch
             dispatch ClosePopup
-    let isDisabled = 
-        fun (dialogData : PopupDialogData) -> false
+    let isDisabled =
+        fun (dialogData : PopupDialogData) -> getInt dialogData < 0 || (getInt2 dialogData < 0 && getInt dialogData < getInt dialogData)
     dialogPopup title body buttonText buttonAction isDisabled dispatch
 
 /// two react text lines in red
@@ -373,6 +388,8 @@ let viewCatalogue model dispatch =
                                                                                        join the bits of a two busses to make a wider bus"
                           catTip1 "Bus Split" (fun _ -> createSplitWirePopup model dispatch) "Use Bus Split when you want to split the \
                                                                                              bits of a bus into two sets"
+                          catTip1 "Bus Extract" (fun _ -> createExtractWirePopup model dispatch) "Use Bus Extract when you want to extract \
+                                                                                             bits from a bus"
                           catTip1 "Bus Select" (fun _ -> createBusSelectPopup model dispatch) "Bus Select output connects to one or \
                                                                                                 more selected bits of its input"
                           catTip1 "Bus Compare" (fun _ -> createBusComparePopup model dispatch) "Bus compare outputs 1 if the input bus \

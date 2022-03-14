@@ -301,14 +301,24 @@ let private calculateOutputPortsWidth
         | [None; _] | [_; None] -> Ok Map.empty // Keep on waiting.
         | [Some n; Some m] -> Ok <| Map.empty.Add (getOutputPortId comp 0, n + m)
         | _ -> failwithf "what? Impossible case in calculateOutputPortsWidth for: %A" comp.Type
-    | SplitWire (startBit,endBit) ->
+    | SplitWire topWireWidth ->
         assertInputsSize inputConnectionsWidth 1 comp
         match getWidthsForPorts inputConnectionsWidth [InputPortNumber 0] with
         | [None] -> Ok Map.empty // Keep on waiting.
-        | [Some n] when n < (endBit-startBit) + 2 -> makeWidthInferErrorAtLeast ((endBit-startBit) + 2) n [getConnectionIdForPort 0]
+        | [Some n] when n < topWireWidth + 1 -> makeWidthInferErrorAtLeast (topWireWidth + 1) n [getConnectionIdForPort 0]
         | [Some n] ->
-            let out = Map.empty.Add (getOutputPortId comp 0, (endBit-startBit)+1)
-            let out = out.Add (getOutputPortId comp 1, n )
+            let out = Map.empty.Add (getOutputPortId comp 0, topWireWidth)
+            let out = out.Add (getOutputPortId comp 1, n - topWireWidth)
+            Ok out
+        | _ -> failwithf "what? Impossible case in calculateOutputPortsWidth for: %A" comp.Type
+    | ExtractWire (width,startBit, endBit) ->
+        assertInputsSize inputConnectionsWidth 1 comp
+        match getWidthsForPorts inputConnectionsWidth [InputPortNumber 0] with
+        | [None] -> Ok Map.empty // Keep on waiting.
+        | [Some n] when n < (endBit - startBit) + 1 -> makeWidthInferErrorAtLeast ((endBit - startBit)+ 1) n [getConnectionIdForPort 0]
+        | [Some n] ->
+            let out = Map.empty.Add (getOutputPortId comp 0, (endBit - startBit)+1)
+            let out = out.Add (getOutputPortId comp 1, n)
             Ok out
         | _ -> failwithf "what? Impossible case in calculateOutputPortsWidth for: %A" comp.Type
     | DFF ->

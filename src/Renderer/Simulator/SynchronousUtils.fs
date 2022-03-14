@@ -15,7 +15,7 @@ open SimulatorTypes
 let couldBeSynchronousComponent compType : bool =
     match compType with
     | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ | Custom _ -> true // We have to assume custom components are clocked as they may be.
-    | Input _ | Output _ | IOLabel | Constant1 _ | BusSelection _ | BusCompare _ | MergeWires | SplitWire _ | Not | And | Or | Xor
+    | Input _ | Output _ | IOLabel | Constant1 _ | BusSelection _ | BusCompare _ | MergeWires | ExtractWire _ | SplitWire _ | Not | And | Or | Xor
     | Nand | Nor | Xnor | Mux2 | Demux2 | NbitsAdder _ | NbitsXor _ | Decode4 | AsyncROM1 _ | Viewer _ -> false
     | _ -> failwithf $"Legacy components {compType} should never be read!"
 
@@ -39,7 +39,7 @@ let rec hasSynchronousComponents graph : bool =
             match comp.Type with
             | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> true
             | Custom _ -> hasSynchronousComponents <| Option.get comp.CustomSimulationGraph
-            | Input _ | Output _ | IOLabel | BusSelection _ | BusCompare _ | MergeWires | SplitWire _ | Not | And | Or
+            | Input _ | Output _ | IOLabel | BusSelection _ | BusCompare _ | MergeWires | ExtractWire _ | SplitWire _ | Not | And | Or
             | Xor | Nand | Nor | Xnor | Mux2 | Demux2 | NbitsAdder _ | NbitsXor _ | Decode4 | AsyncROM1 _ | Constant1 _ | Viewer _ -> false
             | _ -> failwithf $"legacy components should never be read {comp.Type}"
         )

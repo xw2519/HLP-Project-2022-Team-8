@@ -79,6 +79,8 @@ let getPortNumbers (sc: SimulationComponent) =
             2,1
         | SplitWire _ -> 
             1,2
+        | ExtractWire _ -> 
+            1,2
         | Mux2 _ -> 
             3,1
         | NbitsAdder _ -> 
@@ -111,7 +113,8 @@ let getOutputWidths (sc: SimulationComponent) (wa: int option array) =
     | Viewer w
     | Register w
     | RegisterE w
-    | SplitWire (w, _)
+    | SplitWire w
+    | ExtractWire (w,_,_)
     | BusSelection (w, _)
     | Constant1 (w, _,_)
     | Constant (w,_)

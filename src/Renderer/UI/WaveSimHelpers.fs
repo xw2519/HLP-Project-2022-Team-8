@@ -643,12 +643,35 @@ let rec private findName (compIds: ComponentId Set) (sd: SimulationData) (net: N
             | MergeWires -> 
                 List.append (drivingOutputName (InputPortNumber 1)).ComposingLabels 
                             (drivingOutputName (InputPortNumber 0)).ComposingLabels
-            | SplitWire (w,x) ->
+            | SplitWire w ->
                 let mostsigBranch (_, b) =
                     match outPortInt with
                     | 0 -> b >= 16 - w
                     | 1 -> b < 16 - w
                     | _ -> failwith "SplitWire output port number greater than 1"
+
+                let split { LabName = name; BitLimits = msb, lsb } st =
+                    List.zip [ lsb .. msb ] [ st + msb - lsb .. -1 .. st ]
+                    |> List.filter mostsigBranch
+                    |> List.unzip
+                    |> function
+                    | [], _ -> None 
+                    | lst, _ -> Some { LabName = name
+                                       BitLimits = List.max lst, List.min lst } 
+
+                let updateState { LabName = _; BitLimits = msb, lsb } st =
+                    st + msb - lsb + 1
+
+                (0, (drivingOutputName (InputPortNumber 0)).ComposingLabels)
+                ||> List.mapFold (fun st lstEl -> split lstEl st, updateState lstEl st)
+                |> fst
+                |> List.choose id
+            | ExtractWire (w,a,x) ->
+                let mostsigBranch (_, b) =
+                    match outPortInt with
+                    | 0 -> b >= 16 - w
+                    | 1 -> b < 16 - w
+                    | _ -> failwith " ExtractWire output port number greater than 1"
 
                 let split { LabName = name; BitLimits = msb, lsb } st =
                     List.zip [ lsb .. msb ] [ st + msb - lsb .. -1 .. st ]

@@ -165,7 +165,8 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
         | Decode4 ->(2, 4, 4*GridSize, 3*GridSize) 
         | Constant1 (a, b, _) | Constant(a, b) -> (0, 1, GridSize, 2*GridSize) 
         | MergeWires -> (2, 1, 2*GridSize, 2*GridSize) 
-        | SplitWire (a,b) ->(1, 2, 2*GridSize, 2*GridSize) 
+        | SplitWire (a) ->(1, 2, 2*GridSize, 2*GridSize) 
+        | ExtractWire (w,a,b) ->(1, 2, 2*GridSize, 2*GridSize) 
         | Mux2 -> (3, 1, 3*GridSize, 2*GridSize) 
         | Demux2 ->(2, 2, 3*GridSize, 2*GridSize) 
         | BusSelection (a, b) -> (1, 1, GridSize, 2*GridSize) 
@@ -268,6 +269,12 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
               { X = 0; Y = ((1.0/2.0)*compHeight) }
               { X = compWidth; Y = ((1.0/6.0)*compHeight) }
               { X = compWidth; Y = ((5.0/6.0)*compHeight) } ]
+        | ExtractWire _ -> 
+            [ { X = compWidth/2.0; Y = ((1.0/6.0)*compHeight) }
+              { X = compWidth/2.0; Y = ((5.0/6.0)*compHeight) }
+              { X = 0; Y = ((1.0/2.0)*compHeight) }
+              { X = compWidth; Y = ((1.0/6.0)*compHeight) }
+              { X = compWidth; Y = ((5.0/6.0)*compHeight) } ]  
         | _ -> 
             [ { X = 0; Y = compHeight }
               { X = compWidth; Y = compHeight }
@@ -311,6 +318,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     let inline getPortPosEdgeGap (compType: ComponentType) =
         match compType with
         | MergeWires | SplitWire _ -> 0.25
+        | ExtractWire _ -> 0.25
         | _ -> 1.0
     
     let (ports, posX) =
@@ -490,13 +498,18 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         addBusTitle 0 (comp.W/2) (5.0/6.0) msb midb @ 
         addBusTitle (comp.W/2) comp.W 0.5 msb 0
 
-    | SplitWire (startBit,endBit) ->  
-        let mid = (endBit - startBit)
+     | SplitWire mid ->  
         let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
+        let midb = mid'
+        let midt = mid'-1
 
-        // let midb = mid'
-        // let midt = mid'-1
-        //let 
+        addBusTitle (comp.W/2) comp.W (1.0/6.0) midt 0 @ 
+        addBusTitle (comp.W/2) comp.W (5.0/6.0) msb midb @ 
+        addBusTitle 0 (comp.W/2) 0.5 msb 0
+
+    | ExtractWire (width,startBit, endBit) -> 
+        let mid = endBit - startBit
+        let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
 
         addBusTitle (comp.W/2) comp.W (1.0/6.0) endBit startBit @ 
         addBusTitle (comp.W/2) comp.W (5.0/6.0) msb 0 @ 
@@ -616,7 +629,7 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
 let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     let outlineColor, strokeWidth =
             match symbol.Component.Type with
-            | SplitWire _ | MergeWires -> addOutlineColor colour, "2.0"
+            | ExtractWire _ | SplitWire _ | MergeWires -> addOutlineColor colour, "2.0"
             | _ -> "black", "1.0"
     
     let drawSymbolLines = 
@@ -629,6 +642,10 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
                 |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity colour)
                 |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[4].Y symbol.SymbolPoints[4].X opacity colour)
             | SplitWire _ -> 
+                drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].Y symbol.SymbolPoints[2].X opacity colour
+                |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity colour)
+                |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[4].Y symbol.SymbolPoints[4].X opacity colour)
+            | ExtractWire _ -> 
                 drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].Y symbol.SymbolPoints[2].X opacity colour
                 |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity colour)
                 |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[4].Y symbol.SymbolPoints[4].X opacity colour)
@@ -645,6 +662,10 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
                 drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[2].X)) symbol.SymbolPoints[2].Y opacity colour
                 |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[3].X)) symbol.SymbolPoints[3].Y opacity colour)
                 |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[4].X)) symbol.SymbolPoints[4].Y opacity colour)
+            | ExtractWire _ -> 
+                drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[2].X)) symbol.SymbolPoints[2].Y opacity colour
+                |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[3].X)) symbol.SymbolPoints[3].Y opacity colour)
+                |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[4].X)) symbol.SymbolPoints[4].Y opacity colour)    
             | _ -> []
 
     let drawDirectionalArrows : ReactElement list =
@@ -667,6 +688,15 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
             drawArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
             |> List.append (drawArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
             |> List.append (drawArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
+        | ExtractWire _ -> 
+            let arrowLines = 
+                [ [{ X = symbol.SymbolPoints[0].X; Y = symbol.SymbolPoints[0].Y}; { X = symbol.SymbolPoints[2].X; Y = symbol.SymbolPoints[2].Y }]
+                  [{ X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[3].X; Y = symbol.SymbolPoints[3].Y }]
+                  [{ X = (symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0; Y = (symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0}; { X = symbol.SymbolPoints[4].X; Y = symbol.SymbolPoints[4].Y }]]
+
+            drawArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
+            |> List.append (drawArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
+            |> List.append (drawArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
         | _ -> []
     
     match symbol.Component.Type with
@@ -679,6 +709,10 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
         |> List.append drawSymbolLines
         |> List.append drawDirectionalArrows
     | SplitWire _ -> 
+        drawBiColorPolygon (convertSymbolPointsToString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
+        |> List.append drawSymbolLines
+        |> List.append drawDirectionalArrows
+    | ExtractWire _ -> 
         drawBiColorPolygon (convertSymbolPointsToString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
         |> List.append drawSymbolLines
         |> List.append drawDirectionalArrows
@@ -869,7 +903,7 @@ let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
 
     let label = getCompLabel cmpType
     match cmpType with
-    | IOLabel | MergeWires | SplitWire(_) -> label
+    | IOLabel | MergeWires | ExtractWire _ | SplitWire(_) -> label
     | _ -> label.ToUpper() + (genCmpIndex model cmpType)
 
 ///Updates the model's SymbolsCount by increasing the count associated with cmpType
@@ -1010,7 +1044,8 @@ let updateCmpBits (model:Model) (cmpId:ComponentId) (bits : int) =
         | NbitsXor _ -> NbitsXor bits
         | Register _ -> Register bits
         | RegisterE _ -> RegisterE bits
-        | SplitWire (_,b) -> SplitWire (bits,b)
+        | SplitWire _ -> SplitWire bits
+        | ExtractWire (w,_,b) -> ExtractWire (w,bits,b)
         | BusSelection (_,b) -> BusSelection (bits,b)
         | BusCompare (_,b) -> BusCompare (bits,b)
         | Constant1 (_,b,txt) -> Constant1 (bits,b,txt)

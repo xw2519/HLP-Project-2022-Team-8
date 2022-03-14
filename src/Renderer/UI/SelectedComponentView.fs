@@ -146,7 +146,8 @@ let private makeNumberOfBitsField model (comp:Component) text dispatch =
     let title, width =
         match comp.Type with
         | Input w | Output w | NbitsAdder w | NbitsXor w | Register w | RegisterE w | Viewer w -> "Number of bits", w
-        | SplitWire (w,x) -> "Start and end bits in the split wire", w
+        | SplitWire w -> "Number of bits in the top (LSB) wire", w
+        | ExtractWire (w,a,x) -> "Start and End bits in the input wire", w
         | BusSelection( w, _) -> "Number of bits selected: width", w
         | BusCompare( w, _) -> "Bus width", w
         | Constant1(w, _,_) -> "Number of bits in the wire", w
@@ -163,7 +164,7 @@ let private makeNumberOfBitsField model (comp:Component) text dispatch =
                 //SetComponentLabelFromText model comp text' // change the JS component label
                 let lastUsedWidth = 
                     match comp.Type with 
-                    | SplitWire _ | BusSelection _ | Constant1 _ -> 
+                    | SplitWire _ | ExtractWire _ | BusSelection _ | Constant1 _ -> 
                         model.LastUsedDialogWidth 
                     | _ ->  
                         newWidth
@@ -295,6 +296,7 @@ let private makeDescription (comp:Component) model dispatch =
     | Demux2 -> div [] [ str "Demultiplexer with one input and two outputs." ]
     | MergeWires -> div [] [ str "Merge two wires of width n and m into a single wire of width n+m." ]
     | SplitWire _ -> div [] [ str "Split a wire of width n+m into two wires of width n and m."]
+    | ExtractWire _ -> div [] [ str "Extract a wire from bits n to m."]
     | NbitsAdder numberOfBits -> div [] [ str <| sprintf "%d bit(s) adder." numberOfBits ]
     | NbitsXor numberOfBits  -> div [] [ str <| sprintf "%d XOR gates with %d outputs." numberOfBits numberOfBits]
     | Decode4 -> div [] [ str <| "4 bit decoder: Data is output on the Sel output, all other outputs are 0."]
@@ -365,6 +367,8 @@ let private makeExtraInfo model (comp:Component) text dispatch =
         makeNumberOfBitsField model comp text dispatch
     | SplitWire _ ->
         makeNumberOfBitsField model comp text dispatch
+    | ExtractWire _ ->
+        makeNumberOfBitsField model comp text dispatch
     | Register _ | RegisterE _ ->
         makeNumberOfBitsField model comp text dispatch
     | BusSelection _ -> 
@@ -399,7 +403,7 @@ let viewSelectedComponent (model: ModelType.Model) dispatch =
             let label' = Option.defaultValue "L" (formatLabelText comp.Label) // No formatting atm
             readOnlyFormField "Description" <| makeDescription comp model dispatch
             makeExtraInfo model comp label' dispatch
-            let required = match comp.Type with | SplitWire _ | MergeWires | BusSelection _ -> false | _ -> true
+            let required = match comp.Type with | ExtractWire _ | SplitWire _ | MergeWires | BusSelection _ -> false | _ -> true
             textFormField required "Component Name" label' (fun text ->
                 // TODO: removed formatLabel for now
                 //setComponentLabel model sheetDispatch comp (formatLabel comp text)

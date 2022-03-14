@@ -53,6 +53,7 @@ let writeVerilogNames (fs: FastSimulation) =
         let cLabel =
             match sc.Label , sc.Type with
             | ComponentLabel "", SplitWire _ -> fakeName "Split"
+            | ComponentLabel "", ExtractWire _ -> fakeName "Extract"
             | ComponentLabel "", MergeWires ->  fakeName "Merge"
             | ComponentLabel "", _ -> fakeName "Other"
             | ComponentLabel lab,_ -> lab.ToUpper()
@@ -447,6 +448,12 @@ let getVerilogComponent (fs: FastSimulation) (fc: FastComponent) =
     | BusCompare (w, c) -> $"assign %s{outs 0} = %s{ins 0} == %s{makeBits w (uint64 (uint32 c))};\n"
     | MergeWires -> $"assign {outs 0} = {{ {ins 0},{ins 1} }};\n"  
     | SplitWire _ ->
+        let lsbBits = outW 0
+        let msbBits = outW 1
+
+        $"assign %s{outs 0} = %s{ins 0}[%d{lsbBits - 1}:0];\n"
+        + $"assign %s{outs 1} = %s{ins 0}[%d{msbBits + lsbBits - 1}:%d{msbBits}];\n"
+    | ExtractWire _ ->
         let lsbBits = outW 0
         let msbBits = outW 1
 

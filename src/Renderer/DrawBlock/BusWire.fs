@@ -1718,6 +1718,11 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
                         | Some 0 -> {symbol with InWidth0 = Some wire.Width}
                         | x -> failwithf $"What? wire found with input port {x} other than 0 connecting to SplitWire"
                         |> (fun sym -> Map.add symId sym mapSymbolId)
+                    | ExtractWire _ ->        
+                        match inPort.PortNumber with 
+                        | Some 0 -> {symbol with InWidth0 = Some wire.Width}
+                        | x -> failwithf $"What? wire found with input port {x} other than 0 connecting to ExtractWire"
+                        |> (fun sym -> Map.add symId sym mapSymbolId)
                     | MergeWires ->
                         match inPort.PortNumber with
                         | Some 0 -> 
