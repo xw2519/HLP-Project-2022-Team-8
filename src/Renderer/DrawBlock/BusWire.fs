@@ -330,7 +330,7 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
         // so it counteracts/negates itself (endSymbolRotation - 180 + 180)
         | true  -> endSymbolRotation
         // Whithout being flipped, the input ports point in the opposite direction as the symbol they are on
-        | false -> makeInRangeRotation (startSymbolRotation - 180)
+        | false -> makeInRangeRotation (endSymbolRotation - 180)
 
     // Overall rotation of the wire
     let wireRotation = startPortRotation
