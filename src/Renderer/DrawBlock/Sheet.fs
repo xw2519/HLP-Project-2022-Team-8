@@ -843,13 +843,17 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                     Cmd.ofMsg UpdateBoundingBoxes ]
 
     | KeyPress F -> 
-        model, symbolCmd (Symbol.FlipSymbols model.SelectedComponents)
+        model, 
+        Cmd.batch [
+            symbolCmd (Symbol.FlipSymbols model.SelectedComponents)
+            wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
+        ]
 
     | KeyPress R -> 
         model, 
         Cmd.batch [ 
             symbolCmd (Symbol.RotateSymbols model.SelectedComponents)
-            wireCmd (BusWire.RotatedSymbol model.SelectedComponents)
+            wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
         ]
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner

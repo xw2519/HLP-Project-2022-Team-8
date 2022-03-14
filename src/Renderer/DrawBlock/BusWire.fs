@@ -128,7 +128,7 @@ type Msg =
     | ResetModel // For Issie Integration
     | LoadConnections of list<Connection>
     | ChangeMode // For Issie Integration
-    | RotatedSymbol of list<ComponentId>
+    | ReRouteSymbol of list<ComponentId>
 
 /// Adds two XYPos together
 let addPositions (a: XYPos) (b: XYPos) : XYPos =
@@ -299,7 +299,7 @@ let pp segs (model: Model)=
 
 
 
-let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSymbolRotation: int) (endSymbolRotation: int) : Segment list =
+let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSymbolRotation: int) (endSymbolRotation: int) (startSymbolFlip: bool) (endSymbolFlip: bool) : Segment list =
 
     // adjust length of the first and last segments - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
     let s = 
@@ -308,27 +308,38 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
             min d (Wire.stickLength / 2.0)
         else
             Wire.stickLength / 2.0
-
-    // Rotation of the symbols - Constants for DEMO
-    //let startSymbolRotation = 0
-    //let endSymbolRotation = 180      //CHANGE HERE MANUALLY
+    
+    /// Given an int, gets its modulo by 360, returning the positive remainder, so that it is in the range [0;360)
+    let makeInRangeRotation rotation = 
+        // modulo returns the remainder, but it is of the same sign as the first operand
+        match (rotation % 360) with
+        | x when (x < 0) -> x + 360
+        | x              -> x
 
     // Rotation of the ports
-    let startPortRotation = startSymbolRotation
+    let startPortRotation = 
+        match startSymbolFlip with
+        // If the symbol is flipped, the ports are pointing backwards
+        | true  -> makeInRangeRotation (startSymbolRotation + 180)
+        | false -> startSymbolRotation
 
     let endPortRotation =
-        // modulo returns the remainder, but it is of the same sign as the first operand
-        match ((endSymbolRotation - 180) % 360) with
-        | x when (x < 0) -> x + 360
-        | x -> x
+        match endSymbolFlip with
+        // If the symbol is flipped, the ports are pointing backwards,
+        // but because we know that the input ports are pointing opposite to the symbol they are on,
+        // so it counteracts/negates itself (endSymbolRotation - 180 + 180)
+        | true  -> endSymbolRotation
+        // Whithout being flipped, the input ports point in the opposite direction as the symbol they are on
+        | false -> makeInRangeRotation (startSymbolRotation - 180)
 
     // Overall rotation of the wire
     let wireRotation = startPortRotation
 
-
+    // Get the real/actual difference between the ports over the X and Y axis
     let differenceInX, differenceInY = (endPort.X - startPort.X), (endPort.Y - startPort.Y) 
 
     // Get the NORMALIZED differences between the X and Y coordinates of the ports
+    // i.e. assuming the Input port points to the right, towards the positive X
     let diffX, diffY =
         match wireRotation with
         | 0 -> differenceInX, differenceInY
@@ -337,6 +348,8 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
         | 270 -> - differenceInY, differenceInX
         | _ -> differenceInY, differenceInX
 
+    // Get the NORMALIZED rotation of the output port
+    // i.e. assuming the Input port points to the right, towards the positive X
     let normalizedEndPortRotation = 
         match ((endPortRotation - wireRotation) % 360) with
         | x when (x < 0) -> x + 360
@@ -399,7 +412,7 @@ let issieVerticesToSegments (connId) (verticesList: list<float*float>) =
     let WireVertices =
         verticesList
         |> List.map (fun (x,y) -> {X=x;Y=y})
-    makeInitialSegmentsList connId WireVertices[0] WireVertices[WireVertices.Length - 1] 0 0
+    makeInitialSegmentsList connId WireVertices[0] WireVertices[WireVertices.Length - 1] 0 0 false false
  
     
 //----------------------interface to Issie-----------------------//
@@ -1325,7 +1338,7 @@ let autorouteWire (model : Model) (wire : Wire) : Wire =
     let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol wire.InputPort
     let inputSymbolRotation = int (inputSymbol.Rotation)
     // Re-generate default Wire shape going from the InputPort to the OutputPort
-    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation}
+    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbol.Flip inputSymbol.Flip}
 
 //
 //  ====================================================================================================================
@@ -1794,7 +1807,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         let inputSymbolRotation = int (inputSymbol.Rotation)
 
         let wireId = ConnectionId(JSHelpers.uuid())
-        let segmentList = makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation
+        let segmentList = (makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbol.Flip inputSymbol.Flip)
         
         let newWire = 
             {
@@ -2045,8 +2058,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         
         resetWireModel, Cmd.none
 
-    | RotatedSymbol componentIdList ->
-
+    | ReRouteSymbol componentIdList ->
         // Returns an anonymous record of: 
         // wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
         let wiresConnectedToPorts = getWiresConnectedToPorts model componentIdList
@@ -2054,7 +2066,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         let outputWires = wiresConnectedToPorts.OutputWires
         let InOutConnected = wiresConnectedToPorts.FullyConnectedWires
         
-        // If a Wire is connected in some way to the components that have been rotated, re-autoroute them fully
+        // If a Wire is connected in some way to the components that have been rotated or flipped, re-autoroute them fully
         let newWires = 
             model.WX
             |> Map.toList
@@ -2067,8 +2079,8 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
             |> Map.ofList
         
         // Return the model with the updated wires
-        let newRotatedWiresModel = {model with WX = newWires}
-        newRotatedWiresModel, Cmd.none
+        let newReRoutedWiresModel = {model with WX = newWires}
+        newReRoutedWiresModel, Cmd.none
 
 //---------------Other interface functions--------------------//
 
@@ -2115,7 +2127,7 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
                 let inputSymbol = Symbol.getSymbolFromInPortId wModel.Symbol (InputPortId newInputPort)
                 let inputSymbolRotation = int (inputSymbol.Rotation)
 
-                let segmentList = makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation
+                let segmentList = (makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbol.Flip inputSymbol.Flip)
                 [
                     {
                         oldWire with
