@@ -342,18 +342,18 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
     // i.e. assuming the Input port points to the right, towards the positive X
     let diffX, diffY =
         match wireRotation with
-        | 0 -> differenceInX, differenceInY
-        | 90 -> differenceInY, - differenceInX
-        | 180 -> - differenceInX, - differenceInY
-        | 270 -> - differenceInY, differenceInX
-        | _ -> differenceInY, differenceInX
+        | 0     -> differenceInX, differenceInY
+        | 90    -> differenceInY, - differenceInX
+        | 180   -> - differenceInX, - differenceInY
+        | 270   -> - differenceInY, differenceInX
+        | _     -> differenceInY, differenceInX
 
     // Get the NORMALIZED rotation of the output port
     // i.e. assuming the Input port points to the right, towards the positive X
     let normalizedEndPortRotation = 
         match ((endPortRotation - wireRotation) % 360) with
         | x when (x < 0) -> x + 360
-        | x -> x
+        | x              -> x
 
     /// Clarke's message:
     /// This function, if turned instead into a value, causes a FABLE compiler problem that crashes wepback
@@ -1040,7 +1040,7 @@ let getSafeDistanceForMoveFromStart (index: int) (segments: Segment list) (dista
     // that are after the first perpendicular segment after the stick (which has index 2)
     let shrink = match isPerpendicularToStick with 
                  | true when (index > 2) -> 1.0
-                 | _ -> 0.5
+                 | _                     -> 0.5
     
     // Start of seg has same X or Y as start of stick (depending on orientation of stick)
     let hasStartOnStickAxis =               
@@ -1076,9 +1076,8 @@ let getSafeDistanceForMoveFromStart (index: int) (segments: Segment list) (dista
 
     // Then, if they are perpendicular, and the start of the segment being moved is on the same axis of the stick, restrict their movement
     match (isPerpendicularToStick, hasStartOnStickAxis, isGoingTowardsStick) with
-    | (true, true, true) -> 
-        restreignedDistance
-    | _ -> distance
+    | (true, true, true) -> restreignedDistance
+    | _                  -> distance
 
 
 let getSafeDistanceForMove (index: int) (segments: Segment list) (distance:float) =
@@ -1181,7 +1180,7 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
             
             // Compile the new segments with updated XYPos Starts and Ends
             let newPrevSeg = {prevSeg with Vector = newPrevVector}
-            let newSeg = {seg with Start = newSegStart ; Autorouted = false}
+            let newSeg     = {seg with Start = newSegStart ; Autorouted = false}
             let newNextSeg = {nextSeg with Start = newNextStart ; Vector = newNextVector}
         
             // Rebuild the list of segments of the wire with the updated segments at the right indexes
