@@ -21,7 +21,8 @@ let GridSize = 30
 
 type SymbolCharacteristics =
     { clocked: bool 
-      inverted: bool }
+      inverted: bool 
+      flip: bool }
 
 type SymbolTitles = 
     { fontSize: string
@@ -35,7 +36,6 @@ type Symbol =
     { Colour: string
       ComponentId : ComponentId       
       Component : Component
-      Flip : bool
       InWidth0: int option
       InWidth1: int option      
       Moving: bool
@@ -101,8 +101,9 @@ let convertSymbolPointsToString (xyPosL: XYPos list) =
     coordinateString[0 .. (String.length coordinateString) - 2]   
 
 let flipSymbol (symbol: Symbol) = 
-    print "Flip Triggered"
-    {symbol with Flip = not symbol.Flip}
+    let symbolCharacteristics = { symbol.SymbolCharacteristics with flip = not symbol.SymbolCharacteristics.flip }
+    
+    { symbol with SymbolCharacteristics = symbolCharacteristics }
 
 let getSymbolPoints (symbol: Symbol) = convertSymbolPointsToString symbol.SymbolPoints
 
@@ -212,9 +213,9 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
     
 let initSymbolCharacteristics (comp: Component) = 
     match comp.Type with 
-    | Nand | Nor | Xnor | Not -> { clocked = false; inverted = true }
-    | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> { clocked = true; inverted = false }
-    | _ -> { clocked = false; inverted = false }
+    | Nand | Nor | Xnor | Not -> { clocked = false; inverted = true; flip = false}
+    | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> { clocked = true; inverted = false; flip = false }
+    | _ -> { clocked = false; inverted = false; flip = false }
 
 let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list = 
     match compType with
@@ -243,7 +244,7 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
               { X = compWidth; Y = compHeight/2.0 }
               { X = 0.66*compWidth; Y = 0 } ]
         | IOLabel ->
-            [ { X = 0.33*compWidth; Y = 0 }
+            [ { X = 0; Y = 0 }
               { X = 0; Y = compHeight/2.0 }
               { X = 0.33/compWidth; Y = compHeight }
               { X = 0.66*compWidth; Y = compHeight }
@@ -298,7 +299,6 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol=
       Rotation = 0.0
       SymbolPoints = initSymbolPoints comp.Type (float(comp.H)) (float(comp.W))
       SymbolCharacteristics = initSymbolCharacteristics comp 
-      Flip = false
       }
 
 //--------------------------------- Port Functions ---------------------------------//
@@ -320,7 +320,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     
     
     let (ports, posX) =
-        match port.PortType, symbol.Flip with
+        match port.PortType, symbol.SymbolCharacteristics.flip with
         | PortType.Input, false -> symbol.Component.InputPorts, 0.0
         | PortType.Input, true -> symbol.Component.InputPorts, float(symbol.Component.W)
         | PortType.Output, false -> symbol.Component.OutputPorts, float(symbol.Component.W)
@@ -339,8 +339,6 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
 
-
-
 //--------------------------------- Symbol Text Helper Functions ---------------------------------//
 
 let private addText posX posY name txtPos weight size =
@@ -354,34 +352,36 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
     let addPortName x y name portType=
         let xPos = 
             if portType = PortType.Output then 
-                match symbol.Rotation with
-                | 90.0 | 270.0 -> x 
-                | 180.0 -> x + 8.0
-                | _ -> x - 8.0
+                match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+                | (90.0, _) | (270.0, _) -> x 
+                | (180.0, false) -> x + 8.0
+                | (180.0, true) -> x - 10.0
+                | (_, false) -> x - 8.0
+                | (_, true) -> x + 8.0
             else 
-                match symbol.Rotation with
-                | 90.0 | 270.0 -> x 
-                | 180.0 -> x - 10.0
+                match (symbol.Rotation, symbol.SymbolCharacteristics.flip)  with
+                | (90.0, _) | (270.0, _) -> x 
+                | (180.0, _) -> x - 10.0
                 | _ -> x + 8.0
 
         let yPos = 
             if portType = PortType.Output then 
-                match symbol.Rotation with
-                | 90.0 -> y - 20.0
-                | 270.0 -> y + 5.0
+                match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+                | (90.0, false) | (270.0, true) -> y - 20.0
+                | (270.0, false) | (90.0, true) -> y + 5.0
                 | _ -> y - 5.0
             else 
-                match symbol.Rotation with
-                | 90.0 -> y + 8.0
-                | 270.0 -> y - 20.0
+                match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+                | (90.0, false) | (270.0, true) -> y + 8.0
+                | (270.0, false) | (90.0, true) -> y - 20.0
                 | _ -> y - 5.0
         
         let alignment = 
-            match (portType, symbol.Rotation) with
-            | (PortType.Output, 0.0) -> "end"
-            | (PortType.Output, 180.0) -> "start"
-            | (PortType.Input, 0.0) -> "start"
-            | (PortType.Input, 180.0) -> "end"
+            match (portType, symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+            | (PortType.Output, 0.0, _) -> "end"
+            | (PortType.Output, 180.0, _) -> "start"
+            | (PortType.Input, 0.0, _) -> "start"
+            | (PortType.Input, 180.0, _) -> "end"
             | _ -> "middle"
 
         addText xPos yPos name alignment "normal" "10px"
@@ -1166,22 +1166,19 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
                 else
                     cmp.H, cmp.W
             ComponentId cmp.Id,
-            { 
-            Center = {X = float (cmp.X + h/2); Y = float (cmp.Y+ w/2)}
-            ShowInputPorts = false 
-            ShowOutputPorts = false 
-            Colour = "lightgrey"  
-            ComponentId = ComponentId cmp.Id
-            Component = {cmp with H=h ; W = w}
-            Opacity = 1.0
-            Moving = false
-            InWidth0 = None
-            InWidth1 = None
-            Rotation = 0.0
-            SymbolPoints = (initSymbolPoints cmp.Type cmp.H cmp.W)
-            SymbolCharacteristics = (initSymbolCharacteristics cmp)
-            Flip = false
-            }
+            { Center = {X = float (cmp.X + h/2); Y = float (cmp.Y+ w/2)}
+              ShowInputPorts = false 
+              ShowOutputPorts = false 
+              Colour = "lightgrey"  
+              ComponentId = ComponentId cmp.Id
+              Component = {cmp with H=h ; W = w}
+              Opacity = 1.0
+              Moving = false
+              InWidth0 = None
+              InWidth1 = None
+              Rotation = 0.0
+              SymbolPoints = (initSymbolPoints cmp.Type cmp.H cmp.W)
+              SymbolCharacteristics = (initSymbolCharacteristics cmp) }
         
 
         let loadedSymbolsMap = 
