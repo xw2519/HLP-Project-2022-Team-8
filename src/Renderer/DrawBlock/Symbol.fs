@@ -943,7 +943,8 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
         // update currModel with pastedSymbol  
         let updatedSymbols = currModel.Symbols.Add ((ComponentId id), pastedSymbol) 
         let updatedPorts = addToPortModel currModel pastedSymbol
-        let updatedModel = { currModel with Symbols = updatedSymbols; Ports = updatedPorts }
+        let updatedCount = addSymToSymbolsCount pastedSymbol.Component.Type model 
+        let updatedModel = { currModel with Symbols = updatedSymbols; Ports = updatedPorts; SymbolsCount = updatedCount }
 
         // update pastedSymbolsIds with pastedSymbol
         let pastedSymbolsIds = pastedIds @ [ pastedSymbol.ComponentId ]
