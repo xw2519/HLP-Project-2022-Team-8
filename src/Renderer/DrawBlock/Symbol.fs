@@ -278,7 +278,7 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
         // | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
         // | Demux4 | Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
 
-let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol=
+let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol =
     let id = JSHelpers.uuid()
     let comp = initComponent pos comptype id label
 
@@ -412,7 +412,13 @@ let addPortTitle (comp: Component) =
 let addSymbolLabel (comp: Component) rotation label : ReactElement list = 
     let getSymbolLabelCoord : XYPos =
         match comp.Type with 
-        | BusSelection _ | BusCompare _ -> 
+        | BusSelection _ -> 
+            match rotation with 
+            | 90.0 | 270.0 ->
+                {X = float(comp.W - comp.H)/2.0 + float(comp.H) + 8.0; Y = float(comp.H/2 - 18)}
+            | _ -> 
+                {X = float(comp.W/2); Y = -20.0}
+        | BusCompare _ -> 
             match rotation with 
             | 90.0 | 270.0 ->
                 {X = float(comp.W - comp.H)/2.0 + float(comp.H) + 8.0; Y = float(comp.H/2 - 18)}
@@ -480,6 +486,8 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
         match rotation with 
             | 90.0 | 270.0 ->
                 addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) (addTitleWithBusWidth "" busWidth compareValue) "left" "bold" "12px"
+            | 180.0 ->
+                addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"
             | _ -> 
                 addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"          
     | BusCompare(outputWidth, outputLSBit) -> 
@@ -487,6 +495,8 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
         match rotation with 
             | 90.0 | 270.0 ->
                 addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) ("=" + NumberHelpers.hex(int outputLSBit)) "left" "bold" "12px"
+            | 180.0 ->
+                addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"
             | _ -> 
                 addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"  
     | Input(x) -> 
