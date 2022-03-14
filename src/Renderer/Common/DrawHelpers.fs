@@ -9,6 +9,7 @@ open Fable.Core.JsInterop
 open Fable.React
 open Fable.React.Props
 
+let print x = printfn "%A" x
 
 //-------------------------------------------------------------------------//
 //------------------------------Types--------------------------------------//
@@ -51,7 +52,6 @@ let euclideanDistance (pos1: XYPos) (pos2:XYPos) =
 /// one of the two operator arguments having a known XYPos type.
 let private testXYPosComparison a  (b:XYPos) = 
     a =~ b
-
 
 type BoundingBox = {
     X: float
@@ -267,7 +267,6 @@ let makeText (posX: float) (posY: float) (displayedText: string) (textParameters
                 FontSize textParameters.FontSize
                 Fill textParameters.Fill
                 UserSelect textParameters.UserSelect
-                
             ]
         ] [str <| sprintf "%s" (displayedText)]
 

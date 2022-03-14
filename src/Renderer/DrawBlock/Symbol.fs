@@ -281,7 +281,7 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
         // | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
         // | Demux4 | Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
 
-let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol=
+let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol =
     let id = JSHelpers.uuid()
     let comp = initComponent pos comptype id label
 
@@ -338,8 +338,6 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
-
-
 
 //--------------------------------- Symbol Text Helper Functions ---------------------------------//
 
@@ -418,19 +416,33 @@ let addPortTitle (comp: Component) =
     // |Mux8 -> (["0"; "1"; "2" ; "3" ; "4" ; "5" ; "6" ; "7";"SEL"],["OUT"])
     // |_ -> ([],[])
 
-let addSymbolLabel rotation W H label : ReactElement list = 
+let addSymbolLabel (comp: Component) rotation label : ReactElement list = 
     let getSymbolLabelCoord : XYPos =
+        match comp.Type with 
+        | BusSelection _ -> 
             match rotation with 
             | 90.0 | 270.0 ->
-                {X = float(W - H)/2.0 + float(H) + 5.0; Y = float(H/2 - 8)}
+                {X = float(comp.W - comp.H)/2.0 + float(comp.H) + 8.0; Y = float(comp.H/2 - 18)}
             | _ -> 
-                {X = float(W/2); Y = -20.0}
+                {X = float(comp.W/2); Y = -20.0}
+        | BusCompare _ -> 
+            match rotation with 
+            | 90.0 | 270.0 ->
+                {X = float(comp.W - comp.H)/2.0 + float(comp.H) + 8.0; Y = float(comp.H/2 - 18)}
+            | _ -> 
+                {X = float(comp.W/2); Y = -20.0}
+        | _ -> 
+            match rotation with 
+            | 90.0 | 270.0 ->
+                {X = float(comp.W - comp.H)/2.0 + float(comp.H) + 5.0; Y = float(comp.H/2 - 8)}
+            | _ -> 
+                {X = float(comp.W/2); Y = -20.0}
 
     let textAlignment = if (rotation = 90.0) || (rotation = 270.0) then "start" else "middle"
 
-    addText getSymbolLabelCoord.X getSymbolLabelCoord.Y label textAlignment "normal" "16px"
+    addText getSymbolLabelCoord.X getSymbolLabelCoord.Y label textAlignment "normal" "16px"  
 
-let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
+let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement list =
     let compWidth = float(comp.W)
     let compHeight = float(comp.H)
 
@@ -441,7 +453,7 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
             | true, _ -> $"({msb})"
             | false, _ -> $"({msb}:{lsb})"
         
-        addText (float(posX1 + posX2)/2.0) (posY*float(comp.H) - 25.0) text "middle" "bold" "12px"
+        addText (float(posX1 + posX2)/2.0) (posY*float(comp.H) - 25.0) text "middle" "bold" "12px"  
     
     let addTitleWithBusWidth title busWidth lsb =  
         match comp.Type with 
@@ -476,14 +488,28 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         | _ -> ""
 
     match comp.Type with 
-    | BusSelection(x,y) ->
-        addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-3.0) (addTitleWithBusWidth "" x y) "middle" "bold" "12px"
-    | BusCompare(_,y) -> 
-        addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-3.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "12px"
+    | BusSelection(busWidth, compareValue) ->
+        // Rotate text based on symbol orientation
+        match rotation with 
+            | 90.0 | 270.0 ->
+                addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) (addTitleWithBusWidth "" busWidth compareValue) "left" "bold" "12px"
+            | 180.0 ->
+                addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"
+            | _ -> 
+                addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"          
+    | BusCompare(outputWidth, outputLSBit) -> 
+        // Rotate text based on symbol orientation
+        match rotation with 
+            | 90.0 | 270.0 ->
+                addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) ("=" + NumberHelpers.hex(int outputLSBit)) "left" "bold" "12px"
+            | 180.0 ->
+                addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"
+            | _ -> 
+                addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"  
     | Input(x) -> 
-        addText ((compWidth/2.0)-5.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"
+        addText ((compWidth/2.0)-5.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
     | Output(x) -> 
-        addText (compWidth/2.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"
+        addText (compWidth/2.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
     | MergeWires -> 
         let lo, hi = 
             match inWidth0, inWidth1  with 
@@ -496,7 +522,6 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         addBusTitle 0 (comp.W/2) (1.0/6.0) midt 0 @ 
         addBusTitle 0 (comp.W/2) (5.0/6.0) msb midb @ 
         addBusTitle (comp.W/2) comp.W 0.5 msb 0
-
     | SplitWire mid ->  
         let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
         let midb = mid'
@@ -506,7 +531,7 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         addBusTitle (comp.W/2) comp.W (5.0/6.0) msb midb @ 
         addBusTitle 0 (comp.W/2) 0.5 msb 0
     | _ ->  
-        addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"
+        addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"  
 
 //--------------------------------- Symbol Draw Helpers ---------------------------------//
 
@@ -677,7 +702,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     | Constant1 (_,_,txt) -> 
         drawBiColorPolygon (convertSymbolPointsToString symbol.SymbolPoints[0..2]) colour outlineColor opacity strokeWidth
         |> List.append drawSymbolLines
-        |> List.append (addText (float (symbol.Component.W/2)-5.0) (float(symbol.Component.H)-8.0) txt "middle" "normal" "12px")
+        |> List.append (addText (float (symbol.Component.W/2)-5.0) (float(symbol.Component.H)-8.0) txt "middle" "normal" "12px"  )
     | MergeWires -> 
         drawBiColorPolygon (convertSymbolPointsToString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
         |> List.append drawSymbolLines
@@ -691,8 +716,8 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
 //--------------------------------- Symbol Drawing ---------------------------------//  
 
 let createSymbol (symbol: Symbol, colour: string, opacity: float) = 
-    addSymbolLabel symbol.Rotation symbol.Component.W symbol.Component.H symbol.Component.Label
-    |> List.append (addSymbolText symbol.Component symbol.InWidth0 symbol.InWidth1)
+    addSymbolLabel symbol.Component symbol.Rotation symbol.Component.Label
+    |> List.append (addSymbolText symbol.Component symbol.InWidth0 symbol.InWidth1 symbol.Rotation)
     |> List.append (addPortText symbol symbol.Component.InputPorts (fst(addPortTitle symbol.Component)))
     |> List.append (addPortText symbol symbol.Component.OutputPorts (snd(addPortTitle symbol.Component)))      
     |> List.append (drawPorts symbol.Component.OutputPorts symbol.ShowOutputPorts symbol)
@@ -1053,8 +1078,6 @@ let updateConstant (model:Model) (cmpId:ComponentId) (constantVal:int64) (consta
     
 
 //---------------------------------- UPDATE FUNCTION -------------------------------//
-
-
 /// Update function which displays symbols
 let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
     match msg with
