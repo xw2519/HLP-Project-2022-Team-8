@@ -1092,39 +1092,45 @@ let getSafeDistanceForMove (index: int) (segments: Segment list) (distance:float
     // Return that final safe distance
     safeDistanceFromStartAndEnd
 
-
-/// Adjust wire (input type is Segment list) so that two adjacent horizontal segments that are in opposite directions
+    
+/// Adjust wire (input type is Segment list) so that two adjacent parallel segments that are in opposite directions
 /// get eliminated
-let removeRedundantSegments (segs: Segment list) =
-    /// Set the X comp of the Start of the segment to 'x', keeping the sign
-    let setStartX x (seg:Segment) = {seg with Start = {X = x ; Y = seg.Start.Y}}
-
-    /// Set the X comp of the End of the segment to 'x', keeping the sign
-    let setEndX x (seg:Segment) = {seg with Vector = {X = (x - seg.Start.X) ; Y = seg.Vector.Y}}
-
+let removeRedundantSegments (segs: Segment list) =    
     /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
     let adjust seg1 seg2 =
-        // Get their direction
-        let xDirection1, xDirection2 = seg1.Vector.X, seg2.Vector.X
-        // If they are horizontal and of opposite direction
-        if (getOrientation seg1) = Horizontal &&
-           (getOrientation seg2) = Horizontal && 
-           sign xDirection1 <> sign xDirection2
+        // Get their directions
+        let seg1Length = match (getOrientation seg1) with
+                         | Horizontal -> seg1.Vector.X
+                         | Vertical   -> seg1.Vector.Y
+                         | _          -> 0.0
+        let seg2Length = match (getOrientation seg2) with
+                         | Horizontal -> seg2.Vector.X
+                         | Vertical   -> seg2.Vector.Y
+                         | _          -> 0.0
+        // If they are horizontal and of opposite direction/length
+        if ((getOrientation seg1) = (getOrientation seg2))
+           && ((sign seg1Length) <> (sign seg2Length))
         then
             // If the first segment is longer than the second one
-            if abs xDirection1 > abs xDirection2 then
+            if abs seg1Length > abs seg2Length then
                 // replace the end of segment 1 with the end of segment 2, and the start of segment 2 with its end (making it of length 0)
-                [setEndX (getEndPoint seg2).X seg1; setStartX (getEndPoint seg2).X seg2]
+                ({seg1 with Vector = addPositions seg1.Vector seg2.Vector}, 
+                 {seg2 with Start = getEndPoint seg2})
             else
                 // do the opposite
-                [setEndX seg1.Start.X seg1; setStartX (getEndPoint seg1).X seg2]
+                ({seg1 with Start = getEndPoint seg1}, 
+                 {seg2 with Vector = addPositions seg1.Vector seg2.Vector})
         else
             // Otherwise, do nothing
-            [seg1;seg2]
+            (seg1,seg2)
     
+
     // Adjust the first two, and last two, segments of a Wire's segments list
-    adjust segs[0] segs[1] @  segs[2..(segs.Length - 3)] @ adjust segs[segs.Length - 2] segs[segs.Length - 1]
-    
+    let adjustedSeg0, adjustedSeg1 = adjust segs[0] segs[1]
+    let adjustedSegSecToLast, adjustedSegLast = adjust segs[segs.Length - 2] segs[segs.Length - 1]
+
+    [adjustedSeg0 ; adjustedSeg1] @ segs[2..(segs.Length - 3)] @ [adjustedSegSecToLast ; adjustedSegLast]
+
 
 /// MANUAL ROUTING: 
 /// This function allows a wire segment to be moved a given amount in a direction perpedicular to
@@ -1186,7 +1192,7 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
             // Rebuild the list of segments of the wire with the updated segments at the right indexes
             let newSegments =
                 wire.Segments[.. index-2] @ [newPrevSeg; newSeg; newNextSeg] @ wire.Segments[index+2 ..]
-                //|> removeRedundantSegments
+                |> removeRedundantSegments
 
             // Update the list of segments in the wire object, and return it
             {wire with Segments = newSegments})
