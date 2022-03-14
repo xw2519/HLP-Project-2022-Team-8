@@ -320,16 +320,27 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     
     
     let (ports, posX) =
-        match port.PortType, symbol.Flip with
-        | PortType.Input, false -> symbol.Component.InputPorts, 0.0
-        | PortType.Input, true -> symbol.Component.InputPorts, float(symbol.Component.W)
-        | PortType.Output, false -> symbol.Component.OutputPorts, float(symbol.Component.W)
-        | PortType.Output, true -> symbol.Component.OutputPorts, 0.0
+        match port.PortType, symbol.Flip, symbol.Component.Type, port.PortNumber with
+        | PortType.Input, _, Mux2, Some 2 -> symbol.Component.InputPorts, 30.0
+        | PortType.Input, false, _, _ -> symbol.Component.InputPorts, 0.0
+        | PortType.Input, true, _, _ -> symbol.Component.InputPorts, float(symbol.Component.W)
+        | PortType.Output, false, _, _ -> symbol.Component.OutputPorts, float(symbol.Component.W)
+        | PortType.Output, true, _, _ -> symbol.Component.OutputPorts, 0.0
+    
+    
 
     /// Calculate equidistant port spacing
     let index = float(List.findIndex (fun (p: Port) -> p = port) ports)
     let gap = getPortPosEdgeGap symbol.Component.Type 
-    let posY = (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
+    
+    let posY = 
+        match symbol.Component.Type, port.PortNumber, port.PortType with
+        | Mux2, Some 2, PortType.Input-> 80.0
+        | Mux2, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
+        | _ -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
+
+    
+
     
     { X = posX; Y = posY }
     |> convertRelativeToSymbolCenter symbol
