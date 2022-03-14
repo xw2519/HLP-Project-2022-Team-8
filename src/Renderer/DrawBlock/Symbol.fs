@@ -361,8 +361,10 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
             else 
                 match (symbol.Rotation, symbol.SymbolCharacteristics.flip)  with
                 | (90.0, _) | (270.0, _) -> x 
-                | (180.0, _) -> x - 10.0
-                | _ -> x + 8.0
+                | (180.0, false) -> x - 10.0
+                | (180.0, true) -> x + 8.0
+                | (_, false) -> x + 8.0
+                | (_, true) -> x - 8.0
 
         let yPos = 
             if portType = PortType.Output then 
@@ -378,10 +380,10 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
         
         let alignment = 
             match (portType, symbol.Rotation, symbol.SymbolCharacteristics.flip) with
-            | (PortType.Output, 0.0, _) -> "end"
-            | (PortType.Output, 180.0, _) -> "start"
-            | (PortType.Input, 0.0, _) -> "start"
-            | (PortType.Input, 180.0, _) -> "end"
+            | (PortType.Output, 0.0, false) | (PortType.Output, 180.0, true)-> "end"
+            | (PortType.Output, 180.0, false) | (PortType.Output, 0.0, true) -> "start"
+            | (PortType.Input, 0.0, false) | (PortType.Input, 180.0, true) -> "start"
+            | (PortType.Input, 180.0, false) | (PortType.Input, 0.0, true) -> "end"
             | _ -> "middle"
 
         addText xPos yPos name alignment "normal" "10px"
