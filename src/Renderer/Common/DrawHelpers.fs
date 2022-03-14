@@ -53,7 +53,6 @@ let euclideanDistance (pos1: XYPos) (pos2:XYPos) =
 let private testXYPosComparison a  (b:XYPos) = 
     a =~ b
 
-
 type BoundingBox = {
     X: float
     Y: float
@@ -135,8 +134,6 @@ type Text = {
     UserSelect: UserSelectOptions
     /// auto/middle/hanging: vertical alignment vs (X,Y)
     DominantBaseline: string
-    TextOrientation: string
-    WritingMode: string
 }
 
 let testCanvas = Browser.Dom.document.createElement("canvas") :?> HTMLCanvasElement
@@ -189,8 +186,6 @@ let defaultText = {
     Fill = "Black"
     UserSelect = UserSelectOptions.None
     DominantBaseline = "Hanging"
-    TextOrientation = "mixed" // Only affects it if WritingMode is 'vertical'
-    WritingMode = "horizontal-tb"
 }
 
 /// Port circle, used by both Sheet and Symbol to create ports
@@ -262,8 +257,6 @@ let makeCircle (centreX: float) (centreY: float) (circleParameters: Circle) =
       
 /// Makes a text ReactElement
 let makeText (posX: float) (posY: float) (displayedText: string) (textParameters: Text) =
-    print textParameters.TextOrientation
-    print textParameters.WritingMode
     text [
             X posX; 
             Y posY; 
@@ -274,8 +267,6 @@ let makeText (posX: float) (posY: float) (displayedText: string) (textParameters
                 FontSize textParameters.FontSize
                 Fill textParameters.Fill
                 UserSelect textParameters.UserSelect
-                TextOrientation textParameters.TextOrientation
-                WritingMode textParameters.WritingMode
             ]
         ] [str <| sprintf "%s" (displayedText)]
 

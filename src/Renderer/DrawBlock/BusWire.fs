@@ -817,8 +817,6 @@ let RenderWireAttachBusWidth =
                         Fill = renderProperties.ColorP.Text();
                         UserSelect = UserSelectOptions.None;
                         DominantBaseline = "middle";
-                        WritingMode = "horizontal-tb"
-                        TextOrientation = "mixed"
                     }
                 //bus width string
                 let textString = if renderProperties.StrokeWidthP = 1 then "" else string renderProperties.StrokeWidthP //Only print width > 1
