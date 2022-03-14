@@ -35,6 +35,7 @@ type Symbol =
     { Colour: string
       ComponentId : ComponentId       
       Component : Component
+      Flip : bool
       InWidth0: int option
       InWidth1: int option      
       Moving: bool
@@ -74,6 +75,7 @@ type Msg =
     | WriteMemoryLine of ComponentId * int64 * int64
     | WriteMemoryType of ComponentId * ComponentType
     | RotateSymbols of ComponentId list
+    | FlipSymbols of ComponentId list
 
 //------------------------------------------------------------------------//
 //---------------------- XW2519 CODE SECTION STARTS ----------------------//
@@ -100,6 +102,7 @@ let convertSymbolPointsToString (xyPosL: XYPos list) =
 
 let flipSymbol (symbol: Symbol) = 
     print "Flip Triggered"
+    {symbol with Flip = not symbol.Flip}
 
 let getSymbolPoints (symbol: Symbol) = convertSymbolPointsToString symbol.SymbolPoints
 
@@ -294,7 +297,9 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol=
       Moving = false
       Rotation = 0.0
       SymbolPoints = initSymbolPoints comp.Type (float(comp.H)) (float(comp.W))
-      SymbolCharacteristics = initSymbolCharacteristics comp }
+      SymbolCharacteristics = initSymbolCharacteristics comp 
+      Flip = false
+      }
 
 //--------------------------------- Port Functions ---------------------------------//
 
@@ -313,11 +318,9 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         | MergeWires | SplitWire _ -> 0.25
         | _ -> 1.0
     
-
-    let flip = true
     
     let (ports, posX) =
-        match port.PortType, flip with
+        match port.PortType, symbol.Flip with
         | PortType.Input, false -> symbol.Component.InputPorts, 0.0
         | PortType.Input, true -> symbol.Component.InputPorts, float(symbol.Component.W)
         | PortType.Output, false -> symbol.Component.OutputPorts, float(symbol.Component.W)
@@ -1177,6 +1180,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
             Rotation = 0.0
             SymbolPoints = (initSymbolPoints cmp.Type cmp.H cmp.W)
             SymbolCharacteristics = (initSymbolCharacteristics cmp)
+            Flip = false
             }
         
 
@@ -1238,6 +1242,15 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
 
         let rotatedSymbols = Map.map (rotateSelectedCmps compIds) model.Symbols
         {model with Symbols = rotatedSymbols}, Cmd.none
+
+    | FlipSymbols compIds ->
+    let flipSelectedCmps selectedComponents cmpId symbol  =
+        match List.contains cmpId selectedComponents with
+        | true -> flipSymbol symbol
+        | false -> symbol
+
+    let flippedSymbols = Map.map (flipSelectedCmps compIds) model.Symbols
+    {model with Symbols = flippedSymbols}, Cmd.none
 
 // -------------------------------INTERFACE TO ISSIE --------------------------------- //
 
