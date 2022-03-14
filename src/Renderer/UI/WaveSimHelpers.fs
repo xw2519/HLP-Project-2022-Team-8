@@ -643,7 +643,7 @@ let rec private findName (compIds: ComponentId Set) (sd: SimulationData) (net: N
             | MergeWires -> 
                 List.append (drivingOutputName (InputPortNumber 1)).ComposingLabels 
                             (drivingOutputName (InputPortNumber 0)).ComposingLabels
-            | SplitWire w ->
+            | SplitWire (w,x) ->
                 let mostsigBranch (_, b) =
                     match outPortInt with
                     | 0 -> b >= 16 - w

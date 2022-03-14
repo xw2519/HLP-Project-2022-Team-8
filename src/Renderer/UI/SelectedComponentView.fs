@@ -146,7 +146,7 @@ let private makeNumberOfBitsField model (comp:Component) text dispatch =
     let title, width =
         match comp.Type with
         | Input w | Output w | NbitsAdder w | NbitsXor w | Register w | RegisterE w | Viewer w -> "Number of bits", w
-        | SplitWire w -> "Number of bits in the top (LSB) wire", w
+        | SplitWire (w,x) -> "Start and end bits in the split wire", w
         | BusSelection( w, _) -> "Number of bits selected: width", w
         | BusCompare( w, _) -> "Bus width", w
         | Constant1(w, _,_) -> "Number of bits in the wire", w

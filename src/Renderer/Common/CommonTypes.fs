@@ -281,7 +281,7 @@ module CommonTypes
         | Mux2 | Demux2
         | NbitsAdder of BusWidth: int | NbitsXor of BusWidth:int
         | Custom of CustomComponentType // schematic sheet used as component
-        | MergeWires | SplitWire of BusWidth: int // int is bus width
+        | MergeWires | SplitWire of BusExtract: int*int // int is bus width
         // DFFE is a DFF with an enable signal.
         // No initial state for DFF or Register? Default 0.
         | DFF | DFFE | Register of BusWidth: int | RegisterE of BusWidth: int 

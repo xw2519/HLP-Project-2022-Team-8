@@ -111,7 +111,7 @@ let getOutputWidths (sc: SimulationComponent) (wa: int option array) =
     | Viewer w
     | Register w
     | RegisterE w
-    | SplitWire w
+    | SplitWire (w, _)
     | BusSelection (w, _)
     | Constant1 (w, _,_)
     | Constant (w,_)

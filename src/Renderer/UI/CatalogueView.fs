@@ -116,18 +116,24 @@ let private createNbitsXorPopup (model:Model) dispatch =
 
 let private createSplitWirePopup model dispatch =
     let title = sprintf "Add Split Wire node" 
+    let beforeInt2 =
+        fun _ -> str "End Bit of Split Wire"
     let beforeInt =
-        fun _ -> str "How many bits should go to the top (LSB) wire? The remaining bits will go to the bottom (MSB) wire."
-    let intDefault = 1
-    let body = dialogPopupBodyOnlyInt beforeInt intDefault dispatch
+        fun _ -> str "Start Bit of Split Wire"
+    let intDefault = 0
+    let intDefault2 = 0
+
+    let body = dialogPopupBodyTwoInts (beforeInt,beforeInt2) (intDefault,intDefault2) "60px" dispatch
+
     let buttonText = "Add"
     let buttonAction =
         fun (dialogData : PopupDialogData) ->
-            let inputInt = getInt dialogData
-            createCompStdLabel (SplitWire inputInt) model dispatch
+            let startBit = getInt dialogData
+            let endBit = getInt2 dialogData
+            createCompStdLabel (SplitWire (startBit,int endBit)) model dispatch
             dispatch ClosePopup
-    let isDisabled =
-        fun (dialogData : PopupDialogData) -> getInt dialogData < 1
+    let isDisabled = 
+        fun (dialogData : PopupDialogData) -> false
     dialogPopup title body buttonText buttonAction isDisabled dispatch
 
 /// two react text lines in red

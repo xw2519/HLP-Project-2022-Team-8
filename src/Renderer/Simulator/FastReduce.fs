@@ -363,15 +363,17 @@ let fastReduce (maxArraySize: int) (numStep: int) (isClockedReduction: bool) (co
                 |> convertBigintToFastData wOut  
         put0 outBits
         putW 0 outBits.Width
-    | SplitWire topWireWidth ->
+    | SplitWire (startBit,endBit) ->
         let bits = ins 0
+        printfn "%A" (endBit,startBit)
 #if ASSERTS
-        assertThat (bits.Width >= topWireWidth + 1)
-        <| sprintf "SplitWire received too little bits: expected at least %d but got %d" (topWireWidth + 1) bits.Width
+        assertThat (bits.Width >= (endBit-startBit) + 2)
+        <| sprintf "SplitWire received too little bits: expected at least %d but got %d" ((endBit-startBit) + 2) bits.Width
 #endif
         let bits0, bits1 =
-                let bits1 = getBits (bits.Width - 1) topWireWidth bits
-                let bits0 = getBits (topWireWidth-1) 0 bits
+                printfn "%A" (endBit,startBit,bits.Width)
+                let bits1 = getBits (bits.Width-1) 0 bits
+                let bits0 = getBits endBit startBit bits
                 bits0, bits1
 
             
