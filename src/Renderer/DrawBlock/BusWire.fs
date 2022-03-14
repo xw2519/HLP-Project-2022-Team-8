@@ -154,8 +154,17 @@ let getOrientation (segment : Segment) : Orientation =
     elif ((abs segment.Vector.Y) < 0.001) then Horizontal
     else Vertical
 
-/// Returns the length of a Segment
+/// Returns the length of a Segment (can be negative).
+/// For positive-only lengths, use 'getAbsLength'
 let getLength (seg: Segment) : float =
+    match getOrientation seg with
+    | Horizontal -> seg.Vector.X
+    | Vertical   -> seg.Vector.Y
+    | Point      -> 0.0
+
+/// Returns the absolute length of a Segment (always positive).
+/// To allow for negative lengths, use 'getLength'
+let getAbsLength (seg: Segment) : float =
     match getOrientation seg with
     | Horizontal -> abs seg.Vector.X
     | Vertical   -> abs seg.Vector.Y
@@ -229,8 +238,9 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
 
 /// Converts a RotationInvariant Wire into a regular Wire
 let convertToWire (riWire: RotationInvariantWire) : Wire =
+    // Convert the RiSeg list to a regular Segment list
     let (segmentList: Segment list) = convertRISegsToSegments riWire.Id riWire.Start riWire.StartDir riWire.Segments
-
+    // Assemble the new Wire
     {
         Id= riWire.Id
         InputPort = riWire.InputPort
@@ -1118,7 +1128,7 @@ let getSafeDistanceForMove (index: int) (segments: Segment list) (distance:float
 let removeRedundantSegments (index: int) (segs: Segment list) = 
     /// Checks if the length of a segment is less than a threshold
     let isSmall (seg: Segment) : bool =
-        (getLength seg) <= onRedundantSegmentAxisThreshold
+        (getAbsLength seg) <= onRedundantSegmentAxisThreshold
 
     /// Returns the negated Vector of the segment
     let negVector (seg: Segment) : XYPos = 
@@ -1127,7 +1137,7 @@ let removeRedundantSegments (index: int) (segs: Segment list) =
     // Check if a segment is a Stick, and if it is of a minimum length
     let preservesStick (seg: Segment) : bool = 
         match ((seg.Index = 0) || (seg.Index = segs.Length-1)) with
-        | true  -> ((getLength seg) >= Wire.stickLength)
+        | true  -> ((getAbsLength seg) >= Wire.stickLength)
         | false -> true
 
     /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
