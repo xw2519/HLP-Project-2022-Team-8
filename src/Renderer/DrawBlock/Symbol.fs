@@ -936,7 +936,12 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
         let id = JSHelpers.uuid()
         let offsetFromReferencePos = posDiff copiedSym.Center referencePos
         let pastedSymCenter = posAdd offsetFromReferencePos mousePos
-        let pastedSymLabel = genCmpLabel { model with Symbols = currModel.Symbols } copiedSym.Component.Type
+
+        let pastedSymLabel = 
+            match copiedSym.Component.Type with
+            | IOLabel | Input _ | Output _ -> copiedSym.Component.Label
+            | _ -> genCmpLabel { model with Symbols = currModel.Symbols } copiedSym.Component.Type
+
         let pastedCmp = initComponent pastedSymCenter copiedSym.Component.Type id pastedSymLabel
 
         let pastedSymbol =
