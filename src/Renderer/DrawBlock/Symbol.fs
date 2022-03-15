@@ -877,6 +877,14 @@ let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) =
         let componentId = ComponentId port.HostId
         Map.find componentId model.Symbols
 
+//--------------------------- ALTERNATIVE SIDE PORTS --------------------------------------//
+let isPortOnAlternativeSide (model: Model) (port: Port) =
+    let componentId = ComponentId port.HostId
+    let symbol = Map.find componentId model.Symbols
+    match symbol.Component.Type, port.PortNumber with
+    | Mux2, Some 2 -> true
+    | _ -> false
+
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
 ///Generates the label for a given ComponentType
