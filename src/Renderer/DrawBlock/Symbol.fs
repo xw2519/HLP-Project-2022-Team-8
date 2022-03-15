@@ -168,12 +168,14 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
         | SplitWire (a) ->(1, 2, 2*GridSize, 2*GridSize) 
         | ExtractWire (w,a,b) ->(1, 2, 2*GridSize, 2*GridSize) 
         | Mux2 -> (3, 1, 3*GridSize, 2*GridSize) 
+        | Mux4 -> (5, 1, 6*GridSize, 4*GridSize) 
         | Demux2 ->(2, 2, 3*GridSize, 2*GridSize) 
         | BusSelection (a, b) -> (1, 1, GridSize, 2*GridSize) 
         | BusCompare (a, b) -> (1, 1, GridSize, 2*GridSize) 
         | DFF -> (1, 1, 3*GridSize, 3*GridSize) 
         | DFFE -> (2, 1, 3*GridSize, 3*GridSize) 
         | Register (a) -> (1, 1, 3*GridSize, 4*GridSize )
+        | RegisterS (a,b) -> (4, 1, 3*GridSize, 4*GridSize )
         | RegisterE (a) -> (2, 1, 3*GridSize, 4*GridSize) 
         | AsyncROM1 (a) -> (1, 1, 3*GridSize, 5*GridSize) 
         | ROM1 (a) -> (1, 1, 3*GridSize, 5*GridSize) 
@@ -211,7 +213,7 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
 let initSymbolCharacteristics (comp: Component) = 
     match comp.Type with 
     | Nand | Nor | Xnor | Not -> { clocked = false; inverted = true }
-    | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> { clocked = true; inverted = false }
+    | DFF | DFFE | Register _ | RegisterS _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> { clocked = true; inverted = false }
     | _ -> { clocked = false; inverted = false }
 
 let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list = 
@@ -254,6 +256,10 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
               { X = 0; Y = ((1.0/6.0)*compHeight) }
               { X = compWidth; Y = ((1.0/2.0)*compHeight) } ]
         | Mux2 -> 
+            [ { X = 0; Y = 0 }; { X = compWidth; Y = 0.2*compHeight }
+              { X = compWidth; Y = 0.8*compHeight }
+              { X = 0; Y = compHeight } ]
+        | Mux4 -> 
             [ { X = 0; Y = 0 }; { X = compWidth; Y = 0.2*compHeight }
               { X = compWidth; Y = 0.8*compHeight }
               { X = 0; Y = compHeight } ]
@@ -404,9 +410,11 @@ let addPortTitle (comp: Component) =
     | DFF -> (["D"] , ["Q"])
     | DFFE -> (["D"; "EN"] , ["Q"])
     | Mux2 -> (["0"; "1"; "SEL"] , ["OUT"])
+    | Mux4 -> (["0"; "1";"2";"3"; "SEL"] , ["OUT"])
     | NbitsAdder _ -> (["Cin"; "A"; "B"] , ["Sum "; "Cout"])
     | NbitsXor _ -> (["P"; "Q"] , ["Out"])
     | Register _ -> (["D"] , ["Q"])
+    | RegisterS _ -> (["D"; "EN";"SLOAD";"SHIFTIN"] , ["Q"])
     | RegisterE _ -> (["D"; "EN"] , ["Q"])
     | ROM1 _ |AsyncROM1 _ -> (["Addr"] , ["Dout"])
     | RAM1 _ -> (["Addr"; "Din"; "Wen" ] , ["Dout"])
@@ -465,7 +473,7 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         | Not -> "1"
         | Decode4 -> "Decode"
         | NbitsAdder n -> addTitleWithBusWidth "Adder" n 0
-        | Register n | RegisterE n -> addTitleWithBusWidth "Register" n 0
+        | Register n | RegisterE n | RegisterS (n,_) -> addTitleWithBusWidth "Register" n 0
         | AsyncROM1 _ -> "Async-ROM"
         | ROM1 _ -> "Sync-ROM"
         | RAM1 _ -> "Sync-RAM"
@@ -879,11 +887,12 @@ let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
             match compType with
             | Not | And | Or | Xor | Nand | Nor | Xnor -> "G"
             | Mux2 -> "MUX"
+            | Mux4 -> "MUX"
             | Demux2 -> "DM"
             | NbitsAdder _ -> "A"
             | NbitsXor _ -> "XOR"
             | DFF | DFFE -> "FF"
-            | Register _ | RegisterE _ -> "REG"
+            | Register _ | RegisterE _ | RegisterS _-> "REG"
             | AsyncROM1 _ -> "AROM"
             | ROM1 _ -> "ROM"
             | RAM1 _ -> "RAM"
@@ -1044,6 +1053,7 @@ let updateCmpBits (model:Model) (cmpId:ComponentId) (bits : int) =
         | NbitsXor _ -> NbitsXor bits
         | Register _ -> Register bits
         | RegisterE _ -> RegisterE bits
+        | RegisterS (_,d) -> RegisterS (bits,d)
         | SplitWire _ -> SplitWire bits
         | ExtractWire (w,_,b) -> ExtractWire (w,bits,b)
         | BusSelection (_,b) -> BusSelection (bits,b)

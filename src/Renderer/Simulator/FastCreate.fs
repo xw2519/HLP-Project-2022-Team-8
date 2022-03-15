@@ -68,6 +68,7 @@ let getPortNumbers (sc: SimulationComponent) =
         | Not
         | DFF
         | Register _
+        | RegisterS _
         | IOLabel  
         | ROM1 _ 
         | AsyncROM1 _->
@@ -83,6 +84,8 @@ let getPortNumbers (sc: SimulationComponent) =
             1,2
         | Mux2 _ -> 
             3,1
+        | Mux4 _ -> 
+            5,1    
         | NbitsAdder _ -> 
             3,2
         | AsyncRAM1 _
@@ -112,6 +115,7 @@ let getOutputWidths (sc: SimulationComponent) (wa: int option array) =
     | Output w
     | Viewer w
     | Register w
+    | RegisterS (w,_)
     | RegisterE w
     | SplitWire w
     | ExtractWire (w,_,_)
@@ -144,6 +148,7 @@ let getOutputWidths (sc: SimulationComponent) (wa: int option array) =
         putW3 1
     | Demux2
     | Mux2
+    | Mux4
     | IOLabel
     | MergeWires -> ()
 

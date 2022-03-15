@@ -362,6 +362,7 @@ let fastOutputDefinition (vType:VMode) (fc: FastComponent) (opn: OutputPortNumbe
         | ForSimulation -> $"reg {vDef} = {getZeros n};\n"
     | Register n, _
     | RegisterE n, _ -> $"reg {vDef} = {getZeros n};\n"
+    | RegisterS (n,d), _ -> $"reg {vDef} = {getZeros n};\n"
     | _ -> $"wire {vDef};\n"
 
 /// Translates from a component to its Verilog description
@@ -412,6 +413,7 @@ let getVerilogComponent (fs: FastSimulation) (fc: FastComponent) =
     | Xor -> sprintf "assign %s = %s;\n" (outs 0) (getVerilogBinaryOp fc.FType (ins 0) (ins 1))
     | DFFE
     | RegisterE _ -> $"always @(posedge clk) %s{outs 0} <= %s{ins 1} ? %s{ins 0} : %s{outs 0};\n"
+    | RegisterS _ -> $"always @(posedge clk) %s{outs 0} <= %s{ins 1} ? %s{ins 0} : %s{outs 0};\n"
     | DFF
     | Register _ -> $"always @(posedge clk) %s{outs 0} <= %s{ins 0};\n"
     | Constant1 (w, c,_) 
@@ -442,6 +444,7 @@ let getVerilogComponent (fs: FastSimulation) (fc: FastComponent) =
         let xor = outs 0
         $"assign {xor} = {a} ^ {b};\n"
     | Mux2 -> $"assign %s{outs 0} = %s{ins 2} ? %s{ins 1} : %s{ins 0};\n"
+    | Mux4 -> $"assign %s{outs 0} = %s{ins 2} ? %s{ins 1} : %s{ins 0};\n"
     | BusSelection (outW, lsb) ->
         let sel = sprintf "[%d:%d]" (outW + lsb - 1) lsb
         $"assign {outs 0} = {ins 0}{sel};\n"

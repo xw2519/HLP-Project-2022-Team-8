@@ -323,6 +323,7 @@ let extractStatefulComponents (step: int) (fastSim: FastSimulation) =
                 | DFFE _
                 | Register _
                 | RegisterE _ -> [| fc, RegisterState fc.Outputs[0].Step[step % fastSim.MaxArraySize] |]
+                | RegisterS _ -> [| fc, RegisterState fc.Outputs[0].Step[step % fastSim.MaxArraySize] |]
                 | ROM1 state -> [| fc, RamState state |]
                 | RAM1 _ | AsyncRAM1 _ ->
                     match fc.State
