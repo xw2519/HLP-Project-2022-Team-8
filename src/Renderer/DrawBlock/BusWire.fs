@@ -338,7 +338,8 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
     
     /// Given an int, gets its modulo by 360, returning the positive remainder, so that it is in the range [0;360)
     let makeInRangeRotation rotation = 
-        // modulo returns the remainder, but it is of the same sign as the first operand
+        // modulo returns the remainder, but it is of the same sign as the first operand,
+        // so we need to care to adjust it, so that it is positive, as required for a Rotation
         match (rotation % 360) with
         | x when (x < 0) -> x + 360
         | x              -> x
@@ -346,18 +347,18 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
     // Rotation of the ports
     let startPortRotation = 
         match startSymbolFlip with
+        | false -> startSymbolRotation
         // If the symbol is flipped, the ports are pointing backwards
         | true  -> makeInRangeRotation (startSymbolRotation + 180)
-        | false -> startSymbolRotation
 
     let endPortRotation =
         match endSymbolFlip with
-        // If the symbol is flipped, the ports are pointing backwards,
-        // but because we know that the input ports are pointing opposite to the symbol they are on,
-        // so it counteracts/negates itself (endSymbolRotation - 180 + 180)
-        | true  -> endSymbolRotation
         // Whithout being flipped, the input ports point in the opposite direction as the symbol they are on
         | false -> makeInRangeRotation (endSymbolRotation - 180)
+        // If the symbol is flipped, the ports are pointing backwards,
+        // but because we know that the input ports are already pointing opposite to the symbol they are on,
+        // it counteracts/negates itself (endSymbolRotation - 180 + 180)
+        | true  -> endSymbolRotation
 
     // Overall rotation of the wire
     let wireRotation = startPortRotation
