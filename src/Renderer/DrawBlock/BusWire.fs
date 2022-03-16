@@ -1349,10 +1349,12 @@ let autorouteWire (model : Model) (wire : Wire) : Wire =
     // Get the rotation of the input and output symbols
     let outputSymbol = Symbol.getSymbolFromOutPortId model.Symbol wire.OutputPort
     let outputSymbolRotation = int (outputSymbol.Rotation)
+    let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
     let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol wire.InputPort
     let inputSymbolRotation = int (inputSymbol.Rotation)
+    let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
     // Re-generate default Wire shape going from the InputPort to the OutputPort
-    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbol.Flip inputSymbol.Flip}
+    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip}
 
 
 
@@ -1770,11 +1772,13 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         // Get the rotation of the input and output symbols
         let outputSymbol = Symbol.getSymbolFromOutPortId model.Symbol outputId
         let outputSymbolRotation = int (outputSymbol.Rotation)
+        let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
         let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol inputId
         let inputSymbolRotation = int (inputSymbol.Rotation)
+        let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
 
         let wireId = ConnectionId(JSHelpers.uuid())
-        let segmentList = (makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbol.Flip inputSymbol.Flip)
+        let segmentList = (makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip)
         
         let newWire = 
             {
@@ -2091,10 +2095,12 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
                 // Get the rotation of the input and output symbols
                 let outputSymbol = Symbol.getSymbolFromOutPortId wModel.Symbol (OutputPortId newOutputPort)
                 let outputSymbolRotation = int (outputSymbol.Rotation)
+                let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
                 let inputSymbol = Symbol.getSymbolFromInPortId wModel.Symbol (InputPortId newInputPort)
                 let inputSymbolRotation = int (inputSymbol.Rotation)
+                let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
 
-                let segmentList = (makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbol.Flip inputSymbol.Flip)
+                let segmentList = (makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip)
                 [
                     {
                         oldWire with
