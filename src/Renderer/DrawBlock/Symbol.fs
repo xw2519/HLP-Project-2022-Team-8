@@ -360,7 +360,7 @@ let private addText posX posY name txtPos weight size =
 //--------------------------------- Symbol Text Functions ---------------------------------//
 
 let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: string List) = 
-    let addPortName x y name portType=
+    let addPortName x y name portType =
         let xPos = 
             if portType = PortType.Output then 
                 match symbol.Rotation with
@@ -368,10 +368,17 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | 180.0 -> x + 8.0
                 | _ -> x - 8.0
             else 
-                match symbol.Rotation with
-                | 90.0 | 270.0 -> x 
-                | 180.0 -> x - 10.0
-                | _ -> x + 8.0
+                if name = "SEL" then 
+                    match symbol.Rotation with
+                    | 90.0 -> x + 17.0
+                    | 180.0 -> x + 7.0
+                    | 270.0 -> x - 15.0
+                    | _ -> x
+                else 
+                    match symbol.Rotation with
+                    | 90.0 | 270.0 -> x 
+                    | 180.0 -> x - 10.0
+                    | _ -> x + 8.0
 
         let yPos = 
             if portType = PortType.Output then 
@@ -380,17 +387,25 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | 270.0 -> y + 5.0
                 | _ -> y - 5.0
             else 
-                match symbol.Rotation with
-                | 90.0 -> y + 8.0
-                | 270.0 -> y - 20.0
-                | _ -> y - 5.0
+                if name = "SEL" then 
+                    match symbol.Rotation with
+                    | 90.0 -> y - 5.0
+                    | 180.0 -> y + 6.0
+                    | 270.0 -> y - 6.0
+                    | _ -> y - 17.0
+                else 
+                    match symbol.Rotation with
+                    | 90.0 -> y + 8.0
+                    | 270.0 -> y - 20.0
+                    | _ -> y - 5.0
         
         let alignment = 
-            match (portType, symbol.Rotation) with
-            | (PortType.Output, 0.0) -> "end"
-            | (PortType.Output, 180.0) -> "start"
-            | (PortType.Input, 0.0) -> "start"
-            | (PortType.Input, 180.0) -> "end"
+            match (portType, symbol.Rotation, name) with
+            | (PortType.Output, 0.0, _) -> "end"
+            | (PortType.Output, 180.0, _) -> "start"
+            | (PortType.Input, 0.0, "SEL") -> "middle"
+            | (PortType.Input, 0.0, _) -> "start"
+            | (PortType.Input, 180.0, _) -> "end"
             | _ -> "middle"
 
         addText xPos yPos name alignment "normal" "10px"
