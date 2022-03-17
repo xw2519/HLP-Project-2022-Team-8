@@ -881,9 +881,9 @@ let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) =
 let isPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
     match inPortId with
     | InputPortId(str) ->
-        let componentId = ComponentId str
-        let symbol = Map.find componentId model.Symbols
         let port = getPort model str
+        let componentId = ComponentId port.HostId
+        let symbol = Map.find componentId model.Symbols
         match symbol.Component.Type, port.PortNumber with
         | Mux2, Some 2 -> true
         | _ -> false
