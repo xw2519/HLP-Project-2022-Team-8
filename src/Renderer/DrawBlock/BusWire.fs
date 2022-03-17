@@ -19,11 +19,17 @@ let minSegLen = 5.
 /// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
 /// (The bigger, the more forgiving it is.)
 /// Used to enforce a safe distance between a segment and a port.
-let onStickAxisThreshold : float = 1.0
+let onStickAxisThreshold : float = 2.0
+
 /// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
 /// (The bigger, the more forgiving it is.)
 /// Used to determine if two opposite segments are close enough and should cancel each other.
 let onRedundantSegmentAxisThreshold : float = 5.0
+
+/// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
+/// (The bigger, the more forgiving it is.)
+/// Used to snap/stick two segments that are on the same level together.
+let stickynessThreshold : float = 5.0
 
 
 //------------------------------------------------------------------------//
@@ -1211,6 +1217,75 @@ let removeRedundantSegments (index: int) (segs: Segment list) =
         segs
 
 
+let alignToCloseParallelSegments (index: int) (segs: Segment list) = 
+    // Get the segment that has just been moved
+    let segMoved = segs[index]
+
+    /// Returns the coordinate along the normal axis of a segment
+    let getNormalCoord (seg: Segment) : float =
+        match getOrientation seg with
+        | Horizontal -> seg.Start.Y
+        | Vertical   -> seg.Start.X
+        | _          -> 0.0
+
+    /// Check if two segments are on the same level
+    let areOnSameLevel (seg1: Segment) (seg2: Segment) : bool = 
+        if ((abs ((getNormalCoord seg2) - (getNormalCoord seg1))) <= stickynessThreshold)
+        then true
+        else false
+
+    /// Check if the end of seg1 is close to the start of seg2
+    let endCloseToStart (seg1: Segment) (seg2: Segment) : bool = 
+        if (((abs ((getEndPoint seg1).X - seg2.Start.X)) <= stickynessThreshold)
+            && ((abs ((getEndPoint seg1).Y - seg2.Start.Y)) <= stickynessThreshold))
+        then true
+        else false
+
+    /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
+    let alignTo (segB: Segment) ((prevSegA: Segment), (segA: Segment), (nextSegA: Segment)) =
+        // Find the difference in level to compensate for
+        let diff = (getNormalCoord segB) - (getNormalCoord segA)
+        // Shift and extend the segments to align segA with segB
+        match getOrientation segA with
+        | Horizontal ->
+            ({prevSegA with Vector = {X = prevSegA.Vector.X; Y = prevSegA.Vector.Y + diff}},
+             {segA with Start = {X = segA.Start.X; Y = segA.Start.Y + diff}},
+             {nextSegA with 
+                 Start = {X = nextSegA.Start.X; Y = nextSegA.Start.Y + diff} ; 
+                 Vector = {X = nextSegA.Vector.X; Y = nextSegA.Vector.Y - diff}
+             })
+        | Vertical   ->
+            ({prevSegA with Vector = {X = prevSegA.Vector.X + diff; Y = prevSegA.Vector.Y}},
+            {segA with Start = {X = segA.Start.X + diff; Y = segA.Start.Y}},
+            {nextSegA with 
+                Start = {X = nextSegA.Start.X + diff; Y = nextSegA.Start.Y} ; 
+                Vector = {X = nextSegA.Vector.X - diff; Y = nextSegA.Vector.Y}
+            })
+        | _          ->
+            (prevSegA, segA, nextSegA)            
+    
+    let (alignmentMatchSegs: Segment list) = 
+        // Filter the segments that are parallel to the segment moved
+        List.filter (fun seg -> ((getOrientation seg) = (getOrientation segMoved))) segs
+        // Filter the segments that are on the same "level" as the segment moved
+        |> List.filter (fun seg -> areOnSameLevel segMoved seg)
+        // Filter the segments that have their end (or respectively start) close to the start (or respectiv. end) of the segment moved
+        |> List.filter (fun seg -> (endCloseToStart seg segMoved) || (endCloseToStart segMoved seg))
+        // Filter out the current segment moved from this list
+        |> List.filter (fun seg -> (seg.Id <> segMoved.Id))
+
+    let isValidIndex = ((index >= 1) && (index < (segs.Length - 1)))
+
+    match isValidIndex, alignmentMatchSegs with
+    | true, hd::tl ->
+        // Adjust the segments that have possible redundancy on both sides
+        let alignedPrevSeg, alignedSeg, alignedNextSeg = alignTo hd (segs[index-1], segMoved, segs[index+1])
+        // Assemble the adjusted segment list:
+        // firstSegs @ adjustedSegs @ lastSegs
+        segs[0..(index - 2)] @ [alignedPrevSeg; alignedSeg; alignedNextSeg] @ segs[(index + 2)..(segs.Length-1)]
+    | _, _ -> segs
+    
+
 /// MANUAL ROUTING: 
 /// This function allows a wire segment to be moved a given amount in a direction perpedicular to
 /// its orientation (Horizontal or Vertical). Used to manually adjust routing by mouse drag.
@@ -1273,6 +1348,8 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
                 wire.Segments[.. index-2] @ [newPrevSeg; newSeg; newNextSeg] @ wire.Segments[index+2 ..]
                 // Remove all redundant segments that may have been created by the move
                 |> removeRedundantSegments index
+                // Aligned the moved segment with any parallel segments in the wire that are close to it
+                |> alignToCloseParallelSegments index
 
             // Update the list of segments in the wire object, and return it
             {wire with Segments = newSegments})
