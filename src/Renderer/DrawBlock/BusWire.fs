@@ -1217,7 +1217,7 @@ let removeRedundantSegments (index: int) (segs: Segment list) =
         segs
 
 
-let alignToCloseParallelSegments (index: int) (segs: Segment list) = 
+let alignToCloseParallelSegments (index: int) (currentWireOutputPort : OutputPortId) (allModelWires: Wire list) (segs: Segment list) = 
     // Get the segment that has just been moved
     let segMoved = segs[index]
 
@@ -1229,15 +1229,15 @@ let alignToCloseParallelSegments (index: int) (segs: Segment list) =
         | _          -> 0.0
 
     /// Check if two segments are on the same level
-    let areOnSameLevel (seg1: Segment) (seg2: Segment) : bool = 
+    let areSegsOnSameLevel (seg1: Segment) (seg2: Segment) : bool = 
         if ((abs ((getNormalCoord seg2) - (getNormalCoord seg1))) <= stickynessThreshold)
         then true
         else false
 
     /// Check if the end of seg1 is close to the start of seg2
-    let endCloseToStart (seg1: Segment) (seg2: Segment) : bool = 
-        if (((abs ((getEndPoint seg1).X - seg2.Start.X)) <= stickynessThreshold)
-            && ((abs ((getEndPoint seg1).Y - seg2.Start.Y)) <= stickynessThreshold))
+    let areXYPosClose (pos1: XYPos) (pos2: XYPos) : bool = 
+        if (((abs (pos1.X - pos2.X)) <= stickynessThreshold)
+            && ((abs (pos1.Y - pos2.Y)) <= stickynessThreshold))
         then true
         else false
 
@@ -1264,13 +1264,24 @@ let alignToCloseParallelSegments (index: int) (segs: Segment list) =
         | _          ->
             (prevSegA, segA, nextSegA)            
     
+
+    let (segmentsFromSameOutputPort: Segment list) = 
+        allModelWires
+        // Filter all the wires coming out of the same output port
+        |> List.filter (fun (wire: Wire) -> (wire.OutputPort = currentWireOutputPort))
+        // Extract all their segments into a single Segment list
+        |> List.collect (fun (wire: Wire) -> wire.Segments)
+
     let (alignmentMatchSegs: Segment list) = 
-        // Filter the segments that are parallel to the segment moved
-        List.filter (fun seg -> ((getOrientation seg) = (getOrientation segMoved))) segs
+        segmentsFromSameOutputPort
+        |> List.filter (fun seg -> ((getOrientation seg) = (getOrientation segMoved)))
         // Filter the segments that are on the same "level" as the segment moved
-        |> List.filter (fun seg -> areOnSameLevel segMoved seg)
-        // Filter the segments that have their end (or respectively start) close to the start (or respectiv. end) of the segment moved
-        |> List.filter (fun seg -> (endCloseToStart seg segMoved) || (endCloseToStart segMoved seg))
+        |> List.filter (fun seg -> areSegsOnSameLevel segMoved seg)
+        // Filter the segments that have their end (or start) close to the start (or end) of the segment moved
+        |> List.filter (fun seg -> (areXYPosClose (getEndPoint seg) segMoved.Start)
+                                    || (areXYPosClose seg.Start (getEndPoint segMoved))
+                                    || (areXYPosClose seg.Start segMoved.Start)
+                                    || (areXYPosClose (getEndPoint seg) (getEndPoint segMoved)) )
         // Filter out the current segment moved from this list
         |> List.filter (fun seg -> (seg.Id <> segMoved.Id))
 
@@ -1293,7 +1304,7 @@ let alignToCloseParallelSegments (index: int) (segs: Segment list) =
 /// after the move, thus keeping the moved position.
 let moveSegment (seg:Segment) (distance:float) (model:Model) = 
     // Get the wire that the segment is in
-    let wire = model.WX[seg.HostId]
+    let (wire : Wire) = model.WX[seg.HostId]
 
     // Retrieve the position of the segment in the segment list of the wire
     let index = seg.Index
@@ -1342,14 +1353,19 @@ let moveSegment (seg:Segment) (distance:float) (model:Model) =
             let newPrevSeg = {prevSeg with Vector = newPrevVector}
             let newSeg     = {seg with Start = newSegStart ; Autorouted = false}
             let newNextSeg = {nextSeg with Start = newNextStart ; Vector = newNextVector}
+
+            // Extract the other wires from the model for stickiness/alignement purposes
+            let (allModelWires : Wire list) = 
+                Map.toList model.WX
+                |> List.map (fun element -> snd(element))
         
             // Rebuild the list of segments of the wire with the updated segments at the right indexes
             let newSegments =
                 wire.Segments[.. index-2] @ [newPrevSeg; newSeg; newNextSeg] @ wire.Segments[index+2 ..]
                 // Remove all redundant segments that may have been created by the move
                 |> removeRedundantSegments index
-                // Aligned the moved segment with any parallel segments in the wire that are close to it
-                |> alignToCloseParallelSegments index
+                // Align the moved segment with any parallel segments in the wire that are close to it
+                |> alignToCloseParallelSegments index wire.OutputPort allModelWires
 
             // Update the list of segments in the wire object, and return it
             {wire with Segments = newSegments})
