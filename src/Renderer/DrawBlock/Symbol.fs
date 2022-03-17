@@ -21,7 +21,8 @@ let GridSize = 30
 
 type SymbolCharacteristics =
     { clocked: bool 
-      inverted: bool }
+      inverted: bool 
+      flip: bool }
 
 type SymbolTitles = 
     { fontSize: string
@@ -35,7 +36,6 @@ type Symbol =
     { Colour: string
       ComponentId : ComponentId       
       Component : Component
-      Flip : bool
       InWidth0: int option
       InWidth1: int option      
       Moving: bool
@@ -81,6 +81,8 @@ type Msg =
 //---------------------- XW2519 CODE SECTION STARTS ----------------------//
 //------------------------------------------------------------------------//
 
+let rotationMap = [ 0.0, 90.0; 90.0, 180.0; 180.0, 270.0; 270.0, 0.0 ] |> Map.ofList
+
 //--------------------------------- Helper functions ---------------------------------//
 let convertDegtoRad degree = System.Math.PI * degree / 180.0 
 
@@ -100,12 +102,13 @@ let convertSymbolPointsToString (xyPosL: XYPos list) =
 
     coordinateString[0 .. (String.length coordinateString) - 2]   
 
-let flipSymbol (symbol: Symbol) = 
-    print "Flip Triggered"
-    {symbol with Flip = not symbol.Flip}
+let getSymbolOrientation (symbol: Symbol) = 
+    match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with 
+    | (_, false) -> symbol.Rotation
+    | (_, true) -> rotationMap.[rotationMap.[symbol.Rotation]]
 
 let getSymbolPoints (symbol: Symbol) = convertSymbolPointsToString symbol.SymbolPoints
-
+    
 let posAdd (a: XYPos) (b: XYPos) = { X = a.X+b.X; Y = a.Y+b.Y }
 
 let posDiff (a: XYPos) (b: XYPos) = { X = a.X-b.X; Y = a.Y-b.Y }
@@ -117,20 +120,24 @@ let rotatePoint degree (xyPos: XYPos) : XYPos =
       Y = xyPos.X * System.Math.Sin(convertDegtoRad degree) + xyPos.Y * System.Math.Cos(convertDegtoRad degree) }
 
 let rotateSymbol (symbol: Symbol) = 
-    let nextRotation = 
-        [   0.0, 90.0;
-            90.0, 180.0;
-            180.0, 270.0;
-            270.0, 0.0  ]
-        |> Map.ofList
-
     let newSymbolPoints = 
         symbol.SymbolPoints
         |> List.map (convertRelativeToSymbolCenter symbol)
         |> List.map (rotatePoint 90.0)
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
-    {symbol with Rotation = nextRotation.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
+    {symbol with Rotation = rotationMap.[symbol.Rotation]; SymbolPoints = newSymbolPoints}
+
+let flipSymbol (symbol: Symbol) = 
+    let symbolCharacteristics = { symbol.SymbolCharacteristics with flip = not symbol.SymbolCharacteristics.flip }
+
+    let newSymbolPoints = 
+        symbol.SymbolPoints
+        |> List.map (convertRelativeToSymbolCenter symbol)
+        |> List.map (rotatePoint 180.0)
+        |> List.map (convertRelativeToSymbolTopLeft symbol)
+    
+    { symbol with SymbolCharacteristics = symbolCharacteristics; SymbolPoints = newSymbolPoints }
 
 //--------------------------------- Skeleton Model Type for Symbols and Components ---------------------------------//
 
@@ -212,9 +219,9 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
     
 let initSymbolCharacteristics (comp: Component) = 
     match comp.Type with 
-    | Nand | Nor | Xnor | Not -> { clocked = false; inverted = true }
-    | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> { clocked = true; inverted = false }
-    | _ -> { clocked = false; inverted = false }
+    | Nand | Nor | Xnor | Not -> { clocked = false; inverted = true; flip = false}
+    | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> { clocked = true; inverted = false; flip = false }
+    | _ -> { clocked = false; inverted = false; flip = false }
 
 let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list = 
     match compType with
@@ -243,7 +250,7 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
               { X = compWidth; Y = compHeight/2.0 }
               { X = 0.66*compWidth; Y = 0 } ]
         | IOLabel ->
-            [ { X = 0.33*compWidth; Y = 0 }
+            [ { X = 0; Y = 0 }
               { X = 0; Y = compHeight/2.0 }
               { X = 0.33/compWidth; Y = compHeight }
               { X = 0.66*compWidth; Y = compHeight }
@@ -281,7 +288,7 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
         // | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
         // | Demux4 | Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
 
-let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol=
+let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol =
     let id = JSHelpers.uuid()
     let comp = initComponent pos comptype id label
 
@@ -298,7 +305,6 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) : Symbol=
       Rotation = 0.0
       SymbolPoints = initSymbolPoints comp.Type (float(comp.H)) (float(comp.W))
       SymbolCharacteristics = initSymbolCharacteristics comp 
-      Flip = false
       }
 
 //--------------------------------- Port Functions ---------------------------------//
@@ -320,16 +326,27 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     
     
     let (ports, posX) =
-        match port.PortType, symbol.Flip with
-        | PortType.Input, false -> symbol.Component.InputPorts, 0.0
-        | PortType.Input, true -> symbol.Component.InputPorts, float(symbol.Component.W)
-        | PortType.Output, false -> symbol.Component.OutputPorts, float(symbol.Component.W)
-        | PortType.Output, true -> symbol.Component.OutputPorts, 0.0
+        match port.PortType, symbol.SymbolCharacteristics.flip, symbol.Component.Type, port.PortNumber with
+        | PortType.Input, _, Mux2, Some 2 -> symbol.Component.InputPorts, 30.0
+        | PortType.Input, false, _, _ -> symbol.Component.InputPorts, 0.0
+        | PortType.Input, true, _, _ -> symbol.Component.InputPorts, float(symbol.Component.W)
+        | PortType.Output, false, _, _ -> symbol.Component.OutputPorts, float(symbol.Component.W)
+        | PortType.Output, true, _, _ -> symbol.Component.OutputPorts, 0.0
+    
+    
 
     /// Calculate equidistant port spacing
     let index = float(List.findIndex (fun (p: Port) -> p = port) ports)
     let gap = getPortPosEdgeGap symbol.Component.Type 
-    let posY = (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
+    
+    let posY = 
+        match symbol.Component.Type, port.PortNumber, port.PortType with
+        | Mux2, Some 2, PortType.Input-> 80.0
+        | Mux2, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
+        | _ -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
+
+    
+
     
     { X = posX; Y = posY }
     |> convertRelativeToSymbolCenter symbol
@@ -338,8 +355,6 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
-
-
 
 //--------------------------------- Symbol Text Helper Functions ---------------------------------//
 
@@ -351,37 +366,41 @@ let private addText posX posY name txtPos weight size =
 //--------------------------------- Symbol Text Functions ---------------------------------//
 
 let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: string List) = 
-    let addPortName x y name portType=
+    let addPortName x y name portType =
         let xPos = 
             if portType = PortType.Output then 
-                match symbol.Rotation with
-                | 90.0 | 270.0 -> x 
-                | 180.0 -> x + 8.0
-                | _ -> x - 8.0
+                match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+                | (90.0, _) | (270.0, _) -> x 
+                | (180.0, false) -> x + 8.0
+                | (180.0, true) -> x - 10.0
+                | (_, false) -> x - 8.0
+                | (_, true) -> x + 8.0
             else 
-                match symbol.Rotation with
-                | 90.0 | 270.0 -> x 
-                | 180.0 -> x - 10.0
-                | _ -> x + 8.0
+                match (symbol.Rotation, symbol.SymbolCharacteristics.flip)  with
+                | (90.0, _) | (270.0, _) -> x 
+                | (180.0, false) -> x - 10.0
+                | (180.0, true) -> x + 8.0
+                | (_, false) -> x + 8.0
+                | (_, true) -> x - 8.0
 
         let yPos = 
             if portType = PortType.Output then 
-                match symbol.Rotation with
-                | 90.0 -> y - 20.0
-                | 270.0 -> y + 5.0
+                match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+                | (90.0, false) | (270.0, true) -> y - 20.0
+                | (270.0, false) | (90.0, true) -> y + 5.0
                 | _ -> y - 5.0
             else 
-                match symbol.Rotation with
-                | 90.0 -> y + 8.0
-                | 270.0 -> y - 20.0
+                match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+                | (90.0, false) | (270.0, true) -> y + 8.0
+                | (270.0, false) | (90.0, true) -> y - 20.0
                 | _ -> y - 5.0
         
         let alignment = 
-            match (portType, symbol.Rotation) with
-            | (PortType.Output, 0.0) -> "end"
-            | (PortType.Output, 180.0) -> "start"
-            | (PortType.Input, 0.0) -> "start"
-            | (PortType.Input, 180.0) -> "end"
+            match (portType, symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+            | (PortType.Output, 0.0, false) | (PortType.Output, 180.0, true)-> "end"
+            | (PortType.Output, 180.0, false) | (PortType.Output, 0.0, true) -> "start"
+            | (PortType.Input, 0.0, false) | (PortType.Input, 180.0, true) -> "start"
+            | (PortType.Input, 180.0, false) | (PortType.Input, 0.0, true) -> "end"
             | _ -> "middle"
 
         addText xPos yPos name alignment "normal" "10px"
@@ -418,19 +437,33 @@ let addPortTitle (comp: Component) =
     // |Mux8 -> (["0"; "1"; "2" ; "3" ; "4" ; "5" ; "6" ; "7";"SEL"],["OUT"])
     // |_ -> ([],[])
 
-let addSymbolLabel rotation W H label : ReactElement list = 
+let addSymbolLabel (comp: Component) rotation label : ReactElement list = 
     let getSymbolLabelCoord : XYPos =
+        match comp.Type with 
+        | BusSelection _ -> 
             match rotation with 
             | 90.0 | 270.0 ->
-                {X = float(W - H)/2.0 + float(H) + 5.0; Y = float(H/2 - 8)}
+                {X = float(comp.W - comp.H)/2.0 + float(comp.H) + 8.0; Y = float(comp.H/2 - 18)}
             | _ -> 
-                {X = float(W/2); Y = -20.0}
+                {X = float(comp.W/2); Y = -20.0}
+        | BusCompare _ -> 
+            match rotation with 
+            | 90.0 | 270.0 ->
+                {X = float(comp.W - comp.H)/2.0 + float(comp.H) + 8.0; Y = float(comp.H/2 - 18)}
+            | _ -> 
+                {X = float(comp.W/2); Y = -20.0}
+        | _ -> 
+            match rotation with 
+            | 90.0 | 270.0 ->
+                {X = float(comp.W - comp.H)/2.0 + float(comp.H) + 5.0; Y = float(comp.H/2 - 8)}
+            | _ -> 
+                {X = float(comp.W/2); Y = -20.0}
 
     let textAlignment = if (rotation = 90.0) || (rotation = 270.0) then "start" else "middle"
 
-    addText getSymbolLabelCoord.X getSymbolLabelCoord.Y label textAlignment "normal" "16px"
+    addText getSymbolLabelCoord.X getSymbolLabelCoord.Y label textAlignment "normal" "16px"  
 
-let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
+let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement list =
     let compWidth = float(comp.W)
     let compHeight = float(comp.H)
 
@@ -441,7 +474,7 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
             | true, _ -> $"({msb})"
             | false, _ -> $"({msb}:{lsb})"
         
-        addText (float(posX1 + posX2)/2.0) (posY*float(comp.H) - 25.0) text "middle" "bold" "12px"
+        addText (float(posX1 + posX2)/2.0) (posY*float(comp.H) - 25.0) text "middle" "bold" "12px"  
     
     let addTitleWithBusWidth title busWidth lsb =  
         match comp.Type with 
@@ -476,14 +509,28 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         | _ -> ""
 
     match comp.Type with 
-    | BusSelection(x,y) ->
-        addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-3.0) (addTitleWithBusWidth "" x y) "middle" "bold" "12px"
-    | BusCompare(_,y) -> 
-        addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-3.0) ("=" + NumberHelpers.hex(int y)) "middle" "bold" "12px"
+    | BusSelection(busWidth, compareValue) ->
+        // Rotate text based on symbol orientation
+        match rotation with 
+            | 90.0 | 270.0 ->
+                addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) (addTitleWithBusWidth "" busWidth compareValue) "left" "bold" "12px"
+            | 180.0 ->
+                addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"
+            | _ -> 
+                addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"          
+    | BusCompare(outputWidth, outputLSBit) -> 
+        // Rotate text based on symbol orientation
+        match rotation with 
+            | 90.0 | 270.0 ->
+                addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) ("=" + NumberHelpers.hex(int outputLSBit)) "left" "bold" "12px"
+            | 180.0 ->
+                addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"
+            | _ -> 
+                addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"  
     | Input(x) -> 
-        addText ((compWidth/2.0)-5.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"
+        addText ((compWidth/2.0)-5.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
     | Output(x) -> 
-        addText (compWidth/2.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"
+        addText (compWidth/2.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
     | MergeWires -> 
         let lo, hi = 
             match inWidth0, inWidth1  with 
@@ -496,7 +543,6 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         addBusTitle 0 (comp.W/2) (1.0/6.0) midt 0 @ 
         addBusTitle 0 (comp.W/2) (5.0/6.0) msb midb @ 
         addBusTitle (comp.W/2) comp.W 0.5 msb 0
-
     | SplitWire mid ->  
         let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
         let midb = mid'
@@ -506,7 +552,7 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         addBusTitle (comp.W/2) comp.W (5.0/6.0) msb midb @ 
         addBusTitle 0 (comp.W/2) 0.5 msb 0
     | _ ->  
-        addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"
+        addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"  
 
 //--------------------------------- Symbol Draw Helpers ---------------------------------//
 
@@ -566,7 +612,7 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
     let originalSymbolPoints = 
         points 
         |> List.map (convertRelativeToSymbolCenter symbol) 
-        |> List.map (rotatePoint -symbol.Rotation) 
+        |> List.map (rotatePoint -(getSymbolOrientation symbol)) 
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     let trianglePoints =
@@ -574,7 +620,7 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
           { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0; Y = originalSymbolPoints[1].Y-6.0 }
           { X = (originalSymbolPoints[0].X + originalSymbolPoints[1].X)/2.0 + 6.0; Y = originalSymbolPoints[1].Y } ]
         |> List.map (convertRelativeToSymbolCenter symbol)
-        |> List.map (rotatePoint symbol.Rotation) 
+        |> List.map (rotatePoint (getSymbolOrientation symbol)) 
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     drawBiColorPolygon (convertSymbolPointsToString trianglePoints) colour outlineColor opacity strokeWidth
@@ -583,7 +629,7 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
     let addInvertor posX posY =
         [{ X = posX; Y = posY }; { X = posX+9.0; Y = posY }; { X = posX; Y = posY-8.0 }]
         |> List.map (convertRelativeToSymbolCenter symbol)
-        |> List.map (rotatePoint symbol.Rotation)
+        |> List.map (rotatePoint (getSymbolOrientation symbol))
         |> List.map (convertRelativeToSymbolTopLeft symbol)
         |> convertSymbolPointsToString
         |> createPolygon colour opacity
@@ -592,32 +638,20 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
         let clockPoints = 
             [{ X = posX; Y = posY-1.0}; { X = posX; Y = posY-13.0}; { X = posX+8.0; Y = posY-7.0 }]
             |> List.map (convertRelativeToSymbolCenter symbol)
-            |> List.map (rotatePoint symbol.Rotation)
+            |> List.map (rotatePoint (getSymbolOrientation symbol))
             |> List.map (convertRelativeToSymbolTopLeft symbol)
-        
-        // let addClockText = 
-        //     match symbol.Rotation with 
-        //     | 90.0 ->
-        //         addText (clockPoints[2].X) (clockPoints[2].Y) "clk" "middle" "normal" "10px"
-        //     | 180.0 ->
-        //         addText (clockPoints[2].X - 10.0) (clockPoints[2].Y - 6.0) "clk" "middle" "normal" "10px"
-        //     | 270.0 ->
-        //         addText (clockPoints[2].X) (clockPoints[2].Y - 13.0) "clk" "middle" "normal" "10px"
-        //     | _ -> 
-        //         addText (clockPoints[2].X + 2.0) (clockPoints[2].Y - 7.0) "clk" "start" "normal" "10px"
-
+            
         clockPoints
         |> convertSymbolPointsToString
         |> createPolygon colour opacity
-        // |> List.append addClockText
-        
+
     match symbol.SymbolCharacteristics with 
     | { clocked = false; inverted = true  } -> addInvertor (float(symbol.Component.W)) (float(symbol.Component.H) / 2.0)
     | { clocked = true;  inverted = false } -> addClock 0 symbol.Component.H
     | { clocked = true;  inverted = true  } -> addClock 0 symbol.Component.H @ addInvertor symbol.Component.X symbol.Component.Y
     | _ -> []
 
-let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
+let drawSymbolShape (symbol: Symbol) opacity colour : ReactElement list =
     let outlineColor, strokeWidth =
             match symbol.Component.Type with
             | SplitWire _ | MergeWires -> addOutlineColor colour, "2.0"
@@ -677,7 +711,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
     | Constant1 (_,_,txt) -> 
         drawBiColorPolygon (convertSymbolPointsToString symbol.SymbolPoints[0..2]) colour outlineColor opacity strokeWidth
         |> List.append drawSymbolLines
-        |> List.append (addText (float (symbol.Component.W/2)-5.0) (float(symbol.Component.H)-8.0) txt "middle" "normal" "12px")
+        |> List.append (addText (float (symbol.Component.W/2)-5.0) (float(symbol.Component.H)-8.0) txt "middle" "normal" "12px"  )
     | MergeWires -> 
         drawBiColorPolygon (convertSymbolPointsToString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
         |> List.append drawSymbolLines
@@ -691,8 +725,8 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
 //--------------------------------- Symbol Drawing ---------------------------------//  
 
 let createSymbol (symbol: Symbol, colour: string, opacity: float) = 
-    addSymbolLabel symbol.Rotation symbol.Component.W symbol.Component.H symbol.Component.Label
-    |> List.append (addSymbolText symbol.Component symbol.InWidth0 symbol.InWidth1)
+    addSymbolLabel symbol.Component symbol.Rotation symbol.Component.Label
+    |> List.append (addSymbolText symbol.Component symbol.InWidth0 symbol.InWidth1 symbol.Rotation)
     |> List.append (addPortText symbol symbol.Component.InputPorts (fst(addPortTitle symbol.Component)))
     |> List.append (addPortText symbol symbol.Component.OutputPorts (snd(addPortTitle symbol.Component)))      
     |> List.append (drawPorts symbol.Component.OutputPorts symbol.ShowOutputPorts symbol)
@@ -841,6 +875,19 @@ let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) =
         let componentId = ComponentId port.HostId
         Map.find componentId model.Symbols
 
+//--------------------------- ALTERNATIVE SIDE PORTS --------------------------------------//
+
+// Returns whether the port associated with inPortId is on an alternative side
+let isPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
+    match inPortId with
+    | InputPortId(str) ->
+        let componentId = ComponentId str
+        let symbol = Map.find componentId model.Symbols
+        let port = getPort model str
+        match symbol.Component.Type, port.PortNumber with
+        | Mux2, Some 2 -> true
+        | _ -> false
+
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
 ///Generates the label for a given ComponentType
@@ -936,7 +983,12 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
         let id = JSHelpers.uuid()
         let offsetFromReferencePos = posDiff copiedSym.Center referencePos
         let pastedSymCenter = posAdd offsetFromReferencePos mousePos
-        let pastedSymLabel = genCmpLabel { model with Symbols = currModel.Symbols } copiedSym.Component.Type
+
+        let pastedSymLabel = 
+            match copiedSym.Component.Type with
+            | IOLabel | Input _ | Output _ -> copiedSym.Component.Label
+            | _ -> genCmpLabel { model with Symbols = currModel.Symbols } copiedSym.Component.Type
+
         let pastedCmp = initComponent pastedSymCenter copiedSym.Component.Type id pastedSymLabel
 
         let pastedSymbol =
@@ -950,7 +1002,8 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
         // update currModel with pastedSymbol  
         let updatedSymbols = currModel.Symbols.Add ((ComponentId id), pastedSymbol) 
         let updatedPorts = addToPortModel currModel pastedSymbol
-        let updatedModel = { currModel with Symbols = updatedSymbols; Ports = updatedPorts }
+        let updatedCount = addSymToSymbolsCount pastedSymbol.Component.Type model 
+        let updatedModel = { currModel with Symbols = updatedSymbols; Ports = updatedPorts; SymbolsCount = updatedCount }
 
         // update pastedSymbolsIds with pastedSymbol
         let pastedSymbolsIds = pastedIds @ [ pastedSymbol.ComponentId ]
@@ -1052,8 +1105,6 @@ let updateConstant (model:Model) (cmpId:ComponentId) (constantVal:int64) (consta
     
 
 //---------------------------------- UPDATE FUNCTION -------------------------------//
-
-
 /// Update function which displays symbols
 let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
     match msg with
@@ -1166,22 +1217,19 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
                 else
                     cmp.H, cmp.W
             ComponentId cmp.Id,
-            { 
-            Center = {X = float (cmp.X + h/2); Y = float (cmp.Y+ w/2)}
-            ShowInputPorts = false 
-            ShowOutputPorts = false 
-            Colour = "lightgrey"  
-            ComponentId = ComponentId cmp.Id
-            Component = {cmp with H=h ; W = w}
-            Opacity = 1.0
-            Moving = false
-            InWidth0 = None
-            InWidth1 = None
-            Rotation = 0.0
-            SymbolPoints = (initSymbolPoints cmp.Type cmp.H cmp.W)
-            SymbolCharacteristics = (initSymbolCharacteristics cmp)
-            Flip = false
-            }
+            { Center = {X = float (cmp.X + h/2); Y = float (cmp.Y+ w/2)}
+              ShowInputPorts = false 
+              ShowOutputPorts = false 
+              Colour = "lightgrey"  
+              ComponentId = ComponentId cmp.Id
+              Component = {cmp with H=h ; W = w}
+              Opacity = 1.0
+              Moving = false
+              InWidth0 = None
+              InWidth1 = None
+              Rotation = 0.0
+              SymbolPoints = (initSymbolPoints cmp.Type cmp.H cmp.W)
+              SymbolCharacteristics = (initSymbolCharacteristics cmp) }
         
 
         let loadedSymbolsMap = 
