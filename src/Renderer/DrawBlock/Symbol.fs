@@ -320,16 +320,27 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     
     
     let (ports, posX) =
-        match port.PortType, symbol.Flip with
-        | PortType.Input, false -> symbol.Component.InputPorts, 0.0
-        | PortType.Input, true -> symbol.Component.InputPorts, float(symbol.Component.W)
-        | PortType.Output, false -> symbol.Component.OutputPorts, float(symbol.Component.W)
-        | PortType.Output, true -> symbol.Component.OutputPorts, 0.0
+        match port.PortType, symbol.Flip, symbol.Component.Type, port.PortNumber with
+        | PortType.Input, _, Mux2, Some 2 -> symbol.Component.InputPorts, 30.0
+        | PortType.Input, false, _, _ -> symbol.Component.InputPorts, 0.0
+        | PortType.Input, true, _, _ -> symbol.Component.InputPorts, float(symbol.Component.W)
+        | PortType.Output, false, _, _ -> symbol.Component.OutputPorts, float(symbol.Component.W)
+        | PortType.Output, true, _, _ -> symbol.Component.OutputPorts, 0.0
+    
+    
 
     /// Calculate equidistant port spacing
     let index = float(List.findIndex (fun (p: Port) -> p = port) ports)
     let gap = getPortPosEdgeGap symbol.Component.Type 
-    let posY = (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
+    
+    let posY = 
+        match symbol.Component.Type, port.PortNumber, port.PortType with
+        | Mux2, Some 2, PortType.Input-> 80.0
+        | Mux2, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
+        | _ -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
+
+    
+
     
     { X = posX; Y = posY }
     |> convertRelativeToSymbolCenter symbol
@@ -349,7 +360,7 @@ let private addText posX posY name txtPos weight size =
 //--------------------------------- Symbol Text Functions ---------------------------------//
 
 let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: string List) = 
-    let addPortName x y name portType=
+    let addPortName x y name portType =
         let xPos = 
             if portType = PortType.Output then 
                 match symbol.Rotation with
@@ -357,10 +368,17 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | 180.0 -> x + 8.0
                 | _ -> x - 8.0
             else 
-                match symbol.Rotation with
-                | 90.0 | 270.0 -> x 
-                | 180.0 -> x - 10.0
-                | _ -> x + 8.0
+                if name = "SEL" then 
+                    match symbol.Rotation with
+                    | 90.0 -> x + 17.0
+                    | 180.0 -> x + 7.0
+                    | 270.0 -> x - 15.0
+                    | _ -> x
+                else 
+                    match symbol.Rotation with
+                    | 90.0 | 270.0 -> x 
+                    | 180.0 -> x - 10.0
+                    | _ -> x + 8.0
 
         let yPos = 
             if portType = PortType.Output then 
@@ -369,17 +387,25 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | 270.0 -> y + 5.0
                 | _ -> y - 5.0
             else 
-                match symbol.Rotation with
-                | 90.0 -> y + 8.0
-                | 270.0 -> y - 20.0
-                | _ -> y - 5.0
+                if name = "SEL" then 
+                    match symbol.Rotation with
+                    | 90.0 -> y - 5.0
+                    | 180.0 -> y + 6.0
+                    | 270.0 -> y - 6.0
+                    | _ -> y - 17.0
+                else 
+                    match symbol.Rotation with
+                    | 90.0 -> y + 8.0
+                    | 270.0 -> y - 20.0
+                    | _ -> y - 5.0
         
         let alignment = 
-            match (portType, symbol.Rotation) with
-            | (PortType.Output, 0.0) -> "end"
-            | (PortType.Output, 180.0) -> "start"
-            | (PortType.Input, 0.0) -> "start"
-            | (PortType.Input, 180.0) -> "end"
+            match (portType, symbol.Rotation, name) with
+            | (PortType.Output, 0.0, _) -> "end"
+            | (PortType.Output, 180.0, _) -> "start"
+            | (PortType.Input, 0.0, "SEL") -> "middle"
+            | (PortType.Input, 0.0, _) -> "start"
+            | (PortType.Input, 180.0, _) -> "end"
             | _ -> "middle"
 
         addText xPos yPos name alignment "normal" "10px"
@@ -865,6 +891,19 @@ let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) =
         let port = getPort model str
         let componentId = ComponentId port.HostId
         Map.find componentId model.Symbols
+
+//--------------------------- ALTERNATIVE SIDE PORTS --------------------------------------//
+
+// Returns whether the port associated with inPortId is on an alternative side
+let isPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
+    match inPortId with
+    | InputPortId(str) ->
+        let componentId = ComponentId str
+        let symbol = Map.find componentId model.Symbols
+        let port = getPort model str
+        match symbol.Component.Type, port.PortNumber with
+        | Mux2, Some 2 -> true
+        | _ -> false
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
 
