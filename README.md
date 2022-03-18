@@ -36,21 +36,14 @@ Modify this README.md file under [Current extensions being worked on](#current-e
 # Mandatory extensions 
 
 ## Symbols 
-- Some reasonably competent way to flip components (possibly rotate them). 
-- MUXes with select on bottom edge.
 
 ## BusWire 
-- Autoroute and partial autoroute - functionality as current Issie or better - but implemented between ports oriented in all directions. 
-- Something fully working better than current jumps.
-- 
   
 ----
 # Other possible extensions
 
 ## Symbols 
-- [Xin] Symbol labels and component legends "adder" should always be horizontal
 - [Xin] Adding *clk* shape to custom generated symbols 
-- [Xin] Changing relative symbol drawing point to be relative to the center 
 - [Xin] Automatic scaling of shapes based on the number of ports 
 - [Xin] Components are renamed in the properties tab when their name is numeric
 - [Xin] Changing mouse icons
@@ -65,14 +58,10 @@ Modify this README.md file under [Current extensions being worked on](#current-e
 
 ### **Leo**
 
-
 ### **Xin** 
-- Symbol labels and component legends "adder" should always be horizontal
-  - Dependencies:
-    - None
-  - Files changes:
-    - Symbol.fs: Section 1 
-
+- New shapes for new symbols
+- Changing mouse icons
+- Adding *clk* shape to custom generated symbols 
 
 ## BusWires
 
@@ -86,23 +75,17 @@ Modify this README.md file under [Current extensions being worked on](#current-e
 # Completed extensions
 
 ## Symbols 
-
-### **Leo**
-- new names and labels for Gate components. (e.g. G3 -> AND3, G5 -> XOR5)
+- New names and labels for Gate components. (e.g. G3 -> AND3, G5 -> XOR5)
 - Implemented Flip for ports
-
-### **Xin** 
+- Some reasonably competent way to flip components (possibly rotate them). 
+- MUXes with select on bottom edge.
 - Flips/rotates should keep port text legends nice 
+- Symbol labels and component legends "adder" should always be horizontal
 - Symbols resized to reduce squashed look 
 - Removed *clk* label since symbol is already present 
 - Added direction arrows on *Merge Bus* and *Split Bus* to aid differentiation when rotating 
 
 ## BusWires
-
-### **Bertil** 
-- [Bertil/Dom] Something fully working better than current jumps. 
-
-### **Dom**
-- [Bertil/Dom] Something fully working better than current jumps. 
-
-### **Tanguy** 
+- Something fully working better than current jumps. 
+- Autoroute and partial autoroute - functionality as current Issie or better - but implemented between ports oriented in all directions. 
+- Something fully working better than current jumps.
