@@ -324,7 +324,6 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         | MergeWires | SplitWire _ -> 0.25
         | _ -> 1.0
     
-    
     let (ports, posX) =
         match port.PortType, symbol.SymbolCharacteristics.flip, symbol.Component.Type, port.PortNumber with
         | PortType.Input, _, Mux2, Some 2 -> symbol.Component.InputPorts, 30.0
@@ -333,8 +332,6 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         | PortType.Output, false, _, _ -> symbol.Component.OutputPorts, float(symbol.Component.W)
         | PortType.Output, true, _, _ -> symbol.Component.OutputPorts, 0.0
     
-    
-
     /// Calculate equidistant port spacing
     let index = float(List.findIndex (fun (p: Port) -> p = port) ports)
     let gap = getPortPosEdgeGap symbol.Component.Type 
@@ -345,9 +342,6 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
         | Mux2, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
         | _ -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
 
-    
-
-    
     { X = posX; Y = posY }
     |> convertRelativeToSymbolCenter symbol
     |> rotatePoint symbol.Rotation
@@ -376,12 +370,19 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | (_, false) -> x - 8.0
                 | (_, true) -> x + 8.0
             else 
-                match (symbol.Rotation, symbol.SymbolCharacteristics.flip)  with
-                | (90.0, _) | (270.0, _) -> x 
-                | (180.0, false) -> x - 10.0
-                | (180.0, true) -> x + 8.0
-                | (_, false) -> x + 8.0
-                | (_, true) -> x - 8.0
+                if name = "SEL" then
+                    match symbol.Rotation with
+                    | 90.0 -> x + 17.0
+                    | 180.0 -> x + 7.0
+                    | 270.0 -> x - 15.0
+                    | _ -> x
+                else
+                    match (symbol.Rotation, symbol.SymbolCharacteristics.flip)  with
+                    | (90.0, _) | (270.0, _) -> x 
+                    | (180.0, false) -> x - 10.0
+                    | (180.0, true) -> x + 8.0
+                    | (_, false) -> x + 8.0
+                    | (_, true) -> x - 8.0
 
         let yPos = 
             if portType = PortType.Output then 
@@ -390,11 +391,18 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | (270.0, false) | (90.0, true) -> y + 5.0
                 | _ -> y - 5.0
             else 
-                match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
-                | (90.0, false) | (270.0, true) -> y + 8.0
-                | (270.0, false) | (90.0, true) -> y - 20.0
-                | _ -> y - 5.0
-        
+                if name = "SEL" then 
+                    match symbol.Rotation with
+                    | 90.0 -> y - 5.0
+                    | 180.0 -> y + 6.0
+                    | 270.0 -> y - 6.0
+                    | _ -> y - 17.0
+                else
+                    match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
+                    | (90.0, false) | (270.0, true) -> y + 8.0
+                    | (270.0, false) | (90.0, true) -> y - 20.0
+                    | _ -> y - 5.0
+            
         let alignment = 
             match (portType, symbol.Rotation, symbol.SymbolCharacteristics.flip) with
             | (PortType.Output, 0.0, false) | (PortType.Output, 180.0, true)-> "end"
