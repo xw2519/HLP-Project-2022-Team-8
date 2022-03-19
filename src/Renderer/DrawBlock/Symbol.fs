@@ -276,11 +276,9 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
               { X = compWidth; Y = ((1.0/6.0)*compHeight) }
               { X = compWidth; Y = ((5.0/6.0)*compHeight) } ]
         | ExtractWire _ -> 
-            [ { X = compWidth/2.0; Y = ((1.0/6.0)*compHeight) }
-              { X = compWidth/2.0; Y = ((5.0/6.0)*compHeight) }
-              { X = 0; Y = ((1.0/2.0)*compHeight) }
-              { X = compWidth; Y = ((1.0/6.0)*compHeight) }
-              { X = compWidth; Y = ((5.0/6.0)*compHeight) } ]  
+            [ { X = 0; Y = ((5.0/6.0)*compHeight) }
+              { X = compWidth; Y = ((5.0/6.0)*compHeight) } 
+              { X = compWidth/2.0; Y = ((1.0/6.0)*compHeight) } ]  
         | _ -> 
             [ { X = 0; Y = compHeight }
               { X = compWidth; Y = compHeight }
@@ -345,8 +343,6 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
 
 let getModelPortPos (model: Model) (port: Port) =
     getPortPos (Map.find (ComponentId port.HostId) model.Symbols) port
-
-
 
 //--------------------------------- Symbol Text Helper Functions ---------------------------------//
 
@@ -515,7 +511,7 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 : ReactElement list =
         addBusTitle (comp.W/2) comp.W (5.0/6.0) msb midb @ 
         addBusTitle 0 (comp.W/2) 0.5 msb 0
 
-    | ExtractWire (width,startBit, endBit) -> 
+    | ExtractWire (width, startBit, endBit) -> 
         let mid = endBit - startBit
         let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
 
@@ -579,7 +575,7 @@ let private drawPorts (portList: Port List) (printPorts: bool) (symbol: Symbol) 
     else 
         []
 
-let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidth =
+let drawHorizontalArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidth =
     let originalSymbolPoints = 
         points 
         |> List.map (convertRelativeToSymbolCenter symbol) 
@@ -595,6 +591,24 @@ let drawArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidt
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     drawBiColorPolygon (convertSymbolPointsToString trianglePoints) colour outlineColor opacity strokeWidth
+
+let drawVerticalArrow symbol (points: XYPos list) colour outlineColor opacity strokeWidth =
+    let originalSymbolPoints = 
+        points 
+        |> List.map (convertRelativeToSymbolCenter symbol) 
+        |> List.map (rotatePoint -symbol.Rotation) 
+        |> List.map (convertRelativeToSymbolTopLeft symbol)
+
+    let trianglePoints =
+        [ { X = originalSymbolPoints[1].X+6.0; Y = (originalSymbolPoints[0].Y + originalSymbolPoints[1].Y)/2.0 }
+          { X = originalSymbolPoints[1].X-6.0; Y = (originalSymbolPoints[0].Y + originalSymbolPoints[1].Y)/2.0 }
+          { X = originalSymbolPoints[1].X; Y = (originalSymbolPoints[0].Y + originalSymbolPoints[1].Y)/2.0 - 6.0 } ]
+        |> List.map (convertRelativeToSymbolCenter symbol)
+        |> List.map (rotatePoint symbol.Rotation) 
+        |> List.map (convertRelativeToSymbolTopLeft symbol)
+
+    drawBiColorPolygon (convertSymbolPointsToString trianglePoints) colour outlineColor opacity strokeWidth
+
 
 let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement list =
     let addInvertor posX posY =
@@ -612,17 +626,6 @@ let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement lis
             |> List.map (rotatePoint symbol.Rotation)
             |> List.map (convertRelativeToSymbolTopLeft symbol)
         
-        // let addClockText = 
-        //     match symbol.Rotation with 
-        //     | 90.0 ->
-        //         addText (clockPoints[2].X) (clockPoints[2].Y) "clk" "middle" "normal" "10px"
-        //     | 180.0 ->
-        //         addText (clockPoints[2].X - 10.0) (clockPoints[2].Y - 6.0) "clk" "middle" "normal" "10px"
-        //     | 270.0 ->
-        //         addText (clockPoints[2].X) (clockPoints[2].Y - 13.0) "clk" "middle" "normal" "10px"
-        //     | _ -> 
-        //         addText (clockPoints[2].X + 2.0) (clockPoints[2].Y - 7.0) "clk" "start" "normal" "10px"
-
         clockPoints
         |> convertSymbolPointsToString
         |> createPolygon colour opacity
@@ -654,9 +657,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
                 |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity colour)
                 |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[4].Y symbol.SymbolPoints[4].X opacity colour)
             | ExtractWire _ -> 
-                drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].Y symbol.SymbolPoints[2].X opacity colour
-                |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity colour)
-                |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[4].Y symbol.SymbolPoints[4].X opacity colour)
+                drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].Y symbol.SymbolPoints[1].X opacity colour
             | _ -> []
         else
             match symbol.Component.Type with 
@@ -671,9 +672,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
                 |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[3].X)) symbol.SymbolPoints[3].Y opacity colour)
                 |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[4].X)) symbol.SymbolPoints[4].Y opacity colour)
             | ExtractWire _ -> 
-                drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[2].X)) symbol.SymbolPoints[2].Y opacity colour
-                |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[3].X)) symbol.SymbolPoints[3].Y opacity colour)
-                |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[4].X)) symbol.SymbolPoints[4].Y opacity colour)    
+                drawVerticalColorLine symbol.SymbolPoints[2].Y symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].X opacity colour
             | _ -> []
 
     let drawDirectionalArrows : ReactElement list =
@@ -684,27 +683,27 @@ let drawSymbolShape (symbol: Symbol) opacity colour :  ReactElement list =
                   [{ X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[3].X; Y = symbol.SymbolPoints[3].Y }]
                   [{ X = (symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0; Y = (symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0}; { X = symbol.SymbolPoints[4].X; Y = symbol.SymbolPoints[4].Y }]]
 
-            drawArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
-            |> List.append (drawArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
-            |> List.append (drawArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
+            drawHorizontalArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
+            |> List.append (drawHorizontalArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
+            |> List.append (drawHorizontalArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
         | SplitWire _ -> 
             let arrowLines = 
                 [ [{ X = symbol.SymbolPoints[0].X; Y = symbol.SymbolPoints[0].Y}; { X = symbol.SymbolPoints[2].X; Y = symbol.SymbolPoints[2].Y }]
                   [{ X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[3].X; Y = symbol.SymbolPoints[3].Y }]
                   [{ X = (symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0; Y = (symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0}; { X = symbol.SymbolPoints[4].X; Y = symbol.SymbolPoints[4].Y }]]
 
-            drawArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
-            |> List.append (drawArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
-            |> List.append (drawArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
+            drawHorizontalArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
+            |> List.append (drawHorizontalArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
+            |> List.append (drawHorizontalArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
         | ExtractWire _ -> 
             let arrowLines = 
-                [ [{ X = symbol.SymbolPoints[0].X; Y = symbol.SymbolPoints[0].Y}; { X = symbol.SymbolPoints[2].X; Y = symbol.SymbolPoints[2].Y }]
-                  [{ X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[3].X; Y = symbol.SymbolPoints[3].Y }]
-                  [{ X = (symbol.SymbolPoints[0].X + symbol.SymbolPoints[1].X)/2.0; Y = (symbol.SymbolPoints[0].Y + symbol.SymbolPoints[1].Y)/2.0}; { X = symbol.SymbolPoints[4].X; Y = symbol.SymbolPoints[4].Y }]]
+                [ [{ X = symbol.SymbolPoints[0].X; Y = symbol.SymbolPoints[0].Y}; { X = (symbol.SymbolPoints[1].X/2.0); Y = symbol.SymbolPoints[1].Y }]
+                  [{ X = (symbol.SymbolPoints[1].X/2.0); Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y }]
+                  [{ X = (symbol.SymbolPoints[1].X/2.0); Y = symbol.SymbolPoints[1].Y}; { X = (symbol.SymbolPoints[1].X/2.0); Y = symbol.SymbolPoints[2].Y }]]
 
-            drawArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
-            |> List.append (drawArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
-            |> List.append (drawArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
+            drawHorizontalArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
+            |> List.append (drawHorizontalArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
+            |> List.append (drawVerticalArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
         | _ -> []
     
     match symbol.Component.Type with
