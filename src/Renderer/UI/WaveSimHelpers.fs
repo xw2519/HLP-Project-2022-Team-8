@@ -619,7 +619,7 @@ let rec private findName (compIds: ComponentId Set) (sd: SimulationData) (net: N
             | ROM _ | RAM _ | AsyncROM _ -> 
                     failwithf "What? Legacy RAM component types should never occur"
 
-            | Not | And | Or | Xor | Nand | Nor | Xnor | Decode4 | Mux2 | BusCompare _ -> 
+            | Not | And | Or | Xor | Nand | Nor | Xnor | Decode4 | Mux2 | Mux4 | BusCompare _ -> 
                 [ { LabName = compLbl; BitLimits = 0, 0 } ] 
             | Input w | Output w | Constant1(w, _,_) | Constant(w,_) | Viewer w -> 
                 [ { LabName = compLbl; BitLimits = w - 1, 0 } ] 
@@ -633,7 +633,7 @@ let rec private findName (compIds: ComponentId Set) (sd: SimulationData) (net: N
                 | _ -> [ { LabName = compLbl + ".Cout"; BitLimits = w - 1, 0 } ]
             | DFF | DFFE -> 
                 [ { LabName = compLbl + ".Q"; BitLimits = 0, 0 } ]
-            | Register w | RegisterE w -> 
+            | Register w | RegisterE w | RegisterS (w,_) -> 
                 [ { LabName = compLbl + ".Dout"; BitLimits = w-1, 0 } ]
             | RAM1 mem | AsyncRAM1 mem | AsyncROM1 mem | ROM1 mem -> 
                 [ { LabName = compLbl + ".Dout"; BitLimits = mem.WordWidth - 1, 0 } ]
@@ -649,6 +649,29 @@ let rec private findName (compIds: ComponentId Set) (sd: SimulationData) (net: N
                     | 0 -> b >= 16 - w
                     | 1 -> b < 16 - w
                     | _ -> failwith "SplitWire output port number greater than 1"
+
+                let split { LabName = name; BitLimits = msb, lsb } st =
+                    List.zip [ lsb .. msb ] [ st + msb - lsb .. -1 .. st ]
+                    |> List.filter mostsigBranch
+                    |> List.unzip
+                    |> function
+                    | [], _ -> None 
+                    | lst, _ -> Some { LabName = name
+                                       BitLimits = List.max lst, List.min lst } 
+
+                let updateState { LabName = _; BitLimits = msb, lsb } st =
+                    st + msb - lsb + 1
+
+                (0, (drivingOutputName (InputPortNumber 0)).ComposingLabels)
+                ||> List.mapFold (fun st lstEl -> split lstEl st, updateState lstEl st)
+                |> fst
+                |> List.choose id
+            | ExtractWire (w,a,x) ->
+                let mostsigBranch (_, b) =
+                    match outPortInt with
+                    | 0 -> b >= 16 - w
+                    | 1 -> b < 16 - w
+                    | _ -> failwith " ExtractWire output port number greater than 1"
 
                 let split { LabName = name; BitLimits = msb, lsb } st =
                     List.zip [ lsb .. msb ] [ st + msb - lsb .. -1 .. st ]

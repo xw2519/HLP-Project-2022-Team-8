@@ -53,6 +53,7 @@ let writeVerilogNames (fs: FastSimulation) =
         let cLabel =
             match sc.Label , sc.Type with
             | ComponentLabel "", SplitWire _ -> fakeName "Split"
+            | ComponentLabel "", ExtractWire _ -> fakeName "Extract"
             | ComponentLabel "", MergeWires ->  fakeName "Merge"
             | ComponentLabel "", _ -> fakeName "Other"
             | ComponentLabel lab,_ -> lab.ToUpper()
@@ -361,6 +362,7 @@ let fastOutputDefinition (vType:VMode) (fc: FastComponent) (opn: OutputPortNumbe
         | ForSimulation -> $"reg {vDef} = {getZeros n};\n"
     | Register n, _
     | RegisterE n, _ -> $"reg {vDef} = {getZeros n};\n"
+    | RegisterS (n,d), _ -> $"reg {vDef} = {getZeros n};\n"
     | _ -> $"wire {vDef};\n"
 
 /// Translates from a component to its Verilog description
@@ -411,6 +413,7 @@ let getVerilogComponent (fs: FastSimulation) (fc: FastComponent) =
     | Xor -> sprintf "assign %s = %s;\n" (outs 0) (getVerilogBinaryOp fc.FType (ins 0) (ins 1))
     | DFFE
     | RegisterE _ -> $"always @(posedge clk) %s{outs 0} <= %s{ins 1} ? %s{ins 0} : %s{outs 0};\n"
+    | RegisterS _ -> $"always @(posedge clk) %s{outs 0} <= %s{ins 1} ? %s{ins 0} : %s{outs 0};\n"
     | DFF
     | Register _ -> $"always @(posedge clk) %s{outs 0} <= %s{ins 0};\n"
     | Constant1 (w, c,_) 
@@ -441,12 +444,19 @@ let getVerilogComponent (fs: FastSimulation) (fc: FastComponent) =
         let xor = outs 0
         $"assign {xor} = {a} ^ {b};\n"
     | Mux2 -> $"assign %s{outs 0} = %s{ins 2} ? %s{ins 1} : %s{ins 0};\n"
+    | Mux4 -> $"assign %s{outs 0} = %s{ins 2} ? %s{ins 1} : %s{ins 0};\n"
     | BusSelection (outW, lsb) ->
         let sel = sprintf "[%d:%d]" (outW + lsb - 1) lsb
         $"assign {outs 0} = {ins 0}{sel};\n"
     | BusCompare (w, c) -> $"assign %s{outs 0} = %s{ins 0} == %s{makeBits w (uint64 (uint32 c))};\n"
     | MergeWires -> $"assign {outs 0} = {{ {ins 0},{ins 1} }};\n"  
     | SplitWire _ ->
+        let lsbBits = outW 0
+        let msbBits = outW 1
+
+        $"assign %s{outs 0} = %s{ins 0}[%d{lsbBits - 1}:0];\n"
+        + $"assign %s{outs 1} = %s{ins 0}[%d{msbBits + lsbBits - 1}:%d{msbBits}];\n"
+    | ExtractWire _ ->
         let lsbBits = outW 0
         let msbBits = outW 1
 

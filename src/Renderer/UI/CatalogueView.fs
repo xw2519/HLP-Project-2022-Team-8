@@ -114,6 +114,7 @@ let private createNbitsXorPopup (model:Model) dispatch =
     dialogPopup title body buttonText buttonAction isDisabled dispatch
 
 
+
 let private createSplitWirePopup model dispatch =
     let title = sprintf "Add Split Wire node" 
     let beforeInt =
@@ -128,6 +129,26 @@ let private createSplitWirePopup model dispatch =
             dispatch ClosePopup
     let isDisabled =
         fun (dialogData : PopupDialogData) -> getInt dialogData < 1
+    dialogPopup title body buttonText buttonAction isDisabled dispatch
+
+let private createExtractWirePopup model dispatch =
+    let title = sprintf "Add Extract Wire node" 
+    let beforeInt2 =
+        fun _ -> str "End bit of extract wire."
+    let beforeInt =
+        fun _ -> str "Start bit of extract wire."
+    let intDefault = 0
+    let intDefault2 = 0
+    let body = dialogPopupBodyTwoInts (beforeInt, beforeInt2) (intDefault, intDefault2) "60px" dispatch
+    let buttonText = "Add"
+    let buttonAction =
+        fun (dialogData : PopupDialogData) ->
+            let startBit = getInt dialogData
+            let endBit = getInt2 dialogData
+            createCompStdLabel (ExtractWire (((int endBit)-startBit+1),startBit,int endBit)) model dispatch
+            dispatch ClosePopup
+    let isDisabled =
+        fun (dialogData : PopupDialogData) -> getInt dialogData < 0 || (getInt2 dialogData < 0 && getInt dialogData < getInt dialogData)
     dialogPopup title body buttonText buttonAction isDisabled dispatch
 
 /// two react text lines in red
@@ -247,8 +268,27 @@ let private createRegisterPopup regType (model:Model) dispatch =
         fun (dialogData : PopupDialogData) -> getInt dialogData < 1
     dialogPopup title body buttonText buttonAction isDisabled dispatch
 
+let private createRegisterSPopup regType (model:Model) dispatch =
+    let title = sprintf "Add Shift Register" 
+    let beforeText = 
+        fun _ -> str "Which direction should the shifting occur (Left or Right)?" 
+    let placeholder = "Left"
+    let beforeInt =
+        fun _ -> str "How wide should the register be (in bits)?"
+    let intDefault = model.LastUsedDialogWidth
+    let strDefault = "Left"
+    let body = dialogPopupBodyTextAndInt beforeText placeholder beforeInt intDefault dispatch
 
- 
+    let buttonText = "Add"
+    let buttonAction =
+        fun (dialogData : PopupDialogData) ->
+            let inputText = getText dialogData
+            let inputInt = getInt dialogData
+            createCompStdLabel (RegisterS (inputInt,inputText)) model dispatch
+            dispatch ClosePopup
+    let isDisabled =
+        fun (dialogData : PopupDialogData) -> getInt dialogData < 1
+    dialogPopup title body buttonText buttonAction isDisabled dispatch
     
 
 let private createMemoryPopup memType model (dispatch: Msg -> Unit) =
@@ -367,6 +407,8 @@ let viewCatalogue model dispatch =
                                                                                        join the bits of a two busses to make a wider bus"
                           catTip1 "Bus Split" (fun _ -> createSplitWirePopup model dispatch) "Use Bus Split when you want to split the \
                                                                                              bits of a bus into two sets"
+                          catTip1 "Bus Extract" (fun _ -> createExtractWirePopup model dispatch) "Use Bus Extract when you want to extract \
+                                                                                             bits from a bus"
                           catTip1 "Bus Select" (fun _ -> createBusSelectPopup model dispatch) "Bus Select output connects to one or \
                                                                                                 more selected bits of its input"
                           catTip1 "Bus Compare" (fun _ -> createBusComparePopup model dispatch) "Bus compare outputs 1 if the input bus \
@@ -384,6 +426,8 @@ let viewCatalogue model dispatch =
                         "Mux / Demux"
                         [ catTip1 "Mux2" (fun _ -> createCompStdLabel Mux2 model dispatch) "Selects the one of its two input busses numbered by the value of the select input
                                                                                 to be the output. Adjusts bus width to match."
+                          catTip1 "Mux4" (fun _ -> createCompStdLabel Mux4 model dispatch) "Selects the one of its two input busses numbered by the value of the select input
+                                                                                to be the output. Adjusts bus width to match."
                           catTip1 "Demux2" (fun _ -> createCompStdLabel Demux2 model dispatch)  "The output is equal to the input, the other is 0"
                           catTip1 "Decode4" (fun _ -> createCompStdLabel Decode4 model dispatch) "The output numbered by the binary value 
                                                                                                 of the 2 bit sel input is equal to Data, the others are 0"]
@@ -398,7 +442,8 @@ let viewCatalogue model dispatch =
                                                                                                    so ripple counters cannot be implemented in Issie"
                           catTip1 "D-flip-flop with enable" (fun _ -> createCompStdLabel DFFE model dispatch) "D flip-flop: output will remain unchanged when En is 0"
                           catTip1 "Register" (fun _ -> createRegisterPopup Register model dispatch) "N D flip-flops with inputs and outputs combined into single N bit busses"
-                          catTip1 "Register with enable" (fun _ -> createRegisterPopup RegisterE model dispatch) "As register but outputs stay the same if En is 0"]
+                          catTip1 "Register with enable" (fun _ -> createRegisterPopup RegisterE model dispatch) "As register but outputs stay the same if En is 0"
+                          catTip1 "Shift Register with enable" (fun _ -> createRegisterSPopup RegisterS model dispatch) "As register but outputs stay the same if En is 0"]
                     makeMenuGroup
                         "Memories"
                         [ catTip1 "ROM (asynchronous)" (fun _ -> createMemoryPopup AsyncROM1 model dispatch) "This is combinational: \

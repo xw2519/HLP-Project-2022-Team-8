@@ -84,6 +84,23 @@ let private testCasesWidthInfererBuses : WidhtInfererTestCase list = [
         ConnectionId "conn1", None
     ] |> Map.ofList |> Ok
 
+    //  "A MergeWires connected to a ExtractWire 1.", stateBus2',
+    // [
+    //     ConnectionId "conn0", None
+    // ] |> Map.ofList |> Ok
+
+    // "A MergeWires connected to a ExtractWire 1 and a single-bit output node", stateBus3',
+    // [
+    //     ConnectionId "conn0", None
+    //     ConnectionId "conn1", None
+    // ] |> Map.ofList |> Ok
+
+    // "A MergeWires connected to a ExtractWire 1, with loop", stateBus4',
+    // [
+    //     ConnectionId "conn0", None
+    //     ConnectionId "conn1", None
+    // ] |> Map.ofList |> Ok 
+
     "All the bus components in series, properly connected. No other components", stateBus6,
     [
         ConnectionId "conn0", None
@@ -158,6 +175,12 @@ let private testCasesWidthInfererError : WidhtInfererTestCase list = [
         Msg = "Wrong wire width. Target port expects a signal with at least 2 bits, but source port produces a 1 bit(s) signal."
         ConnectionsAffected = ["conn0"] |> List.map ConnectionId
     }
+
+    // "And connected to a ExtractWire 1", stateBus9',
+    // Error {
+    //     Msg = "Wrong wire width. Target port expects a signal with at least 2 bits, but source port produces a 1 bit(s) signal."
+    //     ConnectionsAffected = ["conn0"] |> List.map ConnectionId
+    // }
 
     "A 4 bit input connected to a 3 bit output", stateBus14,
     Error {

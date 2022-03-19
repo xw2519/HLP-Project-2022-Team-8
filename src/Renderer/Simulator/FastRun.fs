@@ -213,9 +213,10 @@ let checkAndValidate (fs:FastSimulation) =
             fc.OutputWidth
             |> Array.iteri ( fun i opn ->
                 let data = fc.Outputs[i].Step[0]
+                printfn "%A" (data.Width, fc.OutputWidth[i])
                 match data.Width, fc.OutputWidth[i] with
                 | n, Some m when n <> m ->
-                    failwithf "Inconsistent simulation data %A data found on signal output width %d from %s:%d" data m fc.FullName i
+                    failwithf "Inconsistent simulation data %A data found on signal output width %d from %s:%d" data m fc.FullName i 
                 | 0, _ ->
                     failwithf "Unexpected output data %A found on initialised component %s:%d" data fc.FullName i
                 | n, None ->
@@ -322,6 +323,7 @@ let extractStatefulComponents (step: int) (fastSim: FastSimulation) =
                 | DFFE _
                 | Register _
                 | RegisterE _ -> [| fc, RegisterState fc.Outputs[0].Step[step % fastSim.MaxArraySize] |]
+                | RegisterS _ -> [| fc, RegisterState fc.Outputs[0].Step[step % fastSim.MaxArraySize] |]
                 | ROM1 state -> [| fc, RamState state |]
                 | RAM1 _ | AsyncRAM1 _ ->
                     match fc.State

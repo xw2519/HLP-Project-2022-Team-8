@@ -263,6 +263,26 @@ let fastReduce (maxArraySize: int) (numStep: int) (isClockedReduction: bool) (co
 
         put0 out
         putW 0 bits0.Width
+    | Mux4 ->
+        let bits0, bits1, bits2, bits3, bitSelect = ins 0, ins 1, ins 2, ins 3, ins 4
+#if ASSERT
+        assertThat (bits0.Width = bits1.Width && bits1.Width == bits2.Width && bits2.Width == bits3.Width)
+        <| sprintf "Mux2 %s received two inputs with different widths: (%A) <> (%A)" comp.FullName bits0 bits1
+#endif
+        let selectbits = match bitSelect.Dat with | Word b -> b
+                                                  | BigWord b -> uint32(b)
+        let out = 
+            if (selectbits = 00u )then
+                bits0
+            else if (selectbits = 01u )then
+                bits1
+            else if (selectbits = 2u )then
+                bits2
+            else 
+                bits3
+
+        put0 out
+        putW 0 bits0.Width
     | Demux2 ->
         let bitsIn, bitSelect = ins 0, ins 1
         let zeros = convertIntToFastData bitsIn.Width 0u
@@ -380,6 +400,23 @@ let fastReduce (maxArraySize: int) (numStep: int) (isClockedReduction: bool) (co
         put0 bits0
         put1 bits1
         putW 1 bits1.Width
+    | ExtractWire (width,startBit, endBit) ->
+        let bits = ins 0
+#if ASSERTS
+        assertThat (bits.Width >= (endBit - startBit) + 1)
+        <| sprintf "ExtractWire received too little bits: expected at least %d but got %d" ((endBit - startBit) + 1) bits.Width
+#endif
+        let bits0, bits1 =
+                let bits1 = getBits (bits.Width - 1) 0 bits
+                let bits0 = getBits endBit startBit bits
+                bits0, bits1
+
+            
+        // Little endian, bits leaving from the top wire are the least
+        // significant.
+        put0 bits0
+        put1 bits1
+        putW 1 bits1.Width
     | DFF ->
         let d = extractBit (insOld 0)
         put0 (packBit d)
@@ -408,6 +445,41 @@ let fastReduce (maxArraySize: int) (numStep: int) (isClockedReduction: bool) (co
 #endif
         if (extractBit enable = 1u) then
             put0 bits
+        else
+            put0 (getLastCycleOut 0)
+    | RegisterS (width,direction) ->
+        let bits, enable, sload, shiftin = insOld 0, insOld 1, insOld 2, insOld 3
+        let outbits = getLastCycleOut 0
+#if ASSERTS
+        assertThat (bits.Width = width)
+        <| sprintf "RegisterE received data with wrong width: expected %d but got %A" width bits.Width
+#endif
+        if (extractBit enable = 1u && extractBit sload = 1u) then
+            put0 bits
+        else if (extractBit enable = 1u && extractBit sload = 0u) then
+            let bitsdata = outbits.Dat
+            let bits_preshift = match bitsdata with | Word b -> b
+                                                    | BigWord b -> uint32(b)
+
+            printfn "%A" ((int32(bits_preshift) >>> 1).ToString())
+            
+            let shiftedbits = match extractBit shiftin with 
+                                | 0u ->  match direction with 
+                                            | "Left" -> (bits_preshift <<< 1)
+                                            | "left" -> (bits_preshift <<< 1)
+                                            | "Right" -> (bits_preshift >>> 1)
+                                            | "right" -> (bits_preshift >>> 1)
+                                            | _ -> failwithf "Neither Left nor Right entered for direction"
+                                | 1u ->  match direction with 
+                                            | "Left" -> (bits_preshift <<< 1)
+                                            | "left" -> (bits_preshift <<< 1)
+                                            | "Right" -> (bits_preshift >>> 1) + uint32(2.0**(float(width-1)))
+                                            | "right" -> (bits_preshift >>> 1)  + uint32(2.0**(float(width-1)))
+                                            | _ -> failwithf "Neither Left nor Right entered for direction"
+                                | _ -> failwithf "shiftin neither 1 or 0"
+                           
+
+            put0 {bits with Dat = Word shiftedbits}
         else
             put0 (getLastCycleOut 0)
     | AsyncROM1 mem -> // Asynchronous ROM.

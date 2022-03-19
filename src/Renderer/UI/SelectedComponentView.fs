@@ -145,8 +145,9 @@ let private makeNumberOfBitsField model (comp:Component) text dispatch =
     
     let title, width =
         match comp.Type with
-        | Input w | Output w | NbitsAdder w | NbitsXor w | Register w | RegisterE w | Viewer w -> "Number of bits", w
+        | Input w | Output w | NbitsAdder w | NbitsXor w | Register w | RegisterE w |RegisterS (w,_) | Viewer w -> "Number of bits", w
         | SplitWire w -> "Number of bits in the top (LSB) wire", w
+        | ExtractWire (w,a,x) -> "Start and End bits in the input wire", w
         | BusSelection( w, _) -> "Number of bits selected: width", w
         | BusCompare( w, _) -> "Bus width", w
         | Constant1(w, _,_) -> "Number of bits in the wire", w
@@ -163,7 +164,7 @@ let private makeNumberOfBitsField model (comp:Component) text dispatch =
                 //SetComponentLabelFromText model comp text' // change the JS component label
                 let lastUsedWidth = 
                     match comp.Type with 
-                    | SplitWire _ | BusSelection _ | Constant1 _ -> 
+                    | SplitWire _ | ExtractWire _ | BusSelection _ | Constant1 _ -> 
                         model.LastUsedDialogWidth 
                     | _ ->  
                         newWidth
@@ -292,9 +293,11 @@ let private makeDescription (comp:Component) model dispatch =
     | Not | And | Or | Xor | Nand | Nor | Xnor ->
         div [] [ str <| sprintf "%A gate." comp.Type ]
     | Mux2 -> div [] [ str "Multiplexer with two inputs and one output." ]
+    | Mux4 -> div [] [ str "Multiplexer with four inputs and one output." ]
     | Demux2 -> div [] [ str "Demultiplexer with one input and two outputs." ]
     | MergeWires -> div [] [ str "Merge two wires of width n and m into a single wire of width n+m." ]
     | SplitWire _ -> div [] [ str "Split a wire of width n+m into two wires of width n and m."]
+    | ExtractWire _ -> div [] [ str "Extract a wire from bits n to m."]
     | NbitsAdder numberOfBits -> div [] [ str <| sprintf "%d bit(s) adder." numberOfBits ]
     | NbitsXor numberOfBits  -> div [] [ str <| sprintf "%d XOR gates with %d outputs." numberOfBits numberOfBits]
     | Decode4 -> div [] [ str <| "4 bit decoder: Data is output on the Sel output, all other outputs are 0."]
@@ -326,6 +329,11 @@ let private makeDescription (comp:Component) model dispatch =
              the D-flip-flop will be updated at the next clock cycle.
              The component is implicitly connected to the global clock." ]
     | Register _  -> div [] [ str "Register. The component is implicitly connected to the global clock." ]
+    | RegisterS _ ->
+        div [] [ str "Shift Register with enable. If the enable signal is high the
+                      loading or shifting of the Register will be enabled. If the sload signal is high then loading will occur, if it is low shifting will occur.
+                      The shiftin signal determines if a 1 or 0 is shifted into the number every clock cycle. The component is implicitly connected to the global
+                      clock." ]
     | RegisterE _ ->
         div [] [ str "Register with enable. If the enable signal is high the
                       state of the Register will be updated at the next clock
@@ -365,7 +373,9 @@ let private makeExtraInfo model (comp:Component) text dispatch =
         makeNumberOfBitsField model comp text dispatch
     | SplitWire _ ->
         makeNumberOfBitsField model comp text dispatch
-    | Register _ | RegisterE _ ->
+    | ExtractWire _ ->
+        makeNumberOfBitsField model comp text dispatch
+    | Register _ | RegisterE _ | RegisterS _->
         makeNumberOfBitsField model comp text dispatch
     | BusSelection _ -> 
         div [] [
@@ -399,7 +409,7 @@ let viewSelectedComponent (model: ModelType.Model) dispatch =
             let label' = Option.defaultValue "L" (formatLabelText comp.Label) // No formatting atm
             readOnlyFormField "Description" <| makeDescription comp model dispatch
             makeExtraInfo model comp label' dispatch
-            let required = match comp.Type with | SplitWire _ | MergeWires | BusSelection _ -> false | _ -> true
+            let required = match comp.Type with | ExtractWire _ | SplitWire _ | MergeWires | BusSelection _ -> false | _ -> true
             textFormField required "Component Name" label' (fun text ->
                 // TODO: removed formatLabel for now
                 //setComponentLabel model sheetDispatch comp (formatLabel comp text)
