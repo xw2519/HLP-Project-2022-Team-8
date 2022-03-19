@@ -176,7 +176,9 @@ let editMenu dispatch =
                makeElmItem "Redo" "CmdOrCtrl+Y" (fun () -> dispatch Sheet.KeyboardMsg.CtrlY)
                makeElmItem "Cancel" "ESC" (fun () -> dispatch Sheet.KeyboardMsg.ESC)
                makeElmItem "Rotate" "R" (fun () -> dispatch Sheet.KeyboardMsg.R)
-               makeElmItem "Flip" "F" (fun () -> dispatch Sheet.KeyboardMsg.F)|]
+               makeElmItem "Flip" "F" (fun () -> dispatch Sheet.KeyboardMsg.F)
+               makeElmItem "Re-Autoroute" "A" (fun () -> dispatch Sheet.KeyboardMsg.A)
+            |]
             |> ResizeArray
             |> U2.Case1
             |> Some
