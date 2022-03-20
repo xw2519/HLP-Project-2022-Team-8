@@ -176,7 +176,7 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
         | Constant1 (a, b, _) | Constant(a, b) -> (0, 1, GridSize, 2*GridSize) 
         | MergeWires -> (2, 1, 2*GridSize, 2*GridSize) 
         | SplitWire (a) ->(1, 2, 2*GridSize, 2*GridSize) 
-        | ExtractWire (w,a,b) ->(1, 2, 2*GridSize, 2*GridSize) 
+        | ExtractWire (w,a,b) ->(1, 2, 1*GridSize, 2*GridSize) 
         | Mux2 -> (3, 1, 3*GridSize, 2*GridSize) 
         | Mux4 -> (5, 1, 6*GridSize, 4*GridSize) 
         | Demux2 ->(2, 2, 3*GridSize, 2*GridSize) 
@@ -339,6 +339,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     let (ports, posX) =
         match port.PortType, symbol.SymbolCharacteristics.flip, symbol.Component.Type, port.PortNumber with
         | PortType.Input, _, Mux2, Some 2 -> symbol.Component.InputPorts, 30.0
+        | PortType.Output, _, ExtractWire(w,a,b), Some 0 -> symbol.Component.OutputPorts, float(symbol.Component.W)/2.0
         | PortType.Input, false, _, _ -> symbol.Component.InputPorts, 0.0
         | PortType.Input, true, _, _ -> symbol.Component.InputPorts, float(symbol.Component.W)
         | PortType.Output, false, _, _ -> symbol.Component.OutputPorts, float(symbol.Component.W)
@@ -347,10 +348,11 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     /// Calculate equidistant port spacing
     let index = float(List.findIndex (fun (p: Port) -> p = port) ports)
     let gap = getPortPosEdgeGap symbol.Component.Type 
-    
+    let compheight = symbol.Component.H
     let posY = 
         match symbol.Component.Type, port.PortNumber, port.PortType with
         | Mux2, Some 2, PortType.Input-> 80.0
+        | ExtractWire(w,a,b), Some 0, PortType.Input-> (5.0/6.0)*float(compheight)
         | Mux2, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
         | _ -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
 
@@ -383,11 +385,18 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | (_, true) -> x + 8.0
             else 
                 if name = "SEL" then
-                    match symbol.Rotation with
-                    | 90.0 -> x + 17.0
-                    | 180.0 -> x + 7.0
-                    | 270.0 -> x - 15.0
-                    | _ -> x
+                    if portList.Length = 3 then
+                        match symbol.Rotation with
+                        | 90.0 -> x + 17.0
+                        | 180.0 -> x + 7.0
+                        | 270.0 -> x - 15.0
+                        | _ -> x
+                    else
+                        match symbol.Rotation with
+                        | 90.0 -> x 
+                        | 180.0 -> x - 5.0
+                        | 270.0 -> x
+                        | _ -> x + 6.0
                 else
                     match (symbol.Rotation, symbol.SymbolCharacteristics.flip)  with
                     | (90.0, _) | (270.0, _) -> x 
@@ -404,11 +413,21 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | _ -> y - 5.0
             else 
                 if name = "SEL" then 
-                    match symbol.Rotation with
-                    | 90.0 -> y - 5.0
-                    | 180.0 -> y + 6.0
-                    | 270.0 -> y - 6.0
-                    | _ -> y - 17.0
+                    if portList.Length = 3 then
+                        match symbol.Rotation with
+                        | 90.0 -> y - 5.0
+                        | 180.0 -> y + 6.0
+                        | 270.0 -> y - 6.0
+                        | _ -> y - 17.0
+                    else
+                        match symbol.Rotation with
+                        | 90.0 -> y + 8.0
+                        | 180.0 -> y - 5.0
+                        | 270.0 -> y - 20.0
+                        | _ -> y - 6.0 
+                        
+                               
+
                 else
                     match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
                     | (90.0, false) | (270.0, true) -> y + 8.0
