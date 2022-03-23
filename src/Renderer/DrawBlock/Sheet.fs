@@ -67,6 +67,7 @@ type CursorType =
     | ClickablePort
     | NoCursor
     | Spinner
+    | Grab
 with
     member this.Text() = 
         match this with
@@ -74,6 +75,7 @@ with
         | ClickablePort -> "move"
         | NoCursor -> "none"
         | Spinner -> "wait"
+        | Grab -> "grab"
 
 /// Keeps track of coordinates of visual snap-to-grid indicators.
 type SnapIndicator =
@@ -662,7 +664,19 @@ let mDownUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
 /// Mouse Drag Update, can be: drag-to-selecting, moving symbols, connecting wire between ports.
 let mDragUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> = 
     match model.Action with
-    | MovingWire connId -> model, wireCmd (BusWire.DragWire (connId, mMsg))
+    | MovingWire connId -> 
+        let nearbyComponents = findNearbyComponents model mMsg.Pos
+
+        let newCursor =
+            match model.CursorType with
+            | Spinner -> Spinner
+            | _ ->
+                match mouseOn { model with NearbyComponents = nearbyComponents } mMsg.Pos with // model.NearbyComponents can be outdated e.g. if symbols have been deleted -> send with updated nearbyComponents.
+                | Connection _ -> Grab // Change cursor if on port
+                | _ -> Default
+
+        { model with NearbyComponents = nearbyComponents; CursorType = newCursor; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement} }, wireCmd (BusWire.DragWire (connId, mMsg))
+
     | Selecting ->
         let initialX = model.DragToSelectBox.X
         let initialY = model.DragToSelectBox.Y
