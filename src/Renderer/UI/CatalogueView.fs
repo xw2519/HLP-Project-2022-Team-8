@@ -95,6 +95,39 @@ let private createNbitsAdderPopup (model:Model) dispatch =
         fun (dialogData : PopupDialogData) -> getInt dialogData < 1
     dialogPopup title body buttonText buttonAction isDisabled dispatch
 
+let private createSignExtendPopup (model:Model) dispatch =
+    let title = sprintf "Sign Extend Bus"
+    let beforeInt =
+        fun _ -> str "How many bits do you want to extend your bus by?"
+    let intDefault = 0
+    let body = dialogPopupBodyOnlyInt beforeInt intDefault dispatch
+    let buttonText = "Add"
+    let buttonAction =
+        fun (dialogData : PopupDialogData) ->
+            let inputInt = getInt dialogData
+            //printfn "creating adder %d" inputInt
+            createCompStdLabel (SignExtend inputInt) model dispatch
+            dispatch ClosePopup
+    let isDisabled =
+        fun (dialogData : PopupDialogData) -> getInt dialogData < 0
+    dialogPopup title body buttonText buttonAction isDisabled dispatch
+
+let private createUnSignExtendPopup (model:Model) dispatch =
+    let title = sprintf "UnSign Extend Bus"
+    let beforeInt =
+        fun _ -> str "How many bits do you want to extend your bus by?"
+    let intDefault = 0
+    let body = dialogPopupBodyOnlyInt beforeInt intDefault dispatch
+    let buttonText = "Add"
+    let buttonAction =
+        fun (dialogData : PopupDialogData) ->
+            let inputInt = getInt dialogData
+            //printfn "creating adder %d" inputInt
+            createCompStdLabel (UnSignExtend inputInt) model dispatch
+            dispatch ClosePopup
+    let isDisabled =
+        fun (dialogData : PopupDialogData) -> getInt dialogData < 0
+    dialogPopup title body buttonText buttonAction isDisabled dispatch
 
 let private createNbitsXorPopup (model:Model) dispatch =
     let title = sprintf "Add N bits XOR gates"
