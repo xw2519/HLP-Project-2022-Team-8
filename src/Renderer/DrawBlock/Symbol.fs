@@ -447,8 +447,6 @@ let addPortTitle (comp: Component) =
     | Mux4 -> (["0"; "1";"2";"3"; "SEL"] , ["OUT"])
     | NbitsAdder _ -> (["Cin"; "A"; "B"] , ["Sum "; "Cout"])
     | NbitsXor _ -> (["P"; "Q"] , ["Out"])
-    | SignExtend n -> "SignExt " + n.ToString()
-    | UnSignExtend n -> "UnSignExt " + n.ToString()
     | Register _ -> (["D"] , ["Q"])
     | RegisterS _ -> (["D"; "EN";"SLOAD";"SHIFTIN"] , ["Q"])
     | RegisterE _ -> (["D"; "EN"] , ["Q"])
@@ -523,6 +521,8 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
         | Not -> "1"
         | Decode4 -> "Decode"
         | NbitsAdder n -> addTitleWithBusWidth "Adder" n 0
+        | SignExtend n -> "SignExt " + n.ToString()
+        | UnSignExtend n -> "UnSignExt " + n.ToString()
         | Register n | RegisterE n | RegisterS (n,_) -> addTitleWithBusWidth "Register" n 0
         | AsyncROM1 _ -> "Async-ROM"
         | ROM1 _ -> "Sync-ROM"
