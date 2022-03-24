@@ -631,6 +631,10 @@ let rec private findName (compIds: ComponentId Set) (sd: SimulationData) (net: N
                 match outPortInt with
                 | 0 -> [ { LabName = compLbl + ".Sum"; BitLimits = w - 1, 0 } ]
                 | _ -> [ { LabName = compLbl + ".Cout"; BitLimits = w - 1, 0 } ]
+            | SignExtend w -> 
+                [ { LabName = compLbl; BitLimits = w - 1, 0 } ]
+            | UnSignExtend w -> 
+                [ { LabName = compLbl; BitLimits = w - 1, 0 } ]
             | DFF | DFFE -> 
                 [ { LabName = compLbl + ".Q"; BitLimits = 0, 0 } ]
             | Register w | RegisterE w | RegisterS (w,_) -> 
