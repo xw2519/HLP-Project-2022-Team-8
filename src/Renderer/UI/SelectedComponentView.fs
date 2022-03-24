@@ -145,7 +145,7 @@ let private makeNumberOfBitsField model (comp:Component) text dispatch =
     
     let title, width =
         match comp.Type with
-        | Input w | Output w | NbitsAdder w | NbitsXor w | Register w | RegisterE w |RegisterS (w,_) | Viewer w -> "Number of bits", w
+        | Input w | Output w | NbitsAdder w | NbitsXor w | SignExtend w | UnSignExtend w | Register w | RegisterE w |RegisterS (w,_) | Viewer w -> "Number of bits", w
         | SplitWire w -> "Number of bits in the top (LSB) wire", w
         | ExtractWire (w,a,x) -> "Start and End bits in the input wire", w
         | BusSelection( w, _) -> "Number of bits selected: width", w
@@ -300,6 +300,8 @@ let private makeDescription (comp:Component) model dispatch =
     | ExtractWire _ -> div [] [ str "Extract a wire from bits n to m."]
     | NbitsAdder numberOfBits -> div [] [ str <| sprintf "%d bit(s) adder." numberOfBits ]
     | NbitsXor numberOfBits  -> div [] [ str <| sprintf "%d XOR gates with %d outputs." numberOfBits numberOfBits]
+    | SignExtend numberOfBits -> div [] [ str <| sprintf "%d bits Sign Extended." numberOfBits ]
+    | UnSignExtend numberOfBits -> div [] [ str <| sprintf "%d bits UnSign Extended." numberOfBits ]
     | Decode4 -> div [] [ str <| "4 bit decoder: Data is output on the Sel output, all other outputs are 0."]
     | Custom custom ->
         let styledSpan styles txt = span [Style styles] [str <| txt]
@@ -369,7 +371,7 @@ let private makeDescription (comp:Component) model dispatch =
 
 let private makeExtraInfo model (comp:Component) text dispatch =
     match comp.Type with
-    | Input _ | Output _ | NbitsAdder _ | NbitsXor _ | Viewer _ ->
+    | Input _ | Output _ | NbitsAdder _ | NbitsXor _ | SignExtend _ | UnSignExtend _ | Viewer _ ->
         makeNumberOfBitsField model comp text dispatch
     | SplitWire _ ->
         makeNumberOfBitsField model comp text dispatch
