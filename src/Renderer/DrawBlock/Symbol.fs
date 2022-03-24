@@ -191,7 +191,9 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
         | ROM1 (a) -> (1, 1, 3*GridSize, 5*GridSize) 
         | RAM1 (a) | AsyncRAM1 a -> (3, 1, 3*GridSize, 5*GridSize) 
         | NbitsXor (n) -> (2, 1, 3*GridSize, 5*GridSize) 
-        | NbitsAdder (n) -> (3, 2, 3*GridSize, 5*GridSize) 
+        | NbitsAdder (n) -> (3, 2, 3*GridSize, 5*GridSize)
+        | SignExtend (n) -> (1, 1, 1*GridSize, 4*GridSize) 
+        | UnSignExtend (n) -> (1, 1, 1*GridSize, 4*GridSize)
         | Custom x -> 
             let h = GridSize + GridSize * (List.max [List.length x.InputLabels; List.length x.OutputLabels])
             let maxInLength, maxOutLength = cutToLength x.InputLabels, cutToLength x.OutputLabels
@@ -445,6 +447,8 @@ let addPortTitle (comp: Component) =
     | Mux4 -> (["0"; "1";"2";"3"; "SEL"] , ["OUT"])
     | NbitsAdder _ -> (["Cin"; "A"; "B"] , ["Sum "; "Cout"])
     | NbitsXor _ -> (["P"; "Q"] , ["Out"])
+    | SignExtend n -> "SignExt " + n.ToString()
+    | UnSignExtend n -> "UnSignExt " + n.ToString()
     | Register _ -> (["D"] , ["Q"])
     | RegisterS _ -> (["D"; "EN";"SLOAD";"SHIFTIN"] , ["Q"])
     | RegisterE _ -> (["D"; "EN"] , ["Q"])
@@ -971,6 +975,8 @@ let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
             | Demux2 -> "DM"
             | NbitsAdder _ -> "A"
             | NbitsXor _ -> "XOR"
+            | SignExtend _ -> "SE"
+            | UnSignExtend _ -> "UE"
             | DFF | DFFE -> "FF"
             | Register _ | RegisterE _ | RegisterS _-> "REG"
             | AsyncROM1 _ -> "AROM"
@@ -1137,6 +1143,8 @@ let updateCmpBits (model:Model) (cmpId:ComponentId) (bits : int) =
         | Viewer _ -> Viewer bits
         | NbitsAdder _ -> NbitsAdder bits
         | NbitsXor _ -> NbitsXor bits
+        | SignExtend _ -> SignExtend bits
+        | UnSignExtend _ -> UnSignExtend bits
         | Register _ -> Register bits
         | RegisterE _ -> RegisterE bits
         | RegisterS (_,d) -> RegisterS (bits,d)
