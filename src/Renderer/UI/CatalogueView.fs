@@ -467,7 +467,9 @@ let viewCatalogue model dispatch =
                     makeMenuGroup
                         "Arithmetic"
                         [ catTip1 "N bits adder" (fun _ -> createNbitsAdderPopup model dispatch) "N bit Binary adder with carry in to bit 0 and carry out from bit N-1"
-                          catTip1 "N bits XOR" (fun _ -> createNbitsXorPopup model dispatch) "N bit XOR gates - use to make subtractor or comparator"]
+                          catTip1 "N bits XOR" (fun _ -> createNbitsXorPopup model dispatch) "N bit XOR gates - use to make subtractor or comparator"
+                          catTip1 "Sign Extend Bus" (fun _ -> createSignExtendPopup model dispatch) "Extend the value contained in a bus respecting its sign"
+                          catTip1 "UnSign Extend Bus" (fun _ -> createUnSignExtendPopup model dispatch) "Extend the value contained in a bus without taking into account the sign"]
 
                     makeMenuGroup
                         "Flip Flops and Registers"
