@@ -126,12 +126,12 @@ let getOutputWidths (sc: SimulationComponent) (wa: int option array) =
     | BusSelection (w, _)
     | Constant1 (w, _,_)
     | Constant (w,_)
+    | SignExtend w
+    | UnSignExtend w
     | NbitsXor w -> putW0 w
     | NbitsAdder w ->
         putW0 w
         putW1 1
-    | SignExtend w
-    | UnSignExtend w
     | Not
     | And
     | Or
