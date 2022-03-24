@@ -971,7 +971,7 @@ let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
             | Nor -> "NOR"
             | Xnor -> "XNOR"
             | Mux2 -> "MUX"
-            | Mux4 -> "MUX"
+            | Mux4 -> "MUX4_"
             | Demux2 -> "DM"
             | NbitsAdder _ -> "A"
             | NbitsXor _ -> "XOR"
