@@ -443,6 +443,14 @@ let getVerilogComponent (fs: FastSimulation) (fc: FastComponent) =
         let b = ins 1
         let xor = outs 0
         $"assign {xor} = {a} ^ {b};\n"
+    | SignExtend n ->
+        let cin = ins 0
+        let cout = outs 1
+        $"assign {{%s{cout}}} =  %s{cin};\n"
+    | UnSignExtend n ->
+        let cin = ins 0
+        let cout = outs 1
+        $"assign {{%s{cout}}} =  %s{cin};\n"
     | Mux2 -> $"assign %s{outs 0} = %s{ins 2} ? %s{ins 1} : %s{ins 0};\n"
     | Mux4 -> $"assign %s{outs 0} = %s{ins 2} ? %s{ins 1} : %s{ins 0};\n"
     | BusSelection (outW, lsb) ->
