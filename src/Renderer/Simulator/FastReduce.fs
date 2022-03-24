@@ -344,6 +344,58 @@ let fastReduce (maxArraySize: int) (numStep: int) (isClockedReduction: bool) (co
                 failwithf $"Inconsistent inputs to NBitsXOr {comp.FullName} A={a},{A}; B={b},{B}"
 
         put0 {A with Dat = outDat}
+        
+    | SignExtend numberOfBits ->
+        let ext1 = [0..numberOfBits-1] |> List.fold (fun x y -> x + "1") "" |> uint32
+        let ext0 = [0..numberOfBits-1] |> List.fold (fun x y -> x + "0") "1" |> uint32
+        let bits0 = ins 0
+        let sign = getBits (bits0.Width-1) (bits0.Width-1) bits0
+        let ext = match  extractBit sign = 0u with
+                    | true -> ext0             
+                    | false -> ext1
+        let extend = convertIntToFastData numberOfBits ext
+
+        // Little endian, bits coming from the top wire are the least
+        // significant.
+        let wOut = bits0.Width + numberOfBits   // extractBit
+        let outBits =
+            if wOut <= 32 then
+                match bits0.Dat, extend.Dat with
+                | Word b0, Word b1 ->
+                    (b1 <<< bits0.Width) ||| b0
+                    |> (fun n ->  convertIntToFastData wOut n)
+                | _ -> failwithf $"inconsistent merge widths: {bits0},{extend}"
+            else
+                let b0 = convertFastDataToBigint bits0
+                let b1 = convertFastDataToBigint extend
+                (b1 <<< bits0.Width) ||| b0
+                |> convertBigintToFastData wOut  
+        put0 outBits
+        putW 0 outBits.Width
+    
+    | UnSignExtend numberOfBits ->
+        let ext0 = [0..numberOfBits-1] |> List.fold (fun x y -> x + "0") "" |> uint32
+        let bits0 = ins 0
+        let extend = convertIntToFastData numberOfBits ext0
+
+        // Little endian, bits coming from the top wire are the least
+        // significant.
+        let wOut = bits0.Width + numberOfBits   // extractBit
+        let outBits =
+            if wOut <= 32 then
+                match bits0.Dat, extend.Dat with
+                | Word b0, Word b1 ->
+                    (b1 <<< bits0.Width) ||| b0
+                    |> (fun n ->  convertIntToFastData wOut n)
+                | _ -> failwithf $"inconsistent merge widths: {bits0},{extend}"
+            else
+                let b0 = convertFastDataToBigint bits0
+                let b1 = convertFastDataToBigint extend
+                (b1 <<< bits0.Width) ||| b0
+                |> convertBigintToFastData wOut  
+        put0 outBits
+        putW 0 outBits.Width
+        
     | Decode4 ->
         let select, data = ins 0, ins 1
         let selN = convertFastDataToInt select |> int
