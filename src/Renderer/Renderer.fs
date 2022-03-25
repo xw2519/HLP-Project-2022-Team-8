@@ -140,8 +140,8 @@ let viewMenu dispatch =
         makeRoleItem "Toggle Fullscreen" (Some "F11") MenuItemRole.Togglefullscreen
         makeItem "Toggle Grid" None (fun ev -> sheetDispatch Sheet.Msg.ToggleGrid)
         menuSeparator
-        makeRoleItem "Zoom  In" (Some "CmdOrCtrl+Shift+Plus") MenuItemRole.ZoomIn
-        makeRoleItem "Zoom  Out" (Some "CmdOrCtrl+Shift+-") MenuItemRole.ZoomOut
+        makeRoleItem "Zoom In" (Some "CmdOrCtrl+Shift+Plus") MenuItemRole.ZoomIn
+        makeRoleItem "Zoom Out" (Some "CmdOrCtrl+Shift+-") MenuItemRole.ZoomOut
         makeRoleItem "Reset Zoom" (Some "CmdOrCtrl+0") MenuItemRole.ResetZoom
         menuSeparator
         makeItem "Diagram Zoom In" (Some "Shift+Plus") (fun ev -> dispatch Sheet.KeyboardMsg.ZoomIn)

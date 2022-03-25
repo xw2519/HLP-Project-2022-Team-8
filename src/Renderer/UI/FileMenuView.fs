@@ -129,7 +129,7 @@ let private displayFileErrorNotification err dispatch =
     dispatch <| SetFilesNotification note
 
 /// Send messages to change Diagram Canvas and specified sheet waveSim in model
-let private loadStateIntoModel (compToSetup:LoadedComponent) waveSim ldComps model dispatch =
+let private loadStateIntoModel (compToSetup: LoadedComponent) waveSim ldComps model dispatch =
     // it seems still need this, however code has been deleted!
     //Sheet.checkForTopMenu () // A bit hacky, but need to call this once after everything has loaded to compensate mouse coordinates.
     
@@ -281,6 +281,9 @@ let saveOpenFileAction isAuto model (dispatch: Msg -> Unit)=
         
 /// save current open file, updating model etc, and returning the loaded component and the saved (unreduced) canvas state
 let saveOpenFileActionWithModelUpdate (model: Model) (dispatch: Msg -> Unit) =
+    print "saveOpenFileActionWithModelUpdate"
+    print model 
+    
     let opt = saveOpenFileAction false model dispatch
     let ldcOpt = Option.map fst opt
     let state = Option.map snd opt |> Option.defaultValue ([],[])
@@ -655,15 +658,6 @@ let private newProject model dispatch  =
             // Create empty initial diagram file.
             let initialComponent = createEmptyComponentAndFile path "main"
             setupProjectFromComponents "main" [initialComponent] model dispatch
-
-
-
-
-
-
-
-
-
 
 /// work out what to do opening a file
 let rec resolveComponentOpenPopup 
