@@ -320,6 +320,7 @@ module CommonTypes
         InputPorts : Port list // position on this list determines inputPortNumber
         OutputPorts : Port list // position in this lits determines OutputPortNumber
         Rotation : float
+        Flip: bool
         X : int
         Y : int
         H : int

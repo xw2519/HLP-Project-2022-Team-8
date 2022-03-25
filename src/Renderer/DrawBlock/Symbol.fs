@@ -55,7 +55,7 @@ type Model =
 
 type Msg =
     | MouseMsg of MouseT
-    | AddSymbol of pos:XYPos * compType:ComponentType * lbl: string * symbolRotation: float
+    | AddSymbol of pos:XYPos * compType:ComponentType * lbl: string * symbolRotation: float * symbolFlip: bool
     | CopySymbols of ComponentId list
     | DeleteSymbols of sIds:ComponentId list
     | ShowAllInputPorts | ShowAllOutputPorts | DeleteAllPorts 
@@ -133,6 +133,8 @@ let rotateSymbol (symbol: Symbol) =
 let flipSymbol (symbol: Symbol) = 
     let symbolCharacteristics = { symbol.SymbolCharacteristics with flip = not symbol.SymbolCharacteristics.flip }
 
+    let rotatedComponent = {symbol.Component with Flip = not symbol.SymbolCharacteristics.flip}
+
     let newSymbolPoints = 
         match symbol.Component.Type with 
         | ComponentType.ExtractWire (_, _, _) -> 
@@ -143,13 +145,13 @@ let flipSymbol (symbol: Symbol) =
             |> List.map (rotatePoint 180.0)
             |> List.map (convertRelativeToSymbolTopLeft symbol.Component.W symbol.Component.H)
     
-    { symbol with SymbolCharacteristics = symbolCharacteristics; SymbolPoints = newSymbolPoints }
+    { symbol with SymbolCharacteristics = symbolCharacteristics; SymbolPoints = newSymbolPoints; Component = rotatedComponent }
 
 //--------------------------------- Skeleton Model Type for Symbols and Components ---------------------------------//
 
 let init () = { Symbols = Map.empty; CopiedSymbols = Map.empty; Ports = Map.empty; SymbolsCount = Map.empty}, Cmd.none
 
-let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compLabel: string) (rotation: float) : Component =
+let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compLabel: string) (rotation: float) (flip: bool) : Component =
     let cutToLength (lst: (string * int) list) =
         let labelList = List.map (fst >> String.length) lst
         
@@ -222,6 +224,7 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
           InputPorts = initPorts numOfInputPorts compId PortType.Input 
           OutputPorts  = initPorts numOfOutputPorts compId PortType.Output 
           Rotation = rotation
+          Flip = flip
           X  = int(pos.X - float(width)/2.0) 
           Y = int(pos.Y - float(height)/2.0) 
           H = height 
@@ -231,11 +234,11 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
     
 let initSymbolCharacteristics (comp: Component) = 
     match comp.Type with 
-    | Nand | Nor | Xnor | Not -> { clocked = false; inverted = true; flip = false}
-    | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> { clocked = true; inverted = false; flip = false }
-    | _ -> { clocked = false; inverted = false; flip = false }
+    | Nand | Nor | Xnor | Not -> { clocked = false; inverted = true; flip = comp.Flip}
+    | DFF | DFFE | Register _ | RegisterE _ | ROM1 _ | RAM1 _ | AsyncRAM1 _ -> { clocked = true; inverted = false; flip = comp.Flip }
+    | _ -> { clocked = false; inverted = false; flip = comp.Flip }
 
-let initSymbolPoints (compType: ComponentType) compHeight compWidth rotation : XYPos list = 
+let initSymbolPoints (compType: ComponentType) compHeight compWidth rotation flip : XYPos list = 
     let symbolPoints compHeight compWidth : XYPos list = 
         match compType with
         | BusSelection _ | BusCompare _ -> 
@@ -311,15 +314,27 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth rotation : X
         // EXTENSION:
         // | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
         // | Demux4 | Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
-    
-    (symbolPoints compHeight compWidth)
-    |> List.map (convertRelativeToSymbolCenter (int(compWidth)) (int(compHeight)))
-    |> List.map (rotatePoint rotation)
-    |> List.map (convertRelativeToSymbolTopLeft (int(compWidth)) (int(compHeight)))
+    match compType with 
+    | ComponentType.ExtractWire (_, _, _) -> 
+        (symbolPoints compHeight compWidth)
+        |> List.map (convertRelativeToSymbolCenter (int(compWidth)) (int(compHeight)))
+        |> List.map (rotatePoint rotation)
+        |> List.map (convertRelativeToSymbolTopLeft (int(compWidth)) (int(compHeight)))
+    | _ -> 
+        if flip then 
+            (symbolPoints compHeight compWidth)
+            |> List.map (convertRelativeToSymbolCenter (int(compWidth)) (int(compHeight)))
+            |> List.map (rotatePoint rotationMap.[rotationMap.[rotation]])
+            |> List.map (convertRelativeToSymbolTopLeft (int(compWidth)) (int(compHeight)))
+        else 
+            (symbolPoints compHeight compWidth)
+            |> List.map (convertRelativeToSymbolCenter (int(compWidth)) (int(compHeight)))
+            |> List.map (rotatePoint rotation)
+            |> List.map (convertRelativeToSymbolTopLeft (int(compWidth)) (int(compHeight)))
 
-let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) (rotation: float) : Symbol =
+let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) (rotation: float) (flip: bool) : Symbol =
     let id = JSHelpers.uuid()
-    let comp = initComponent pos comptype id label rotation
+    let comp = initComponent pos comptype id label rotation flip
 
     { Center = { X = pos.X - float(comp.W)/2.0; Y = pos.Y - float(comp.H)/2.0 }
       ShowInputPorts = false
@@ -332,9 +347,8 @@ let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) (rotation:
       Opacity = 1.0
       Moving = false
       Rotation = rotation
-      SymbolPoints = initSymbolPoints comp.Type (float(comp.H)) (float(comp.W)) rotation
-      SymbolCharacteristics = initSymbolCharacteristics comp 
-      }
+      SymbolPoints = initSymbolPoints comp.Type (float(comp.H)) (float(comp.W)) rotation flip
+      SymbolCharacteristics = initSymbolCharacteristics comp }
 
 //--------------------------------- Port Functions ---------------------------------//
 
@@ -1086,13 +1100,12 @@ let removeSymsFromSymbolsCount cmpIds model =
 /// Return an updated model containing a new Symbol.
 /// The Symbol is centered at symCenter, contains a Component of type cmpType
 /// and has a label symLabel
-let addSymToModel (model: Model) symCenter cmpType symLabel symbolRotation =
-    let sym = makeSymbol symCenter cmpType symLabel symbolRotation
+let addSymToModel (model: Model) symCenter cmpType symLabel symRotation symFlip=
+    let sym = makeSymbol symCenter cmpType symLabel symRotation symFlip
     let ports = addToPortModel model sym
     let updatedSyms = Map.add sym.ComponentId sym model.Symbols
     let updatedCount = addSymToSymbolsCount sym.Component.Type model 
     { model with Symbols = updatedSyms; Ports = ports; SymbolsCount = updatedCount }, sym.ComponentId
-
 
 /// Returns the componentIds of the Symbols in CopiedSymbols
 let getCopiedSymbolsIds (model: Model) : (ComponentId list) =
@@ -1117,7 +1130,7 @@ let pasteSymbols (model: Model) (mousePos: XYPos) : (Model * ComponentId list) =
             | IOLabel | Input _ | Output _ -> copiedSym.Component.Label
             | _ -> genCmpLabel { model with Symbols = currModel.Symbols } copiedSym.Component.Type
 
-        let pastedCmp = initComponent pastedSymCenter copiedSym.Component.Type id pastedSymLabel copiedSym.Rotation
+        let pastedCmp = initComponent pastedSymCenter copiedSym.Component.Type id pastedSymLabel copiedSym.Rotation copiedSym.SymbolCharacteristics.flip
 
         let pastedSymbol =
             { copiedSym with
@@ -1245,8 +1258,8 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let newSymbolCount = removeSymsFromSymbolsCount compIds model
         { model with Symbols = newSymbols; SymbolsCount = newSymbolCount }, Cmd.none 
 
-    | AddSymbol (pos, compType, lbl, symbolRotation) ->
-        let (newModel, _) = addSymToModel model pos compType lbl symbolRotation
+    | AddSymbol (pos, compType, lbl, symbolRotation, symbolFlip) ->
+        let (newModel, _) = addSymToModel model pos compType lbl symbolRotation symbolFlip
         newModel, Cmd.none
 
     | CopySymbols compIds ->
@@ -1344,7 +1357,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         let loadComponent cmp =
             let (h,w) =
                 if cmp.H = -1 && cmp.W = -1 then
-                    let cmp' = initComponent {X = float cmp.X; Y = float cmp.Y} cmp.Type cmp.Id cmp.Label cmp.Rotation
+                    let cmp' = initComponent {X = float cmp.X; Y = float cmp.Y} cmp.Type cmp.Id cmp.Label cmp.Rotation cmp.Flip
                     cmp'.H,cmp'.W
                 else
                     cmp.H, cmp.W
@@ -1362,7 +1375,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
               InWidth0 = None
               InWidth1 = None
               Rotation = cmp.Rotation
-              SymbolPoints = (initSymbolPoints cmp.Type cmp.H cmp.W cmp.Rotation)
+              SymbolPoints = (initSymbolPoints cmp.Type cmp.H cmp.W cmp.Rotation cmp.Flip)
               SymbolCharacteristics = (initSymbolCharacteristics cmp) }
         
 
@@ -1426,13 +1439,13 @@ let update (msg : Msg) (model : Model): Model*Cmd<'a>  =
         {model with Symbols = rotatedSymbols}, Cmd.none
 
     | FlipSymbols compIds ->
-    let flipSelectedCmps selectedComponents cmpId symbol  =
-        match List.contains cmpId selectedComponents with
-        | true -> flipSymbol symbol
-        | false -> symbol
+        let flipSelectedCmps selectedComponents cmpId symbol  =
+            match List.contains cmpId selectedComponents with
+            | true -> flipSymbol symbol
+            | false -> symbol
 
-    let flippedSymbols = Map.map (flipSelectedCmps compIds) model.Symbols
-    {model with Symbols = flippedSymbols}, Cmd.none
+        let flippedSymbols = Map.map (flipSelectedCmps compIds) model.Symbols
+        {model with Symbols = flippedSymbols}, Cmd.none
 
 // -------------------------------INTERFACE TO ISSIE --------------------------------- //
 

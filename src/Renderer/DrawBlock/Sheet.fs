@@ -818,7 +818,7 @@ let mMoveUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
     | DragAndDrop -> moveSymbols model mMsg
     | InitialisedCreateComponent (compType, lbl) ->
         let labelTest = if lbl = "" then Symbol.genCmpLabel model.Wire.Symbol compType else lbl
-        let newSymbolModel, newCompId = Symbol.addSymToModel model.Wire.Symbol mMsg.Pos compType labelTest 0.0
+        let newSymbolModel, newCompId = Symbol.addSymToModel model.Wire.Symbol mMsg.Pos compType labelTest 0.0 false
 
         { model with Wire = { model.Wire with Symbol = newSymbolModel }
                      Action = DragAndDrop
@@ -897,7 +897,7 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
-        Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1", 90.0)); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
+        Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1", 90.0, false)); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
 
     | KeyPress AltShiftZ ->
         TimeHelpers.printStats() 
