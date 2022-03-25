@@ -281,12 +281,9 @@ let saveOpenFileAction isAuto model (dispatch: Msg -> Unit)=
         
 /// save current open file, updating model etc, and returning the loaded component and the saved (unreduced) canvas state
 let saveOpenFileActionWithModelUpdate (model: Model) (dispatch: Msg -> Unit) =
-    print "saveOpenFileActionWithModelUpdate"
-    print model 
-    
     let opt = saveOpenFileAction false model dispatch
+
     let ldcOpt = Option.map fst opt
-    let state = Option.map snd opt |> Option.defaultValue ([],[])
     match model.CurrentProj with
     | None -> failwithf "What? Should never be able to save sheet when project=None"
     | Some p -> 
