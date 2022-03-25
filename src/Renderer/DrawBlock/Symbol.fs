@@ -969,7 +969,7 @@ let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) =
 //--------------------------- ALTERNATIVE SIDE PORTS --------------------------------------//
 
 // Returns whether the port associated with inPortId is on an alternative side
-let isPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
+let isInputPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
     match inPortId with
     | InputPortId(str) ->
         let port = getPort model str
@@ -977,6 +977,17 @@ let isPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
         let symbol = Map.find componentId model.Symbols
         match symbol.Component.Type, port.PortNumber with
         | Mux2, Some 2 -> true
+        | _ -> false
+
+// Returns whether the port associated with outPortId is on an alternative side
+let isOutputPortOnAlternativeSide (model: Model) (outPortId: OutputPortId) =
+    match outPortId with
+    | OutputPortId(str) ->
+        let port = getPort model str
+        let componentId = ComponentId port.HostId
+        let symbol = Map.find componentId model.Symbols
+        match symbol.Component.Type, port.PortNumber with
+        | ExtractWire(_,_,_), Some 1 -> true
         | _ -> false
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
