@@ -68,6 +68,7 @@ type CursorType =
     | NoCursor
     | Spinner
     | Grab
+    | Grabbing
 with
     member this.Text() = 
         match this with
@@ -76,6 +77,7 @@ with
         | NoCursor -> "none"
         | Spinner -> "wait"
         | Grab -> "grab"
+        | Grabbing -> "grabbing"
 
 /// Keeps track of coordinates of visual snap-to-grid indicators.
 type SnapIndicator =
@@ -460,7 +462,7 @@ let moveSymbols (model: Model) (mMsg: MouseT) =
         | Spinner -> Spinner
         | _ ->
             match mouseOn { model with NearbyComponents = nearbyComponents } mMsg.Pos with // model.NearbyComponents can be outdated e.g. if symbols have been deleted -> send with updated nearbyComponents.
-            | Component _ -> Grab // Change cursor if on port
+            | Component _ -> Grabbing // Change cursor if on port
             | _ -> Default
     
     match model.SelectedComponents.Length with
@@ -683,7 +685,8 @@ let mDragUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
             | Spinner -> Spinner
             | _ ->
                 match mouseOn { model with NearbyComponents = nearbyComponents } mMsg.Pos with // model.NearbyComponents can be outdated e.g. if symbols have been deleted -> send with updated nearbyComponents.
-                | Connection _ -> Grab // Change cursor if on port
+                | Connection _ -> Grabbing // Change cursor if on port
+                | Component _ -> Grabbing
                 | _ -> Default
 
         { model with NearbyComponents = nearbyComponents; CursorType = newCursor; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement} }, wireCmd (BusWire.DragWire (connId, mMsg))
@@ -834,6 +837,8 @@ let mMoveUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
             | _ ->
                 match mouseOn { model with NearbyComponents = nearbyComponents } mMsg.Pos with // model.NearbyComponents can be outdated e.g. if symbols have been deleted -> send with updated nearbyComponents.
                 | InputPort _ | OutputPort _ -> ClickablePort // Change cursor if on port
+                | Component _ -> Grab
+                | Connection _ -> Grab
                 | _ -> Default
             
         { model with NearbyComponents = nearbyComponents; CursorType = newCursor; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement} },
