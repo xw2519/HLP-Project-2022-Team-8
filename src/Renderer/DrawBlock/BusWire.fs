@@ -1451,7 +1451,7 @@ let autorouteWire (model : Model) (wire : Wire) : Wire =
     let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol wire.InputPort
     let inputSymbolRotation = int (inputSymbol.Rotation)
     let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
-    let inputPortOnAltSide = Symbol.isPortOnAlternativeSide model.Symbol wire.InputPort
+    let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide model.Symbol wire.InputPort
 
     // Re-generate default Wire shape going from the InputPort to the OutputPort
     {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide}
@@ -1876,7 +1876,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol inputId
         let inputSymbolRotation = int (inputSymbol.Rotation)
         let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
-        let inputPortOnAltSide = Symbol.isPortOnAlternativeSide model.Symbol inputId
+        let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide model.Symbol inputId
 
         let wireId = ConnectionId(JSHelpers.uuid())
         let segmentList = (makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide)
@@ -2205,7 +2205,7 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
                 let inputSymbol = Symbol.getSymbolFromInPortId wModel.Symbol (InputPortId newInputPort)
                 let inputSymbolRotation = int (inputSymbol.Rotation)
                 let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
-                let inputPortOnAltSide = Symbol.isPortOnAlternativeSide wModel.Symbol (InputPortId newInputPort)
+                let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide wModel.Symbol (InputPortId newInputPort)
 
                 let segmentList = (makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide)
                 [

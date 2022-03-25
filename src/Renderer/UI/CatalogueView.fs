@@ -95,6 +95,39 @@ let private createNbitsAdderPopup (model:Model) dispatch =
         fun (dialogData : PopupDialogData) -> getInt dialogData < 1
     dialogPopup title body buttonText buttonAction isDisabled dispatch
 
+let private createSignExtendPopup (model:Model) dispatch =
+    let title = sprintf "Sign Extend Bus"
+    let beforeInt =
+        fun _ -> str "How many bits do you want to extend your bus by?"
+    let intDefault = 0
+    let body = dialogPopupBodyOnlyInt beforeInt intDefault dispatch
+    let buttonText = "Add"
+    let buttonAction =
+        fun (dialogData : PopupDialogData) ->
+            let inputInt = getInt dialogData
+            //printfn "creating adder %d" inputInt
+            createCompStdLabel (SignExtend inputInt) model dispatch
+            dispatch ClosePopup
+    let isDisabled =
+        fun (dialogData : PopupDialogData) -> getInt dialogData < 0
+    dialogPopup title body buttonText buttonAction isDisabled dispatch
+
+let private createUnSignExtendPopup (model:Model) dispatch =
+    let title = sprintf "UnSign Extend Bus"
+    let beforeInt =
+        fun _ -> str "How many bits do you want to extend your bus by?"
+    let intDefault = 0
+    let body = dialogPopupBodyOnlyInt beforeInt intDefault dispatch
+    let buttonText = "Add"
+    let buttonAction =
+        fun (dialogData : PopupDialogData) ->
+            let inputInt = getInt dialogData
+            //printfn "creating adder %d" inputInt
+            createCompStdLabel (UnSignExtend inputInt) model dispatch
+            dispatch ClosePopup
+    let isDisabled =
+        fun (dialogData : PopupDialogData) -> getInt dialogData < 0
+    dialogPopup title body buttonText buttonAction isDisabled dispatch
 
 let private createNbitsXorPopup (model:Model) dispatch =
     let title = sprintf "Add N bits XOR gates"
@@ -434,7 +467,9 @@ let viewCatalogue model dispatch =
                     makeMenuGroup
                         "Arithmetic"
                         [ catTip1 "N bits adder" (fun _ -> createNbitsAdderPopup model dispatch) "N bit Binary adder with carry in to bit 0 and carry out from bit N-1"
-                          catTip1 "N bits XOR" (fun _ -> createNbitsXorPopup model dispatch) "N bit XOR gates - use to make subtractor or comparator"]
+                          catTip1 "N bits XOR" (fun _ -> createNbitsXorPopup model dispatch) "N bit XOR gates - use to make subtractor or comparator"
+                          catTip1 "Sign Extend Bus" (fun _ -> createSignExtendPopup model dispatch) "Extend the value contained in a bus respecting its sign"
+                          catTip1 "UnSign Extend Bus" (fun _ -> createUnSignExtendPopup model dispatch) "Extend the value contained in a bus without taking into account the sign"]
 
                     makeMenuGroup
                         "Flip Flops and Registers"

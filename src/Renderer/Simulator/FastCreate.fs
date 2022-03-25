@@ -88,6 +88,10 @@ let getPortNumbers (sc: SimulationComponent) =
             5,1    
         | NbitsAdder _ -> 
             3,2
+        | SignExtend _ -> 
+            1,1
+        | UnSignExtend _ -> 
+            1,1
         | AsyncRAM1 _
         | RAM1 _ -> 
             2,1
@@ -122,6 +126,8 @@ let getOutputWidths (sc: SimulationComponent) (wa: int option array) =
     | BusSelection (w, _)
     | Constant1 (w, _,_)
     | Constant (w,_)
+    | SignExtend w
+    | UnSignExtend w
     | NbitsXor w -> putW0 w
     | NbitsAdder w ->
         putW0 w

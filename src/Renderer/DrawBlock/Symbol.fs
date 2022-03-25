@@ -195,7 +195,9 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
         | ROM1 (a) -> (1, 1, 3*GridSize, 5*GridSize) 
         | RAM1 (a) | AsyncRAM1 a -> (3, 1, 3*GridSize, 5*GridSize) 
         | NbitsXor (n) -> (2, 1, 3*GridSize, 5*GridSize) 
-        | NbitsAdder (n) -> (3, 2, 3*GridSize, 5*GridSize) 
+        | NbitsAdder (n) -> (3, 2, 3*GridSize, 5*GridSize)
+        | SignExtend (n) -> (1, 1, 1*GridSize, 4*GridSize) 
+        | UnSignExtend (n) -> (1, 1, 1*GridSize, 4*GridSize)
         | Custom x -> 
             let h = GridSize + GridSize * (List.max [List.length x.InputLabels; List.length x.OutputLabels])
             let maxInLength, maxOutLength = cutToLength x.InputLabels, cutToLength x.OutputLabels
@@ -542,6 +544,8 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
         | Not -> "1"
         | Decode4 -> "Decode"
         | NbitsAdder n -> addTitleWithBusWidth "Adder" n 0
+        | SignExtend n -> "SignExt " + n.ToString()
+        | UnSignExtend n -> "UnSignExt " + n.ToString()
         | Register n | RegisterE n | RegisterS (n,_) -> addTitleWithBusWidth "Register" n 0
         | AsyncROM1 _ -> "Async-ROM"
         | ROM1 _ -> "Sync-ROM"
@@ -965,7 +969,7 @@ let getSymbolFromOutPortId (model: Model) (outPortId : OutputPortId) =
 //--------------------------- ALTERNATIVE SIDE PORTS --------------------------------------//
 
 // Returns whether the port associated with inPortId is on an alternative side
-let isPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
+let isInputPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
     match inPortId with
     | InputPortId(str) ->
         let port = getPort model str
@@ -973,6 +977,17 @@ let isPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
         let symbol = Map.find componentId model.Symbols
         match symbol.Component.Type, port.PortNumber with
         | Mux2, Some 2 -> true
+        | _ -> false
+
+// Returns whether the port associated with outPortId is on an alternative side
+let isOutputPortOnAlternativeSide (model: Model) (outPortId: OutputPortId) =
+    match outPortId with
+    | OutputPortId(str) ->
+        let port = getPort model str
+        let componentId = ComponentId port.HostId
+        let symbol = Map.find componentId model.Symbols
+        match symbol.Component.Type, port.PortNumber with
+        | ExtractWire(_,_,_), Some 1 -> true
         | _ -> false
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
@@ -989,10 +1004,12 @@ let genCmpLabel (model: Model) (cmpType: ComponentType) : string =
             | Nor -> "NOR"
             | Xnor -> "XNOR"
             | Mux2 -> "MUX"
-            | Mux4 -> "MUX"
+            | Mux4 -> "MUX4_"
             | Demux2 -> "DM"
             | NbitsAdder _ -> "A"
             | NbitsXor _ -> "XOR"
+            | SignExtend _ -> "SE"
+            | UnSignExtend _ -> "UE"
             | DFF | DFFE -> "FF"
             | Register _ | RegisterE _ | RegisterS _-> "REG"
             | AsyncROM1 _ -> "AROM"
@@ -1159,6 +1176,8 @@ let updateCmpBits (model:Model) (cmpId:ComponentId) (bits : int) =
         | Viewer _ -> Viewer bits
         | NbitsAdder _ -> NbitsAdder bits
         | NbitsXor _ -> NbitsXor bits
+        | SignExtend _ -> SignExtend bits
+        | UnSignExtend _ -> UnSignExtend bits
         | Register _ -> Register bits
         | RegisterE _ -> RegisterE bits
         | RegisterS (_,d) -> RegisterS (bits,d)

@@ -283,6 +283,8 @@ module CommonTypes
         | Custom of CustomComponentType // schematic sheet used as component
         | MergeWires | SplitWire of BusWidth: int // int is bus width
         | ExtractWire of BusExtract: (int*int*int) // width*start * end of extracted bus
+        | SignExtend of BusWidth: int 
+        | UnSignExtend of BusWidth: int
         // DFFE is a DFF with an enable signal.
         // No initial state for DFF or Register? Default 0.
         | DFF | DFFE | RegisterS of ShiftBusWidth: int*string | Register of BusWidth: int | RegisterE of BusWidth: int 
