@@ -13,23 +13,28 @@ open Fable.React.Props
 open Elmish
 open DrawHelpers
 
+    module RoutingConfig =
+
+        /// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to enforce a safe distance between a segment and a port.
+        let onStickAxisThreshold : float = 2.0
+
+        /// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to determine if two opposite segments are close enough and should cancel each other.
+        let onRedundantSegmentAxisThreshold : float = 5.0
+
+        /// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to snap/stick two segments that are on the same level together.
+        let stickynessThreshold : float = 5.0
+
+open RoutingConfig
+
+
 //Static Vars
 let minSegLen = 5.
-
-/// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
-/// (The bigger, the more forgiving it is.)
-/// Used to enforce a safe distance between a segment and a port.
-let onStickAxisThreshold : float = 2.0
-
-/// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
-/// (The bigger, the more forgiving it is.)
-/// Used to determine if two opposite segments are close enough and should cancel each other.
-let onRedundantSegmentAxisThreshold : float = 5.0
-
-/// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
-/// (The bigger, the more forgiving it is.)
-/// Used to snap/stick two segments that are on the same level together.
-let stickynessThreshold : float = 5.0
 
 
 //------------------------------------------------------------------------//
