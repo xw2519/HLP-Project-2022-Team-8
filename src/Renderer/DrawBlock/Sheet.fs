@@ -67,6 +67,8 @@ type CursorType =
     | ClickablePort
     | NoCursor
     | Spinner
+    | Grab
+    | Grabbing
 with
     member this.Text() = 
         match this with
@@ -74,6 +76,8 @@ with
         | ClickablePort -> "move"
         | NoCursor -> "none"
         | Spinner -> "wait"
+        | Grab -> "grab"
+        | Grabbing -> "grabbing"
 
 /// Keeps track of coordinates of visual snap-to-grid indicators.
 type SnapIndicator =
@@ -451,6 +455,16 @@ let moveSymbols (model: Model) (mMsg: MouseT) =
         | DragAndDrop -> DragAndDrop, true
         | _ -> MovingSymbols, false
     
+    let nearbyComponents = findNearbyComponents model mMsg.Pos
+
+    let newCursor =
+        match model.CursorType with
+        | Spinner -> Spinner
+        | _ ->
+            match mouseOn { model with NearbyComponents = nearbyComponents } mMsg.Pos with // model.NearbyComponents can be outdated e.g. if symbols have been deleted -> send with updated nearbyComponents.
+            | Component _ -> Grabbing // Change cursor if on port
+            | _ -> Default
+    
     match model.SelectedComponents.Length with
     | 1 -> // Attempt Snap-to-Grid if there is only one moving component
         
@@ -527,14 +541,15 @@ let moveSymbols (model: Model) (mMsg: MouseT) =
                                  else 
                                     model.LastMousePos , model.MouseCounter + 1
         {model with
-             Action = nextAction
-             LastMousePos = mMsg.Pos
-             ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement}
-             ErrorComponents = errorComponents
-             Snap = {XSnap = snapX.SnapInfo; YSnap = snapY.SnapInfo}
-             SnapIndicator = {XLine = snapX.Indicator; YLine = snapY.Indicator}
-             MouseCounter = updateMouseCounter
-             LastMousePosForSnap = updateLastMousePosForSnap},
+            CursorType = newCursor
+            Action = nextAction
+            LastMousePos = mMsg.Pos
+            ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement}
+            ErrorComponents = errorComponents
+            Snap = {XSnap = snapX.SnapInfo; YSnap = snapY.SnapInfo}
+            SnapIndicator = {XLine = snapX.Indicator; YLine = snapY.Indicator}
+            MouseCounter = updateMouseCounter
+            LastMousePosForSnap = updateLastMousePosForSnap},
         Cmd.batch [ symbolCmd (Symbol.MoveSymbols (model.SelectedComponents, {X = snapX.DeltaPos; Y = snapY.DeltaPos}))
                     Cmd.ofMsg (UpdateSingleBoundingBox model.SelectedComponents.Head) 
                     symbolCmd (Symbol.ErrorSymbols (errorComponents,model.SelectedComponents,isDragAndDrop))
@@ -544,7 +559,7 @@ let moveSymbols (model: Model) (mMsg: MouseT) =
         let errorComponents = 
             model.SelectedComponents
             |> List.filter (fun sId -> not (notIntersectingComponents model model.BoundingBoxes[sId] sId))
-        {model with Action = nextAction ; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement}; ErrorComponents = errorComponents },
+        {model with CursorType = newCursor; Action = nextAction ; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement}; ErrorComponents = errorComponents },
         Cmd.batch [ symbolCmd (Symbol.MoveSymbols (model.SelectedComponents, posDiff mMsg.Pos model.LastMousePos))
                     symbolCmd (Symbol.ErrorSymbols (errorComponents,model.SelectedComponents,isDragAndDrop))
                     Cmd.ofMsg UpdateBoundingBoxes
@@ -662,7 +677,20 @@ let mDownUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
 /// Mouse Drag Update, can be: drag-to-selecting, moving symbols, connecting wire between ports.
 let mDragUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> = 
     match model.Action with
-    | MovingWire connId -> model, wireCmd (BusWire.DragWire (connId, mMsg))
+    | MovingWire connId -> 
+        let nearbyComponents = findNearbyComponents model mMsg.Pos
+
+        let newCursor =
+            match model.CursorType with
+            | Spinner -> Spinner
+            | _ ->
+                match mouseOn { model with NearbyComponents = nearbyComponents } mMsg.Pos with // model.NearbyComponents can be outdated e.g. if symbols have been deleted -> send with updated nearbyComponents.
+                | Connection _ -> Grabbing // Change cursor if on port
+                | Component _ -> Grabbing
+                | _ -> Default
+
+        { model with NearbyComponents = nearbyComponents; CursorType = newCursor; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement} }, wireCmd (BusWire.DragWire (connId, mMsg))
+
     | Selecting ->
         let initialX = model.DragToSelectBox.X
         let initialY = model.DragToSelectBox.Y
@@ -809,6 +837,8 @@ let mMoveUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
             | _ ->
                 match mouseOn { model with NearbyComponents = nearbyComponents } mMsg.Pos with // model.NearbyComponents can be outdated e.g. if symbols have been deleted -> send with updated nearbyComponents.
                 | InputPort _ | OutputPort _ -> ClickablePort // Change cursor if on port
+                | Component _ -> Grab
+                | Connection _ -> Grab
                 | _ -> Default
             
         { model with NearbyComponents = nearbyComponents; CursorType = newCursor; LastMousePos = mMsg.Pos; ScrollingLastMousePos = {Pos=mMsg.Pos;Move=mMsg.Movement} },
