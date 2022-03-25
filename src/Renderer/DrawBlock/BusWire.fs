@@ -338,7 +338,7 @@ let pp segs (model: Model)=
 
 
 
-let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSymbolRotation: int) (endSymbolRotation: int) (startSymbolFlip: bool) (endSymbolFlip: bool) (endPortOnAltSide: bool): Segment list =
+let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSymbolRotation: int) (endSymbolRotation: int) (startSymbolFlip: bool) (endSymbolFlip: bool) (startPortOnAltSide: bool) (endPortOnAltSide: bool): Segment list =
 
     // adjust length of the first and last segments - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
     let s = 
@@ -358,10 +358,16 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
 
     // Rotation of the ports
     let startPortRotation = 
-        match startSymbolFlip with
-        | false -> startSymbolRotation
+        match startSymbolFlip, startPortOnAltSide with
+        // If the startPort is on the alternative side then it means that 
+        // it is on the side to the right of where it would've been normally (so an additional rotation of -90)
+        // We use a wildcard here because if a port is at the top of a symbol that points to the left (for example),
+        // it is not sensitive to flips
+        | _, true  -> makeInRangeRotation (startSymbolRotation - 90)
+        // Normal orientation
+        | false, _ -> startSymbolRotation
         // If the symbol is flipped, the ports are pointing backwards
-        | true  -> makeInRangeRotation (startSymbolRotation + 180)
+        | true, _  -> makeInRangeRotation (startSymbolRotation + 180)
 
     let endPortRotation =
         match endSymbolFlip, endPortOnAltSide with
@@ -369,7 +375,7 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
         // it is on the side to the right of where it would've been normally (so an additional rotation of -90)
         // We use a wildcard here because if a port is at the bottom of a symbol that points to the left (for example),
         // it is not sensitive to flips
-        | _, true      -> makeInRangeRotation (endSymbolRotation - 180 - 90)
+        | _, true  -> makeInRangeRotation (endSymbolRotation - 180 - 90)
         // Without being flipped, the input ports point in the opposite direction as the symbol they are on
         | false, _ -> makeInRangeRotation (endSymbolRotation - 180)
         // If the symbol is flipped, the ports are pointing backwards,
@@ -457,7 +463,7 @@ let issieVerticesToSegments (connId) (verticesList: list<float*float>) =
     let WireVertices =
         verticesList
         |> List.map (fun (x,y) -> {X=x;Y=y})
-    makeInitialSegmentsList connId WireVertices[0] WireVertices[WireVertices.Length - 1] 0 0 false false false
+    makeInitialSegmentsList connId WireVertices[0] WireVertices[WireVertices.Length - 1] 0 0 false false false false
  
     
 //----------------------interface to Issie-----------------------//
@@ -1454,13 +1460,14 @@ let autorouteWire (model : Model) (wire : Wire) : Wire =
     let outputSymbol = Symbol.getSymbolFromOutPortId model.Symbol wire.OutputPort
     let outputSymbolRotation = int (outputSymbol.Rotation)
     let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
+    let outputPortOnAltSide = Symbol.isOutputPortOnAlternativeSide model.Symbol wire.OutputPort
     let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol wire.InputPort
     let inputSymbolRotation = int (inputSymbol.Rotation)
     let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
     let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide model.Symbol wire.InputPort
 
     // Re-generate default Wire shape going from the InputPort to the OutputPort
-    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide}
+    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip outputPortOnAltSide inputPortOnAltSide}
 
 
 
@@ -1879,13 +1886,14 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         let outputSymbol = Symbol.getSymbolFromOutPortId model.Symbol outputId
         let outputSymbolRotation = int (outputSymbol.Rotation)
         let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
+        let outputPortOnAltSide = Symbol.isOutputPortOnAlternativeSide model.Symbol outputId
         let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol inputId
         let inputSymbolRotation = int (inputSymbol.Rotation)
         let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
         let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide model.Symbol inputId
 
         let wireId = ConnectionId(JSHelpers.uuid())
-        let segmentList = (makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide)
+        let segmentList = (makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip outputPortOnAltSide inputPortOnAltSide)
         
         let newWire = 
             {
@@ -2224,12 +2232,13 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
                 let outputSymbol = Symbol.getSymbolFromOutPortId wModel.Symbol (OutputPortId newOutputPort)
                 let outputSymbolRotation = int (outputSymbol.Rotation)
                 let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
+                let outputPortOnAltSide = Symbol.isOutputPortOnAlternativeSide wModel.Symbol (OutputPortId newOutputPort)
                 let inputSymbol = Symbol.getSymbolFromInPortId wModel.Symbol (InputPortId newInputPort)
                 let inputSymbolRotation = int (inputSymbol.Rotation)
                 let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
                 let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide wModel.Symbol (InputPortId newInputPort)
 
-                let segmentList = (makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide)
+                let segmentList = (makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip outputPortOnAltSide inputPortOnAltSide)
                 [
                     {
                         oldWire with
