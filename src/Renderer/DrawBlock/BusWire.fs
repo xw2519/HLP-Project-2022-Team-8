@@ -13,23 +13,28 @@ open Fable.React.Props
 open Elmish
 open DrawHelpers
 
+    module RoutingConfig =
+
+        /// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to enforce a safe distance between a segment and a port.
+        let onStickAxisThreshold : float = 2.0
+
+        /// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to determine if two opposite segments are close enough and should cancel each other.
+        let onRedundantSegmentAxisThreshold : float = 5.0
+
+        /// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to snap/stick two segments that are on the same level together.
+        let stickynessThreshold : float = 5.0
+
+open RoutingConfig
+
+
 //Static Vars
 let minSegLen = 5.
-
-/// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
-/// (The bigger, the more forgiving it is.)
-/// Used to enforce a safe distance between a segment and a port.
-let onStickAxisThreshold : float = 2.0
-
-/// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
-/// (The bigger, the more forgiving it is.)
-/// Used to determine if two opposite segments are close enough and should cancel each other.
-let onRedundantSegmentAxisThreshold : float = 5.0
-
-/// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
-/// (The bigger, the more forgiving it is.)
-/// Used to snap/stick two segments that are on the same level together.
-let stickynessThreshold : float = 5.0
 
 
 //------------------------------------------------------------------------//
@@ -145,6 +150,7 @@ type Msg =
     | LoadConnections of list<Connection>
     | ChangeMode // For Issie Integration
     | ReRouteSymbol of list<ComponentId>
+    | ReRouteWire of list<ConnectionId>
 
 /// Adds two XYPos together
 let addPositions (a: XYPos) (b: XYPos) : XYPos =
@@ -1400,7 +1406,7 @@ let getConnectedWires (wModel : Model) (compIds : list<ComponentId>) =
     |> List.distinct
 
 
-///Returns a tuple of IDs of: wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
+///Returns an anonymous record of IDs of: wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
 let getWiresConnectedToPorts (wModel : Model) (compIds : list<ComponentId>) =
         // Get the maps of input and output ports from specific symbols in the model
         let inputPorts, outputPorts = Symbol.getCmpsPortLocations wModel.Symbol compIds
@@ -2135,7 +2141,7 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         
         resetWireModel, Cmd.none
 
-    | ReRouteSymbol componentIdList ->
+    | ReRouteSymbol (componentIdList : ComponentId list) ->
         // Returns an anonymous record of: 
         // wires connected to inputs ONLY, wires connected to outputs ONLY, wires connected to both inputs and outputs
         let wiresConnectedToPorts = getWiresConnectedToPorts model componentIdList
@@ -2143,13 +2149,29 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         let outputWires = wiresConnectedToPorts.OutputWires
         let InOutConnected = wiresConnectedToPorts.FullyConnectedWires
         
-        // If a Wire is connected in some way to the components that have been rotated or flipped, re-autoroute them fully
+        // If a Wire is connected in some way to the components that have been rotated or flipped, re-autoroute them
         let newWires = 
             model.WX
             |> Map.toList
             |> List.map (fun (connectionId, wire) ->
                 match (List.contains connectionId InOutConnected) || (List.contains connectionId inputWires)
                       || (List.contains connectionId outputWires) with
+                | true -> (connectionId, autorouteWire model wire)
+                | false -> (connectionId, wire)
+                )
+            |> Map.ofList
+        
+        // Return the model with the updated wires
+        let newReRoutedWiresModel = {model with WX = newWires}
+        newReRoutedWiresModel, Cmd.none
+
+    | ReRouteWire (connIdList : ConnectionId list) ->
+        // If a Wire is in the list of selected wires, re-autoroute them
+        let newWires = 
+            model.WX
+            |> Map.toList
+            |> List.map (fun (connectionId, wire) ->
+                match (List.contains connectionId connIdList) with
                 | true -> (connectionId, autorouteWire model wire)
                 | false -> (connectionId, wire)
                 )

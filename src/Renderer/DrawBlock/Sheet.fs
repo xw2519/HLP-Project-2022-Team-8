@@ -88,7 +88,7 @@ type SnapIndicator =
 
 /// For Keyboard messages
 type KeyboardMsg =
-    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | F | R | A | CtrlM
+    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | CtrlF | CtrlR | AltA | CtrlM
 
 type Msg =
     | Wire of BusWire.Msg
@@ -872,22 +872,27 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                     symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
                     Cmd.ofMsg UpdateBoundingBoxes ]
 
-    | KeyPress F -> 
+    | KeyPress CtrlF -> 
         model, 
         Cmd.batch [
             symbolCmd (Symbol.FlipSymbols model.SelectedComponents)
             wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
         ]
 
-    | KeyPress R -> 
+    | KeyPress CtrlR -> 
         model, 
         Cmd.batch [ 
             symbolCmd (Symbol.RotateSymbols model.SelectedComponents)
             wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
         ]
 
-    | KeyPress A -> 
-        model, wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
+    | KeyPress AltA -> 
+        model, 
+        Cmd.batch [ 
+            wireCmd (BusWire.ReRouteWire model.SelectedWires)
+            wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
+        ]
+        
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
