@@ -206,8 +206,8 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
             let h = GridSize + GridSize * (List.max [List.length x.InputLabels; List.length x.OutputLabels])
             let maxInLength, maxOutLength = cutToLength x.InputLabels, cutToLength x.OutputLabels
             let maxW = maxInLength + maxOutLength + compLabel.Length
-            let scaledW = roundToNth GridSize (maxW * GridSize / 5) //Divide by 5 is just abitrary as otherwise the symbols would be too wide 
-            let w = max scaledW (GridSize * 4) //Ensures a minimum width if the labels are very small
+            let scaledW = roundToNth GridSize (maxW * GridSize / 3) // Divide by 2 is just abitrary as otherwise the symbols would be too wide 
+            let w = max scaledW (GridSize * 4) // Ensures a minimum width if the labels are very small
             
             (List.length x.InputLabels, List.length x.OutputLabels, h,  w)
 
@@ -456,9 +456,6 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                         | 180.0 -> y - 5.0
                         | 270.0 -> y - 20.0
                         | _ -> y - 6.0 
-                        
-                               
-
                 else
                     match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
                     | (90.0, false) | (270.0, true) -> y + 8.0
@@ -1100,7 +1097,7 @@ let removeSymsFromSymbolsCount cmpIds model =
 /// Return an updated model containing a new Symbol.
 /// The Symbol is centered at symCenter, contains a Component of type cmpType
 /// and has a label symLabel
-let addSymToModel (model: Model) symCenter cmpType symLabel symRotation symFlip=
+let addSymToModel (model: Model) symCenter cmpType symLabel symRotation symFlip =
     let sym = makeSymbol symCenter cmpType symLabel symRotation symFlip
     let ports = addToPortModel model sym
     let updatedSyms = Map.add sym.ComponentId sym model.Symbols
