@@ -999,7 +999,7 @@ let isOutputPortOnAlternativeSide (model: Model) (outPortId: OutputPortId) =
         let componentId = ComponentId port.HostId
         let symbol = Map.find componentId model.Symbols
         match symbol.Component.Type, port.PortNumber with
-        | ExtractWire(_,_,_), Some 1 -> true
+        | ExtractWire(_,_,_), Some 0 -> true
         | _ -> false
 
 //----------------------------  LABELS AND COPY SYMBOLS -------------------------------------//
