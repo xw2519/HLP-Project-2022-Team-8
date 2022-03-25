@@ -857,7 +857,12 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
         ]
 
     | KeyPress AltA -> 
-        model, wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
+        model, 
+        Cmd.batch [ 
+            wireCmd (BusWire.ReRouteWire model.SelectedWires)
+            wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
+        ]
+        
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
