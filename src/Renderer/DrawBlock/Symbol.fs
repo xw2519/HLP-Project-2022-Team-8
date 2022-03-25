@@ -561,21 +561,33 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
     | BusSelection(busWidth, compareValue) ->
         // Rotate text based on symbol orientation
         match rotation with 
-            | 90.0 | 270.0 ->
-                addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) (addTitleWithBusWidth "" busWidth compareValue) "left" "bold" "12px"
-            | 180.0 ->
-                addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"
-            | _ -> 
-                addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"          
+        | 90.0 | 270.0 ->
+            addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) (addTitleWithBusWidth "" busWidth compareValue) "left" "bold" "12px"
+        | 180.0 ->
+            addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"
+        | _ -> 
+            addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" busWidth compareValue) "middle" "bold" "12px"          
     | BusCompare(outputWidth, outputLSBit) -> 
         // Rotate text based on symbol orientation
         match rotation with 
-            | 90.0 | 270.0 ->
-                addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) ("=" + NumberHelpers.hex(int outputLSBit)) "left" "bold" "12px"
-            | 180.0 ->
-                addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"
-            | _ -> 
-                addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"  
+        | 90.0 | 270.0 ->
+            addText ((compWidth/2.0)+20.0) ((compHeight/3.0)+4.0) ("=" + NumberHelpers.hex(int outputLSBit)) "left" "bold" "12px"
+        | 180.0 ->
+            addText ((compWidth/2.0)+8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"
+        | _ -> 
+            addText ((compWidth/2.0)-8.0) ((compHeight/3.0)-2.0) ("=" + NumberHelpers.hex(int outputLSBit)) "middle" "bold" "12px"  
+    | SignExtend _ -> 
+        match rotation with 
+        | 90.0 | 270.0 ->
+                addText (compWidth/2.0+20.0) ((compHeight/2.0) + 8.5) (addSymbolTitle comp) "left" "bold" "14px"  
+        | _ -> 
+            addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"   
+    | UnSignExtend _ -> 
+        match rotation with 
+        | 90.0 | 270.0 ->
+            addText (compWidth/2.0+20.0) ((compHeight/2.0) + 8.5) (addSymbolTitle comp) "left" "bold" "14px"  
+        | _ -> 
+            addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"   
     | Input(x) -> 
         addText ((compWidth/2.0)-5.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
     | Output(x) -> 
