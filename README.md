@@ -87,5 +87,8 @@ Modify this README.md file under [Current extensions being worked on](#current-e
 
 ## BusWires
 - Something fully working better than current jumps. 
-- Autoroute and partial autoroute - functionality as current Issie or better - but implemented between ports oriented in all directions. 
-- Something fully working better than current jumps.
+- Autoroute and partial autoroute - implemented between ports oriented in all directions (rotation and flip).
+- Defaulting from partial routing to autorouting simplified and improved.
+- Stickiness between parallel wires in a same net.
+- KeyPress A to re-autoroute all wires connected to a Symbol.
+- Better removal of redundant segments - working on all the wire, not just around the ports.
