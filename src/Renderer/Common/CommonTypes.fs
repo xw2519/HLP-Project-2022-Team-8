@@ -144,10 +144,6 @@ module CommonTypes
             |> Array.map hMapCount
             |> Array.sum
 
-                
-
-        
-  
 
     //==========================================//
     // Canvas state mapped to f# data structure //
@@ -308,6 +304,11 @@ module CommonTypes
         | AsyncROM1 _ -> AsyncROM1
         | _ -> failwithf $"Can't get memory type from {cType}"
 
+    type Rotation = 
+    | Zero = 0 
+    | Ninety = 90
+    | OneEighty = 180 
+    | TwoSeventy = 270
 
     /// JSComponent mapped to F# record.
     /// Id uniquely identifies the component within a sheet.
@@ -318,17 +319,12 @@ module CommonTypes
         Label : string // All components have a label that may be empty.
         InputPorts : Port list // position on this list determines inputPortNumber
         OutputPorts : Port list // position in this lits determines OutputPortNumber
+        Rotation : float
         X : int
         Y : int
         H : int
         W : int
     }
-
-    type Rotation = 
-    | Zero = 0 
-    | Ninety = 90
-    | OneEighty = 180 
-    | TwoSeventy = 270
 
     /// JSConnection mapped to F# record.
     /// Id uniquely identifies connection globally and is used by library.
@@ -372,7 +368,6 @@ module CommonTypes
             | c -> sprintf "%A" c
             
             
-
     // The next types are not strictly necessary, but help in understanding what is what.
     // Used consistently they provide type protection that greatly reduces coding errors
 

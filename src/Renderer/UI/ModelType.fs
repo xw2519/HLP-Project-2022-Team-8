@@ -359,26 +359,19 @@ type Model = {
     WaveSim : Map<string, WaveSimModel> * (SimulationError option)
     // which top-level sheet is used by wavesim
     WaveSimSheet: string
-        
     // Draw Canvas
     Sheet: Sheet.Model
-
     // true during period when a sheet or project is loading
     IsLoading: bool
-
     // if canvas is now different from that which is currently used by wave sim.
     WaveSimulationIsOutOfDate: bool
-
     // last time check for changes was made
-
     LastChangeCheckTime: float
-
     // top-level canvas used for current wave simulation
     LastSimulatedCanvasState: CanvasState option // reduced (without layout) canvas state
     // used to determine whether current canvas has been saved (includes any change)
     LastDetailedSavedState: CanvasState
     // components and connections currently selected
-
     CurrentSelected: Component list * Connection list
     // component ids and connection ids previously selected (used to detect changes)
     LastSelectedIds: string list * string list

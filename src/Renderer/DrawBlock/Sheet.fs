@@ -10,6 +10,7 @@ open Browser
 open Elmish
 open DrawHelpers
 
+let print x = printfn "%A" x
 
 let mutable canvasDiv:Types.Element option = None
 
@@ -196,8 +197,8 @@ type Model = {
     member this.GetCanvasState () =
         let compList = Symbol.extractComponents this.Wire.Symbol
         let connList = BusWire.extractConnections this.Wire
-        
-        compList, connList
+
+        compList, connList  
         
     /// Clears the Undo and Redo stack of Sheet
     member this.FlushCommandStack dispatch =
@@ -817,7 +818,7 @@ let mMoveUpdate (model: Model) (mMsg: MouseT) : Model * Cmd<Msg> =
     | DragAndDrop -> moveSymbols model mMsg
     | InitialisedCreateComponent (compType, lbl) ->
         let labelTest = if lbl = "" then Symbol.genCmpLabel model.Wire.Symbol compType else lbl
-        let newSymbolModel, newCompId = Symbol.addSymToModel model.Wire.Symbol mMsg.Pos compType labelTest
+        let newSymbolModel, newCompId = Symbol.addSymToModel model.Wire.Symbol mMsg.Pos compType labelTest 0.0
 
         { model with Wire = { model.Wire with Symbol = newSymbolModel }
                      Action = DragAndDrop
@@ -892,14 +893,16 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
             wireCmd (BusWire.ReRouteWire model.SelectedWires)
             wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
         ]
-        
+
 
     | KeyPress CtrlS -> // For Demo, Add a new square in upper left corner
         { model with BoundingBoxes = Symbol.getModelBoundingBoxes model.Wire.Symbol; UndoList = appendUndoList model.UndoList model ; RedoList = []},
-        Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1")); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
+        Cmd.batch [ symbolCmd (Symbol.AddSymbol ({X = 50.0; Y = 50.0}, And, "test 1", 90.0)); Cmd.ofMsg UpdateBoundingBoxes ] // Need to update bounding boxes after adding a symbol.
+
     | KeyPress AltShiftZ ->
         TimeHelpers.printStats() 
         model, Cmd.none
+
     | KeyPress CtrlC ->
         model,
         Cmd.batch [

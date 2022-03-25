@@ -19,6 +19,7 @@ open EEExtensions
 open Fable.SimpleJson
 open JSHelpers
 
+let print x = printfn "%A" x
 
 [<Emit("__static")>]
 let staticDir() :string = jsNative
@@ -478,18 +479,23 @@ let getLatestComp (comp: Component) =
 /// since new symbols are larger (in units) than old ones.
 let getLatestCanvas state =
     let oldCircuitMagnification = 1.25
+
     let stripConns canvas =
         let (comps,conns) = canvas
         let noVertexConns = List.map stripVertices conns
         let expandedComps = List.map (magnifySheet oldCircuitMagnification) comps
         expandedComps, noVertexConns
+
     let comps,conns =
         match state  with
         | CanvasOnly canvas -> stripConns canvas
         | CanvasWithFileWaveInfo(canvas, _, _) -> stripConns canvas
         | CanvasWithFileWaveInfoAndNewConns(canvas, _, _) -> canvas
-    List.map getLatestComp comps, conns
 
+    //print "getLatestCanvas:"
+    //print comps
+
+    List.map getLatestComp comps, conns
 
 let checkMemoryContents (projectPath:string) (comp: Component) : Component =
     match comp.Type with
@@ -613,6 +619,7 @@ let saveAllProjectFilesFromLoadedComponentsToDisk (proj: Project) =
         let name = ldc.Name
         let state = ldc.CanvasState
         let waveInfo = ldc.WaveInfo
+        
         saveStateToFile proj.ProjectPath name (state,waveInfo) |> ignore
         removeFileWithExtn ".dgmauto" proj.ProjectPath name)
 
