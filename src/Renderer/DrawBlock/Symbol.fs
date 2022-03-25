@@ -132,10 +132,14 @@ let flipSymbol (symbol: Symbol) =
     let symbolCharacteristics = { symbol.SymbolCharacteristics with flip = not symbol.SymbolCharacteristics.flip }
 
     let newSymbolPoints = 
-        symbol.SymbolPoints
-        |> List.map (convertRelativeToSymbolCenter symbol)
-        |> List.map (rotatePoint 180.0)
-        |> List.map (convertRelativeToSymbolTopLeft symbol)
+        match symbol.Component.Type with 
+        | ComponentType.ExtractWire (_, _, _) -> 
+            symbol.SymbolPoints
+        | _ ->
+            symbol.SymbolPoints
+            |> List.map (convertRelativeToSymbolCenter symbol)
+            |> List.map (rotatePoint 180.0)
+            |> List.map (convertRelativeToSymbolTopLeft symbol)
     
     { symbol with SymbolCharacteristics = symbolCharacteristics; SymbolPoints = newSymbolPoints }
 
@@ -176,7 +180,7 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
         | Constant1 (a, b, _) | Constant(a, b) -> (0, 1, GridSize, 2*GridSize) 
         | MergeWires -> (2, 1, 2*GridSize, 2*GridSize) 
         | SplitWire (a) ->(1, 2, 2*GridSize, 2*GridSize) 
-        | ExtractWire (w,a,b) ->(1, 2, 2*GridSize, 2*GridSize) 
+        | ExtractWire (w,a,b) ->(1, 2, 1*GridSize, 2*GridSize) 
         | Mux2 -> (3, 1, 3*GridSize, 2*GridSize) 
         | Mux4 -> (5, 1, 6*GridSize, 4*GridSize) 
         | Demux2 ->(2, 2, 3*GridSize, 2*GridSize) 
@@ -288,9 +292,10 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth : XYPos list
               { X = compWidth; Y = ((1.0/6.0)*compHeight) }
               { X = compWidth; Y = ((5.0/6.0)*compHeight) } ]
         | ExtractWire _ -> 
-            [ { X = 0; Y = ((5.0/6.0)*compHeight) }
-              { X = compWidth; Y = ((5.0/6.0)*compHeight) } 
-              { X = compWidth/2.0; Y = ((1.0/6.0)*compHeight) } ]  
+            [ { X = 0; Y = (compHeight) }
+              { X = 30; Y = (compHeight) }
+              { X = compWidth; Y = (compHeight) } 
+              { X = compWidth/2.0; Y = (0.0) } ]  
         | _ -> 
             [ { X = 0; Y = compHeight }
               { X = compWidth; Y = compHeight }
@@ -335,12 +340,13 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     let inline getPortPosEdgeGap (compType: ComponentType) =
         match compType with
         | MergeWires | SplitWire _ -> 0.25
-        | ExtractWire _ -> 0.25
+        | ExtractWire _ -> 0
         | _ -> 1.0
     
     let (ports, posX) =
         match port.PortType, symbol.SymbolCharacteristics.flip, symbol.Component.Type, port.PortNumber with
         | PortType.Input, _, Mux2, Some 2 -> symbol.Component.InputPorts, 30.0
+        | PortType.Output, _, ExtractWire(w,a,b), Some 0 -> symbol.Component.OutputPorts, float(symbol.Component.W)/2.0
         | PortType.Input, false, _, _ -> symbol.Component.InputPorts, 0.0
         | PortType.Input, true, _, _ -> symbol.Component.InputPorts, float(symbol.Component.W)
         | PortType.Output, false, _, _ -> symbol.Component.OutputPorts, float(symbol.Component.W)
@@ -349,10 +355,10 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     /// Calculate equidistant port spacing
     let index = float(List.findIndex (fun (p: Port) -> p = port) ports)
     let gap = getPortPosEdgeGap symbol.Component.Type 
-    
     let posY = 
         match symbol.Component.Type, port.PortNumber, port.PortType with
         | Mux2, Some 2, PortType.Input-> 80.0
+        | ExtractWire(w,a,b), Some 0, PortType.Input-> float(symbol.Component.H)
         | Mux2, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
         | _ -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
 
@@ -385,11 +391,18 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | (_, true) -> x + 8.0
             else 
                 if name = "SEL" then
-                    match symbol.Rotation with
-                    | 90.0 -> x + 17.0
-                    | 180.0 -> x + 7.0
-                    | 270.0 -> x - 15.0
-                    | _ -> x
+                    if portList.Length = 3 then
+                        match symbol.Rotation with
+                        | 90.0 -> x + 17.0
+                        | 180.0 -> x + 7.0
+                        | 270.0 -> x - 15.0
+                        | _ -> x
+                    else
+                        match symbol.Rotation with
+                        | 90.0 -> x 
+                        | 180.0 -> x - 5.0
+                        | 270.0 -> x
+                        | _ -> x + 6.0
                 else
                     match (symbol.Rotation, symbol.SymbolCharacteristics.flip)  with
                     | (90.0, _) | (270.0, _) -> x 
@@ -406,11 +419,21 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                 | _ -> y - 5.0
             else 
                 if name = "SEL" then 
-                    match symbol.Rotation with
-                    | 90.0 -> y - 5.0
-                    | 180.0 -> y + 6.0
-                    | 270.0 -> y - 6.0
-                    | _ -> y - 17.0
+                    if portList.Length = 3 then
+                        match symbol.Rotation with
+                        | 90.0 -> y - 5.0
+                        | 180.0 -> y + 6.0
+                        | 270.0 -> y - 6.0
+                        | _ -> y - 17.0
+                    else
+                        match symbol.Rotation with
+                        | 90.0 -> y + 8.0
+                        | 180.0 -> y - 5.0
+                        | 270.0 -> y - 20.0
+                        | _ -> y - 6.0 
+                        
+                               
+
                 else
                     match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
                     | (90.0, false) | (270.0, true) -> y + 8.0
@@ -582,9 +605,9 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
         let mid = endBit - startBit
         let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
 
-        addBusTitle (comp.W/2) comp.W (1.0/6.0) endBit startBit @ 
-        addBusTitle (comp.W/2) comp.W (5.0/6.0) msb 0 @ 
-        addBusTitle 0 (comp.W/2) 0.5 msb 0
+        addBusTitle (comp.W/2 - 50) comp.W (0.7) endBit startBit @ 
+        addBusTitle (comp.W/2 + 25) comp.W (1.3) msb 0 @ 
+        addBusTitle 0 (comp.W/2 - 20) 1.3 msb 0
     | _ ->  
         addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"  
 
@@ -663,7 +686,7 @@ let drawVerticalArrow symbol (points: XYPos list) colour outlineColor opacity st
     let originalSymbolPoints = 
         points 
         |> List.map (convertRelativeToSymbolCenter symbol) 
-        |> List.map (rotatePoint -symbol.Rotation) 
+        |> List.map (rotatePoint -(getSymbolOrientation symbol)) 
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     let trianglePoints =
@@ -675,7 +698,6 @@ let drawVerticalArrow symbol (points: XYPos list) colour outlineColor opacity st
         |> List.map (convertRelativeToSymbolTopLeft symbol)
 
     drawBiColorPolygon (convertSymbolPointsToString trianglePoints) colour outlineColor opacity strokeWidth
-
 
 let drawSymbolCharacteristics (symbol: Symbol) colour opacity : ReactElement list =
     let addInvertor posX posY =
@@ -723,7 +745,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour : ReactElement list =
                 |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[3].Y symbol.SymbolPoints[3].X opacity colour)
                 |> List.append (drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[4].Y symbol.SymbolPoints[4].X opacity colour)
             | ExtractWire _ -> 
-                drawVerticalColorLine symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].Y symbol.SymbolPoints[1].X opacity colour
+                drawHorizontalColorLine symbol.SymbolPoints[3].X symbol.SymbolPoints[2].X symbol.SymbolPoints[3].Y opacity colour
             | _ -> []
         else
             match symbol.Component.Type with 
@@ -738,7 +760,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour : ReactElement list =
                 |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[3].X)) symbol.SymbolPoints[3].Y opacity colour)
                 |> List.append (drawHorizontalColorLine (int(symbol.SymbolPoints[1].X)) (int(symbol.SymbolPoints[4].X)) symbol.SymbolPoints[4].Y opacity colour)
             | ExtractWire _ -> 
-                drawVerticalColorLine symbol.SymbolPoints[2].Y symbol.SymbolPoints[1].Y symbol.SymbolPoints[2].X opacity colour
+                drawVerticalColorLine symbol.SymbolPoints[3].Y symbol.SymbolPoints[2].Y symbol.SymbolPoints[3].X opacity colour
             | _ -> []
 
     let drawDirectionalArrows : ReactElement list =
@@ -763,9 +785,9 @@ let drawSymbolShape (symbol: Symbol) opacity colour : ReactElement list =
             |> List.append (drawHorizontalArrow symbol arrowLines[2] colour outlineColor opacity strokeWidth)
         | ExtractWire _ -> 
             let arrowLines = 
-                [ [{ X = symbol.SymbolPoints[0].X; Y = symbol.SymbolPoints[0].Y}; { X = (symbol.SymbolPoints[1].X/2.0); Y = symbol.SymbolPoints[1].Y }]
-                  [{ X = (symbol.SymbolPoints[1].X/2.0); Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y }]
-                  [{ X = (symbol.SymbolPoints[1].X/2.0); Y = symbol.SymbolPoints[1].Y}; { X = (symbol.SymbolPoints[1].X/2.0); Y = symbol.SymbolPoints[2].Y }]]
+                [ [{ X = symbol.SymbolPoints[0].X; Y = symbol.SymbolPoints[0].Y}; { X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y }]
+                  [{ X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[2].X; Y = symbol.SymbolPoints[2].Y }]
+                  [{ X = symbol.SymbolPoints[1].X; Y = symbol.SymbolPoints[1].Y}; { X = symbol.SymbolPoints[3].X; Y = symbol.SymbolPoints[3].Y }]]
 
             drawHorizontalArrow symbol arrowLines[0] colour outlineColor opacity strokeWidth
             |> List.append (drawHorizontalArrow symbol arrowLines[1] colour outlineColor opacity strokeWidth)
@@ -786,7 +808,7 @@ let drawSymbolShape (symbol: Symbol) opacity colour : ReactElement list =
         |> List.append drawSymbolLines
         |> List.append drawDirectionalArrows
     | ExtractWire _ -> 
-        drawBiColorPolygon (convertSymbolPointsToString symbol.SymbolPoints[0..1]) colour outlineColor opacity strokeWidth
+        drawBiColorPolygon (convertSymbolPointsToString symbol.SymbolPoints[0..2]) colour outlineColor opacity strokeWidth
         |> List.append drawSymbolLines
         |> List.append drawDirectionalArrows
     | _ -> drawBiColorPolygon (getSymbolPoints symbol) colour outlineColor opacity strokeWidth
