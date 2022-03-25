@@ -338,7 +338,7 @@ let pp segs (model: Model)=
 
 
 
-let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSymbolRotation: int) (endSymbolRotation: int) (startSymbolFlip: bool) (endSymbolFlip: bool) (endPortOnAltSide: bool): Segment list =
+let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSymbolRotation: int) (endSymbolRotation: int) (startSymbolFlip: bool) (endSymbolFlip: bool) (startPortOnAltSide: bool) (endPortOnAltSide: bool): Segment list =
 
     // adjust length of the first and last segments - the sticks - so that when two ports are aligned and close you still get left-to-right routing.
     let s = 
@@ -358,24 +358,30 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
 
     // Rotation of the ports
     let startPortRotation = 
-        match startSymbolFlip with
-        | false -> startSymbolRotation
+        match startPortOnAltSide, startSymbolFlip with
+        // If the startPort is on the alternative side then it means that 
+        // it is on the side to the right of where it would've been normally (so an additional rotation of -90)
+        // We use a wildcard here because if a port is at the top of a symbol that points to the left (for example),
+        // it is not sensitive to flips
+        | true, _       -> makeInRangeRotation (startSymbolRotation - 90)
+        // Normal orientation
+        | false, false  -> startSymbolRotation
         // If the symbol is flipped, the ports are pointing backwards
-        | true  -> makeInRangeRotation (startSymbolRotation + 180)
+        | false, true   -> makeInRangeRotation (startSymbolRotation + 180)
 
     let endPortRotation =
-        match endSymbolFlip, endPortOnAltSide with
+        match endPortOnAltSide, endSymbolFlip with
         // If the endPort is on the alternative side (used for example in MUX2) then it means that 
         // it is on the side to the right of where it would've been normally (so an additional rotation of -90)
         // We use a wildcard here because if a port is at the bottom of a symbol that points to the left (for example),
         // it is not sensitive to flips
-        | _, true      -> makeInRangeRotation (endSymbolRotation - 180 - 90)
+        | true, _       -> makeInRangeRotation (endSymbolRotation - 180 - 90)
         // Without being flipped, the input ports point in the opposite direction as the symbol they are on
-        | false, _ -> makeInRangeRotation (endSymbolRotation - 180)
+        | false, false  -> makeInRangeRotation (endSymbolRotation - 180)
         // If the symbol is flipped, the ports are pointing backwards,
         // but because we know that the input ports are already pointing opposite to the symbol they are on,
         // it counteracts/negates itself (endSymbolRotation - 180 + 180)
-        | true, _  -> endSymbolRotation
+        | false, true   -> endSymbolRotation
 
     // Overall rotation of the wire
     let wireRotation = startPortRotation
@@ -391,22 +397,14 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
         | 90    -> differenceInY, - differenceInX
         | 180   -> - differenceInX, - differenceInY
         | 270   -> - differenceInY, differenceInX
+        // edge case: should not happen
         | _     -> differenceInY, differenceInX
 
     // Get the NORMALIZED rotation of the output port
     // i.e. assuming the Input port points to the right, towards the positive X
-    let normalizedEndPortRotation = 
-        match ((endPortRotation - wireRotation) % 360) with
-        | x when (x < 0) -> x + 360
-        | x              -> x
+    let normalizedEndPortRotation = makeInRangeRotation (endPortRotation - wireRotation)
 
-    /// Clarke's message:
-    /// This function, if turned instead into a value, causes a FABLE compiler problem that crashes wepback
-    /// However, it should probably in any case be a subfunction with paras diffX, diffY, s, taken out of this function
-    /// so if done the way you would normally do it, it will also not crash.
-    /// It should be reported to FABLE as a compiler bug - but it is not an HLP student's job to do that
-    /// PS this match statement is very bad code. You should match on a tuple and not have the when clauses.
-    /// Matching on a tuple: normalizedEndPortRotation, diffX >= 0, diffY >= 0, you will I'm sure not get the error
+    /// Generate a list of segment lengths for the wire to go from the normalized startPort to the normalized endPort
     let generatelengthList (normalizedEndPortRotation: int) (s: float) (diffX: float) (diffY: float) : float list = 
         match (normalizedEndPortRotation, (diffX >= 0.0), (diffY >= 0.0)) with
         // Same orientation
@@ -428,10 +426,12 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
         // Edge case that should never happen
         | _                 -> [s; 0.0; 0.0; 0.0; 0.0; 0.0; s]
 
+    // Generate the list of segments length
     let lengthList = generatelengthList normalizedEndPortRotation s diffX diffY
 
     let lastIndex = (lengthList.Length - 1)
 
+    /// Build an RISeg from a given length and index
     let buildRiSegListFromLengths (index:int) (length:float) : RotationInvariantSeg = {
         Id = SegmentId(JSHelpers.uuid())
         Length= length
@@ -442,8 +442,10 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
         Autorouted = true
     }
 
+    // Map the generated segment lengths to a list of RISegs
     let RISegs = lengthList |> List.mapi buildRiSegListFromLengths
 
+    // Convert those RISegs back into a regular Segment list
     RISegs |> convertRISegsToSegments connId startPort wireRotation
 
 
@@ -457,7 +459,7 @@ let issieVerticesToSegments (connId) (verticesList: list<float*float>) =
     let WireVertices =
         verticesList
         |> List.map (fun (x,y) -> {X=x;Y=y})
-    makeInitialSegmentsList connId WireVertices[0] WireVertices[WireVertices.Length - 1] 0 0 false false false
+    makeInitialSegmentsList connId WireVertices[0] WireVertices[WireVertices.Length - 1] 0 0 false false false false
  
     
 //----------------------interface to Issie-----------------------//
@@ -1454,13 +1456,14 @@ let autorouteWire (model : Model) (wire : Wire) : Wire =
     let outputSymbol = Symbol.getSymbolFromOutPortId model.Symbol wire.OutputPort
     let outputSymbolRotation = int (outputSymbol.Rotation)
     let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
+    let outputPortOnAltSide = Symbol.isOutputPortOnAlternativeSide model.Symbol wire.OutputPort
     let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol wire.InputPort
     let inputSymbolRotation = int (inputSymbol.Rotation)
     let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
     let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide model.Symbol wire.InputPort
 
     // Re-generate default Wire shape going from the InputPort to the OutputPort
-    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide}
+    {wire with Segments = makeInitialSegmentsList wire.Id outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip outputPortOnAltSide inputPortOnAltSide}
 
 
 
@@ -1879,13 +1882,14 @@ let update (msg : Msg) (model : Model) : Model*Cmd<Msg> =
         let outputSymbol = Symbol.getSymbolFromOutPortId model.Symbol outputId
         let outputSymbolRotation = int (outputSymbol.Rotation)
         let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
+        let outputPortOnAltSide = Symbol.isOutputPortOnAlternativeSide model.Symbol outputId
         let inputSymbol = Symbol.getSymbolFromInPortId model.Symbol inputId
         let inputSymbolRotation = int (inputSymbol.Rotation)
         let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
         let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide model.Symbol inputId
 
         let wireId = ConnectionId(JSHelpers.uuid())
-        let segmentList = (makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide)
+        let segmentList = (makeInitialSegmentsList wireId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip outputPortOnAltSide inputPortOnAltSide)
         
         let newWire = 
             {
@@ -2224,12 +2228,13 @@ let pasteWires (wModel : Model) (newCompIds : list<ComponentId>) : (Model * list
                 let outputSymbol = Symbol.getSymbolFromOutPortId wModel.Symbol (OutputPortId newOutputPort)
                 let outputSymbolRotation = int (outputSymbol.Rotation)
                 let outputSymbolFlip = outputSymbol.SymbolCharacteristics.flip
+                let outputPortOnAltSide = Symbol.isOutputPortOnAlternativeSide wModel.Symbol (OutputPortId newOutputPort)
                 let inputSymbol = Symbol.getSymbolFromInPortId wModel.Symbol (InputPortId newInputPort)
                 let inputSymbolRotation = int (inputSymbol.Rotation)
                 let inputSymbolFlip = inputSymbol.SymbolCharacteristics.flip
                 let inputPortOnAltSide = Symbol.isInputPortOnAlternativeSide wModel.Symbol (InputPortId newInputPort)
 
-                let segmentList = (makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip inputPortOnAltSide)
+                let segmentList = (makeInitialSegmentsList newId outputPortPos inputPortPos outputSymbolRotation inputSymbolRotation outputSymbolFlip inputSymbolFlip outputPortOnAltSide inputPortOnAltSide)
                 [
                     {
                         oldWire with
