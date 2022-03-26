@@ -431,13 +431,11 @@ let SegPosition = match index with  | 0 -> First
                                     | 5  -> Penultimate
                                     | 6 -> Last
                                     | _ -> Middle
-code_block
 ```
 
 The other difficult faced with this was that now the pattern of segment generation changed significantly with the addition of multple points of size zero in the segment list which did not occur before in the places that it does now. This mean that the if statements used in the radius wire code required significant alterations and addition to remove graphical bugs, such as two horizontal wires containing a gap where the old implemention did not contain this and different conditions for rendering the curves next to the port due to new segment generation. Most of these bugs have been fixed as of the 26th March 4pm, the only major issues that remain are rotation of the symbols due to variable number of segments as mentioned earlier. 
 
 ```fsharp
-
 let LineStart = if(SegPosition= First) then SegStartX else (SegStartX+prevSegCaluRadius)
 if (isNextSegDowntoUp = true) then 
     let startingPoint,endingPoint = {X = SegEndX - nextSegCaluRadius ; Y = SegEndY},{X = SegEndX; Y = SegEndY - nextSegCaluRadius}
@@ -451,11 +449,7 @@ if (isNextSegDowntoUp = true) then
     else
         [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  
 	makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
-                  
-code_block
 ```
-
-
 
 <br/>
 
@@ -488,7 +482,7 @@ Terminal output:
 
 1. Modify the type `src/Renderer/Common/DrawHelpers.fs: Text` to include `TextOrientation` and `WritingMode` 
 
-	```fsharp
+```fsharp
 	/// Record to help create SVG text
 	type Text = {
 		/// left/right/middle: horizontal algnment vs (X,Y)
@@ -512,7 +506,7 @@ Terminal output:
 		TextOrientation: string
 		WritingMode: string
 	}
-	```
+```
 	
 2. Modify the necessary functions to access the two parameters 
 
