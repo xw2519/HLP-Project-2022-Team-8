@@ -183,7 +183,7 @@ let getAbsLength (seg: Segment) : float =
     | Point      -> 0.0
 
 /// Converts a list of RI segments to regular segments
-let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: int) (riSegs: RotationInvariantSeg list) : Segment list =
+let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startRotation: int) (riSegs: RotationInvariantSeg list) : Segment list =
     
     let firstSeg:Segment =
         {
@@ -207,7 +207,7 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
         let newStart = addPositions oldState.Start oldState.Vector
 
         // Define the new vector based on the wire start orientation and the current index
-        let newBaseVector = match startDir with
+        let newBaseVector = match startRotation with
                             | 0 | 180 when ((index % 2) = 0)    -> {X=element.Length;Y=0.0}
                             | 0 | 180                           -> {X=0.0;Y=element.Length}
                             | 90 | 270 when ((index % 2) = 0)   -> {X=0.0;Y=element.Length}
@@ -216,7 +216,7 @@ let convertRISegsToSegments (hostId: ConnectionId) (startPos: XYPos) (startDir: 
 
         // Adjust the values of the vectors based on the wire start orientation and current index:
         // Invert the vector when at the right index
-        let newOrientedVector = match startDir with         // works
+        let newOrientedVector = match startRotation with
                                 | 0     -> newBaseVector
                                 | 90    -> {newBaseVector with X = - newBaseVector.X}
                                 | 180   -> {X = - newBaseVector.X ; Y = - newBaseVector.Y }
@@ -433,7 +433,7 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
     let lastIndex = (lengthList.Length - 1)
 
     /// Build an RISeg from a given length and index
-    let buildRiSegListFromLengths (index:int) (length:float) : RotationInvariantSeg = {
+    let buildRiSegFromLength (index:int) (length:float) : RotationInvariantSeg = {
         Id = SegmentId(JSHelpers.uuid())
         Length= length
         HostId  = connId;
@@ -446,7 +446,7 @@ let makeInitialSegmentsList connId (startPort: XYPos) (endPort: XYPos) (startSym
     
     lengthList
     // Map the generated segment lengths to a list of RISegs
-    |> List.mapi buildRiSegListFromLengths
+    |> List.mapi buildRiSegFromLength
     // Convert those RISegs back into a regular Segment list
     |> convertRISegsToSegments connId startPort wireRotation
 
