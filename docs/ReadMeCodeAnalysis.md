@@ -5,6 +5,7 @@ This document provides a description and analysis for notable algorithms used in
 * [Autorouting](./ReadMeCodeAnalysis.md#autorouting)
 * [Segment stickiness](./ReadMeCodeAnalysis.md#segment-stickiness)
 * [Placing of ports](./ReadMeCodeAnalysis.md#placing-of-ports)
+* [Bugs](./ReadMeCodeAnalysis.md#bugs)
 
 <br/>
 
@@ -362,3 +363,108 @@ The Y position is set according to the number of ports on a specific side of the
 ```
 
 <br/>
+
+## Bugs
+
+## Radiussed Wire Rendering
+
+As discussed during the oral, the radiussed wire has some graphical issues near the ports of the symbols that were caused by significant changes to the way that segemnts are created. Some of these have been fixed when rendering two symbols with the same orientation. Removing redundant wires and changing segment generation had significant positives for routing and standard rending of wires but had unforseen effect to radiussed wires. However, some of these issues prevail and there was not significant enough debug time on the 26th March to fix these. 
+
+The first major change is a variable number of segments in the rendering of the segemnt list, this number was previously always one but now varies and is sometimes 8 due to requiring one extra segment when ports are rotated. This changes my section of functionality for radiussed wires significantly as shown in the following section of code I define positions for segments based on their indexes to compare them easily in my radiussed wire function.
+
+```fsharp
+let SegPosition = match index with  | 0 -> First
+                                    | 1 -> Second
+                                    | 2 -> Third
+                                    | 4 -> Antepenultimate
+                                    | 5  -> Penultimate
+                                    | 6 -> Last
+                                    | _ -> Middle
+code_block
+```
+
+The other difficult faced with this was that now the pattern of segment generation changed significantly with the addition of multple points of size zero in the segment list which did not occur before in the places that it does now. This mean that the if statements used in the radius wire code required significant alterations and addition to remove graphical bugs, such as two horizontal wires containing a gap where the old implemention did not contain this and different conditions for rendering the curves next to the port due to new segment generation. Most of these bugs have been fixed as of the 26th March 4pm, the only major issues that remain are rotation of the symbols due to variable number of segments as mentioned earlier. 
+
+```fsharp
+
+let LineStart = if(SegPosition= First) then SegStartX else (SegStartX+prevSegCaluRadius)
+if (isNextSegDowntoUp = true) then 
+    let startingPoint,endingPoint = {X = SegEndX - nextSegCaluRadius ; Y = SegEndY},{X = SegEndX; Y = SegEndY - nextSegCaluRadius}
+    let startingControlPoint,endingControlPoint = {X = SegEndX ; Y = SegEndY },{X = SegEndX ; Y = SegEndY - nextSegCaluRadius/2.0 }
+    //check for two horizontal lines so render normal wires at start of second wire and end of first wire
+    if (NextSegDirection=Point&&(getOrientation nextSegmentSkipPoint=Horizontal)) then
+        [makeLine (LineStart) SegStartY (SegEndX) SegEndY lineParameters;]
+    elif(PrevSegDirection=Point&&(getOrientation prevSegmentSkipPoint=Horizontal)) then
+        [makeLine (SegStartX) SegStartY (SegEndX- nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+    else
+        [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                  
+code_block
+```
+
+
+
+<br/>
+
+### Vertical text
+
+During the implementation of symbol labels with rotation, it was discovered that vertical text results in an crash.
+
+Terminal output:
+```
+    ┏ Electron -------------------
+
+    Debugger listening on ws://127.0.0.1:5858/73ee5955-5b49-433c-8637-57944772d50a
+    For help, see: https://nodejs.org/en/docs/inspector
+
+    ┗ ----------------------------
+    ┏ Electron -------------------
+
+    sendToFrame() failed: Error: Render frame was disposed before WebFrameMain could be accessed
+
+    ┗ ----------------------------
+    ┏ Electron -------------------
+
+    Attempting to call a function in a renderer window that has been closed or released.
+    Function provided here: undefined
+
+    ┗ ----------------------------
+```
+
+#### Replicating the bug 
+
+1. Modify the type `src/Renderer/Common/DrawHelpers.fs: Text` to include `TextOrientation` and `WritingMode` 
+
+	```fsharp
+	/// Record to help create SVG text
+	type Text = {
+		/// left/right/middle: horizontal algnment vs (X,Y)
+		/// left/right/middle: horizontal algnment vs (X,Y)
+		TextAnchor: string
+		TextAnchor: string
+		FontSize: string
+		FontSize: string
+		FontWeight: string
+		FontWeight: string
+		FontFamily: string
+		FontFamily: string
+		Fill: string
+		Fill: string
+		UserSelect: UserSelectOptions
+		UserSelect: UserSelectOptions
+		/// auto/middle/hanging: vertical alignment vs (X,Y)
+		/// auto/middle/hanging: vertical alignment vs (X,Y)
+		DominantBaseline: string
+		DominantBaseline: string
+		TextOrientation: string
+		WritingMode: string
+	}
+	```
+	
+2. Modify the necessary functions to access the two parameters 
+
+3. Set parameter `TextOrientation` to `vertical-rl`
+
+4. In ISSIE, trigger the rotation. Text will turn vertical and ISSIE will crash shortly after.
+
+For the repo containing the error, checkout to the `commit: 5456a56f6d116c5ba5b2bb1ddf3cc1112d0f0e22` on the `team-assess` branch.

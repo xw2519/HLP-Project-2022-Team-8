@@ -608,12 +608,15 @@ let renderRadiusedWire (segmentList: Segment List) (colour : string) (width : st
             let wireSegmentReactElementList =
                 //check if segments are left to right and down to up as it changes corner rendering 
                 let isSegmentLefttoRight = if( SegEndX - SegStartX > 0) then true else false
-                let isNextSegDowntoUp = if( (getEndPoint nextSegmentSkipPoint).Y - nextSegmentSkipPoint.Start.Y < 0) then true else false
+                let isNextSegDowntoUp = if( (getEndPoint nextSegmentSkipPoint).Y - nextSegmentSkipPoint.Start.Y <= 0) then true else false
                 //if next seg horizontal fix graphical path that renders on end
-
                 if (NextSegDirection=Horizontal&&SegPosition=Penultimate) then [makeLine (SegStartX+prevSegCaluRadius) SegStartY (SegEndX+prevSegCaluRadius) SegEndY lineParameters]
+                //if previous segment is not a point and last segment then render a normal wire
+                elif (SegDirection=Horizontal&&SegPosition=Last&&PrevSegDirection<>Point) then [makeLine (SegStartX+prevSegCaluRadius) SegStartY (SegEndX+prevSegCaluRadius) SegEndY lineParameters]
+                //if previous segment is a point, 2nd previous segments is a point  and last segment then render a normal wire
+                elif (SegDirection=Horizontal&&SegPosition=Last&&PrevSegDirection=Point&&(getOrientation prevSegment'=Point)) then [makeLine (SegStartX+prevSegCaluRadius) SegStartY (SegEndX+prevSegCaluRadius) SegEndY lineParameters]
+                
                 //if next seg horizontal fix graphical path that renders on start
-
                 elif (NextSegDirection=Horizontal&&SegPosition=First) then [makeLine (SegStartX) SegStartY (SegEndX+nextSegCaluRadius) SegEndY lineParameters]
                 //specific rendering of paths for the first segment fixes eg both paths and arcs rendering
 
@@ -646,21 +649,37 @@ let renderRadiusedWire (segmentList: Segment List) (colour : string) (width : st
 
                 //if previous segment is a point and antepenultimate segment is horizontal then only render a wire with no arc
                 elif (SegPosition=Last&&PrevSegDirection=Point&&isSegmentLefttoRight&&((getOrientation segmentList[4])=Horizontal)) then [makeLine (SegStartX-5.0) SegStartY SegEndX SegEndY lineParameters]
+
+                //render antepenultimate segment with just a line if next segment is a point
+                elif (SegPosition=Antepenultimate&&NextSegDirection=Point&&isSegmentLefttoRight&&(SegDirection=Horizontal)&&PrevSegDirection=Point) then [makeLine (SegStartX) SegStartY SegEndX SegEndY lineParameters]
                 
                 //render antepenultimate segment with just a line if next segment is a point
                 elif (SegPosition=Antepenultimate&&NextSegDirection=Point&&isSegmentLefttoRight&&(SegDirection=Horizontal)) then [makeLine (SegStartX+prevSegCaluRadius) SegStartY SegEndX SegEndY lineParameters]
+                
                 //render segment with a curve after it depending upon a calculated radius and which corner it should render
                 elif ((isSegmentLefttoRight = true)) then
                     let LineStart = if(SegPosition= First) then SegStartX else (SegStartX+prevSegCaluRadius)
                     if (isNextSegDowntoUp = true) then 
                         let startingPoint,endingPoint = {X = SegEndX - nextSegCaluRadius ; Y = SegEndY},{X = SegEndX; Y = SegEndY - nextSegCaluRadius}
                         let startingControlPoint,endingControlPoint = {X = SegEndX ; Y = SegEndY },{X = SegEndX ; Y = SegEndY - nextSegCaluRadius/2.0 }
-                        [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                        //check for two horizontal lines so render normal wires at start of 2nd wire and end of 1st
+                        if (NextSegDirection=Point&&(getOrientation nextSegmentSkipPoint=Horizontal)) then
+                            [makeLine (LineStart) SegStartY (SegEndX) SegEndY lineParameters;]
+                        elif(PrevSegDirection=Point&&(getOrientation prevSegmentSkipPoint=Horizontal)) then
+                            [makeLine (SegStartX) SegStartY (SegEndX- nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                        else
+                            [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
 
                     else 
                         let startingPoint,endingPoint = {X = SegEndX - nextSegCaluRadius ; Y = SegEndY},{X = SegEndX; Y = SegEndY + nextSegCaluRadius}
                         let startingControlPoint,endingControlPoint = {X = SegEndX ; Y = SegEndY },{X = SegEndX ; Y = SegEndY + nextSegCaluRadius/2.0 }
-                        [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                        //check for two horizontal lines so render normal wires at start of 2nd wire and end of 1st
+                        if (NextSegDirection=Point&&(getOrientation nextSegmentSkipPoint=Horizontal)) then
+                            [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;]
+                        elif(PrevSegDirection=Point&&(getOrientation prevSegmentSkipPoint=Horizontal)) then
+                            [makeLine (SegStartX) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                        else
+                            [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
 
                 //render segment with a curve after it depending upon a calculated radius and which corner it should render
                 elif((isSegmentLefttoRight = false)) then 
@@ -668,12 +687,24 @@ let renderRadiusedWire (segmentList: Segment List) (colour : string) (width : st
                     if (isNextSegDowntoUp = true) then 
                         let startingPoint,endingPoint = {X = SegEndX + nextSegCaluRadius ; Y = SegEndY},{X = SegEndX ; Y = SegEndY - nextSegCaluRadius}
                         let startingControlPoint,endingControlPoint = {X = SegEndX ; Y = SegEndY },{X = SegEndX ; Y = SegEndY - nextSegCaluRadius/2.0 }
+                        //check for two horizontal lines so render normal wires at start of 2nd wire and end of 1st
+                        if (NextSegDirection=Point&&(getOrientation nextSegmentSkipPoint=Horizontal)) then
+                            [makeLine (LineStart) SegStartY (SegEndX+nextSegCaluRadius) SegEndY lineParameters;]
+                        elif(PrevSegDirection=Point&&(getOrientation prevSegmentSkipPoint=Horizontal)) then
+                            [makeLine (SegStartX) SegStartY (SegEndX+nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                        else
                         [makeLine (LineStart) SegStartY (SegEndX+nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
 
                     else 
                         let startingPoint,endingPoint = {X = SegEndX + nextSegCaluRadius ; Y = SegEndY},{X = SegEndX; Y = SegEndY + nextSegCaluRadius}   
-                        let startingControlPoint,endingControlPoint = {X = SegEndX ; Y = SegEndY },{X = SegEndX ; Y = SegEndY + nextSegCaluRadius/2.0 }                 
-                        [makeLine (LineStart) SegStartY (SegEndX+nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                        let startingControlPoint,endingControlPoint = {X = SegEndX ; Y = SegEndY },{X = SegEndX ; Y = SegEndY + nextSegCaluRadius/2.0 }  
+                        //check for two horizontal lines so render normal wires at start of 2nd wire and end of 1st       
+                        if (NextSegDirection=Point&&(getOrientation nextSegmentSkipPoint=Horizontal)) then
+                            [makeLine (LineStart) SegStartY (SegEndX+nextSegCaluRadius) SegEndY lineParameters;]
+                        elif(PrevSegDirection=Point&&(getOrientation prevSegmentSkipPoint=Horizontal)) then  
+                            [makeLine (SegStartX) SegStartY (SegEndX+nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                        else   
+                            [makeLine (LineStart) SegStartY (SegEndX+nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
 
 
                 else
