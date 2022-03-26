@@ -4,7 +4,7 @@
 
 - Symbol flip and rotation functionality 
 
-    Flip and Rotate functionality includes labels and symbol titles. Functionality is binded to `Ctrl + R` and `Ctrl + F`. 
+    Flip and Rotate functionality includes labels and symbol titles. Functionality is binded to `Alt + R` and `Alt + F`. 
 
 - Autoroute and partial autoroute - implemented between ports oriented in all directions (rotation and flip).
 
