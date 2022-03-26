@@ -8,7 +8,7 @@
 
 - Autoroute and partial autoroute - implemented between ports oriented in all directions (rotation and flip)
 
-    `Crtl + A` to re-autoroute a Wire, and/or all wires connected to a Symbol (depending on what is selected before the KeyPress
+    `Crtl + A` to re-autoroute a Wire, and/or all wires connected to a Symbol (depending on what is selected before the KeyPress)
 
 - Defaulting from partial routing to autorouting simplified and improved
 
