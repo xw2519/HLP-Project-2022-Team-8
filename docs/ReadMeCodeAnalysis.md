@@ -328,20 +328,7 @@ Currently the threshold is set to `5.0`, and it looks like this:
 
 ### Aligning the matched segments together
  
-Once all the alignment matches have been computed, provided that the moved segment has a valid index (i.e. it is not a stick), the function takes the first one of them (arbitrarily) and aligns/snaps the moved segment to it using the `alignTo` function. In the case where no alignment matches can be found, the original `Segment list` is returned.
-
-```fsharp
-    let isValidIndex = ((index >= 1) && (index < (segs.Length - 1)))
-
-    match isValidIndex, alignmentMatchSegs with
-    | true, hd::tl ->
-        // Adjust the segments that have possible redundancy on both sides
-        let alignedPrevSeg, alignedSeg, alignedNextSeg = alignTo hd (segs[index-1], segMoved, segs[index+1])
-        // Assemble the adjusted segment list:
-        // firstSegs @ adjustedSegs @ lastSegs
-        segs[0..(index - 2)] @ [alignedPrevSeg; alignedSeg; alignedNextSeg] @ segs[(index + 2)..(segs.Length-1)]
-    | _, _ -> segs
-```
+Once all the alignment matches have been computed, provided that the moved segment has a valid index (i.e. it is not a stick), the function takes the first one of them (arbitrarily) and aligns/snaps the moved segment to it using the `alignTo` function. 
 
 The `alignTo` function is defined as follows:
 
@@ -371,7 +358,26 @@ The `alignTo` function is defined as follows:
             (prevSegA, segA, nextSegA)
 ```
 
-This function takes in a reference segment, that was the alignment match previously computed, and the segment that was moved with the 2 segments around it in a tuple. It then computes the difference in level between the reference segment and the moved segment, and adjust the 3 segments of the input tuple so that the segment moved gets translated by the difference computed along its normal axis.
+This function takes in a reference segment, that was the alignment match previously found by the filtering operations, and the moved segment together with the 2 segments around it in a tuple. 
+
+It then computes the difference in level between the moved segment and the reference segment, and adjusts the 3 segments of the input tuple so that the moved segment gets translated along its normal axis by the difference in level that was computed.
+
+The `alignTo` function returns the three adjusted segments, that are then concatenated with the rest of the wire's `Segments` to form the output `Segment list` as follows:
+
+```fsharp
+    let isValidIndex = ((index >= 1) && (index < (segs.Length - 1)))
+
+    match isValidIndex, alignmentMatchSegs with
+    | true, hd::tl ->
+        // Adjust the segments that have possible redundancy on both sides
+        let alignedPrevSeg, alignedSeg, alignedNextSeg = alignTo hd (segs[index-1], segMoved, segs[index+1])
+        // Assemble the adjusted segment list:
+        // firstSegs @ adjustedSegs @ lastSegs
+        segs[0..(index - 2)] @ [alignedPrevSeg; alignedSeg; alignedNextSeg] @ segs[(index + 2)..(segs.Length-1)]
+    | _, _ -> segs
+```
+
+In the case where no alignment matches can be found, or if the moved segment was a stick, the original `Segment list` is returned.
 
 ### End result
 
