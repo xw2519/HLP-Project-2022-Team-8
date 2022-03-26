@@ -89,7 +89,7 @@ type SnapIndicator =
 
 /// For Keyboard messages
 type KeyboardMsg =
-    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | AltF | AltR | AltA | CtrlM
+    | CtrlS | CtrlC | CtrlV | CtrlZ | CtrlY | CtrlA | CtrlW | AltC | AltV | AltZ | AltShiftZ | ZoomIn | ZoomOut | DEL | ESC | CtrlF | CtrlR | CtrlT | CtrlM
 
 type Msg =
     | Wire of BusWire.Msg
@@ -873,21 +873,21 @@ let update (msg : Msg) (model : Model): Model*Cmd<Msg> =
                     symbolCmd (Symbol.DeleteSymbols model.SelectedComponents)
                     Cmd.ofMsg UpdateBoundingBoxes ]
 
-    | KeyPress AltF -> 
+    | KeyPress CtrlF -> 
         model, 
         Cmd.batch [
             symbolCmd (Symbol.FlipSymbols model.SelectedComponents)
             wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
         ]
 
-    | KeyPress AltR -> 
+    | KeyPress CtrlR -> 
         model, 
         Cmd.batch [ 
             symbolCmd (Symbol.RotateSymbols model.SelectedComponents)
             wireCmd (BusWire.ReRouteSymbol model.SelectedComponents)
         ]
 
-    | KeyPress AltA -> 
+    | KeyPress CtrlT -> 
         model, 
         Cmd.batch [ 
             wireCmd (BusWire.ReRouteWire model.SelectedWires)
