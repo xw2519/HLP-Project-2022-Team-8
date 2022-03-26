@@ -395,9 +395,11 @@ if (isNextSegDowntoUp = true) then
     if (NextSegDirection=Point&&(getOrientation nextSegmentSkipPoint=Horizontal)) then
         [makeLine (LineStart) SegStartY (SegEndX) SegEndY lineParameters;]
     elif(PrevSegDirection=Point&&(getOrientation prevSegmentSkipPoint=Horizontal)) then
-        [makeLine (SegStartX) SegStartY (SegEndX- nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+        [makeLine (SegStartX) SegStartY (SegEndX- nextSegCaluRadius) SegEndY lineParameters;  
+	makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
     else
-        [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+        [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  
+	makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
                   
 code_block
 ```
