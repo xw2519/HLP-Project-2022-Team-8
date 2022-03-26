@@ -346,6 +346,7 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     let (ports, posX) =
         match port.PortType, symbol.SymbolCharacteristics.flip, symbol.Component.Type, port.PortNumber with
         | PortType.Input, _, Mux2, Some 2 -> symbol.Component.InputPorts, 30.0
+        | PortType.Input, _, Mux4, Some 4 -> symbol.Component.InputPorts, 60.0
         | PortType.Output, _, ExtractWire(w,a,b), Some 0 -> symbol.Component.OutputPorts, float(symbol.Component.W)/2.0
         | PortType.Input, false, _, _ -> symbol.Component.InputPorts, 0.0
         | PortType.Input, true, _, _ -> symbol.Component.InputPorts, float(symbol.Component.W)
@@ -358,8 +359,10 @@ let getPortPos (symbol: Symbol) (port: Port) : XYPos =
     let posY = 
         match symbol.Component.Type, port.PortNumber, port.PortType with
         | Mux2, Some 2, PortType.Input-> 80.0
+        | Mux4, Some 4, PortType.Input-> 160.0
         | ExtractWire(w,a,b), Some 0, PortType.Input-> float(symbol.Component.H)
         | Mux2, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
+        | Mux4, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
         | _ -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
 
     { X = posX; Y = posY }
@@ -989,6 +992,7 @@ let isInputPortOnAlternativeSide (model: Model) (inPortId: InputPortId) =
         let symbol = Map.find componentId model.Symbols
         match symbol.Component.Type, port.PortNumber with
         | Mux2, Some 2 -> true
+        | Mux4, Some 4 -> true
         | _ -> false
 
 // Returns whether the port associated with outPortId is on an alternative side
