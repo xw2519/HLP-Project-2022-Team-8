@@ -211,12 +211,6 @@ let initComponent (pos: XYPos) (compType: ComponentType) (compId: string) (compL
             
             (List.length x.InputLabels, List.length x.OutputLabels, h,  w)
 
-        // EXTENSION:
-        // | Mux4 -> (5, 1, 5*GridSize, 2*GridSize)   
-        // | Mux8 -> (9, 1, 7*GridSize, 2*GridSize) 
-        // | Demux4 -> (2, 4, 150, 50) 
-        // | Demux8 -> (2, 8, 200, 50) 
-
     let makeComponent (numOfInputPorts, numOfOutputPorts, height, width) label : Component =  
         { Id = compId 
           Type = compType 
@@ -311,9 +305,6 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth rotation fli
                 { X = compWidth; Y = 0 }
                 { X = 0; Y = 0 } ]
 
-        // EXTENSION:
-        // | Mux4 | Mux8 ->(sprintf "%i,%i %i,%f  %i,%f %i,%i" 0 0 W (float(H)*0.2) W (float(H)*0.8) 0 H )
-        // | Demux4 | Demux8 -> (sprintf "%i,%f %i,%f %i,%i %i,%i" 0 (float(H)*0.2) 0 (float(H)*0.8) W H W 0)
     match compType with 
     | ComponentType.ExtractWire (_, _, _) -> 
         (symbolPoints compHeight compWidth)
@@ -321,6 +312,7 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth rotation fli
         |> List.map (rotatePoint rotation)
         |> List.map (convertRelativeToSymbolTopLeft (int(compWidth)) (int(compHeight)))
     | _ -> 
+        // Rotate symbol appropriately based on state of symbol rotation and flip 
         if flip then 
             (symbolPoints compHeight compWidth)
             |> List.map (convertRelativeToSymbolCenter (int(compWidth)) (int(compHeight)))
@@ -332,7 +324,7 @@ let initSymbolPoints (compType: ComponentType) compHeight compWidth rotation fli
             |> List.map (rotatePoint rotation)
             |> List.map (convertRelativeToSymbolTopLeft (int(compWidth)) (int(compHeight)))
 
-let makeSymbol (pos: XYPos) (comptype: ComponentType) (label: string) (rotation: float) (flip: bool) : Symbol =
+let initSymbol (pos: XYPos) (comptype: ComponentType) (label: string) (rotation: float) (flip: bool) : Symbol =
     let id = JSHelpers.uuid()
     let comp = initComponent pos comptype id label rotation flip
 
@@ -406,6 +398,7 @@ let private addText posX posY name txtPos weight size =
 
 let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: string List) = 
     let addPortName x y name portType =
+        // Write port names based on the symbol rotations
         let xPos = 
             if portType = PortType.Output then 
                 match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
@@ -498,13 +491,6 @@ let addPortTitle (comp: Component) =
     | ROM1 _ |AsyncROM1 _ -> (["Addr"] , ["Dout"])
     | RAM1 _ -> (["Addr"; "Din"; "Wen" ] , ["Dout"])
     |_ -> ([] , [])
-
-    // EXTENSION: Extra Components made that are not currently in Issie. Can be extended later by using this code as it is .
-    // |Mux4 -> (["0"; "1"; "2"; "3" ;"SEL"],["OUT"])
-    // |Demux4 -> (["IN"; "SEL"],["0"; "1";"2"; "3";])
-    // |Demux8 -> (["IN"; "SEL"],["0"; "1"; "2" ; "3" ; "4" ; "5" ; "6" ; "7"])
-    // |Mux8 -> (["0"; "1"; "2" ; "3" ; "4" ; "5" ; "6" ; "7";"SEL"],["OUT"])
-    // |_ -> ([],[])
 
 let addSymbolLabel (comp: Component) rotation label : ReactElement list = 
     let getSymbolLabelCoord : XYPos =
@@ -1098,7 +1084,7 @@ let removeSymsFromSymbolsCount cmpIds model =
 /// The Symbol is centered at symCenter, contains a Component of type cmpType
 /// and has a label symLabel
 let addSymToModel (model: Model) symCenter cmpType symLabel symRotation symFlip =
-    let sym = makeSymbol symCenter cmpType symLabel symRotation symFlip
+    let sym = initSymbol symCenter cmpType symLabel symRotation symFlip
     let ports = addToPortModel model sym
     let updatedSyms = Map.add sym.ComponentId sym model.Symbols
     let updatedCount = addSymToSymbolsCount sym.Component.Type model 
