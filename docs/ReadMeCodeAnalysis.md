@@ -414,7 +414,7 @@ The Y position is set according to the number of ports on a specific side of the
 
 ## Bugs
 
-## Radiussed Wire Rendering
+### Radiussed Wire Rendering
 
 As discussed during the oral, the radiussed wire has some graphical issues near the ports of the symbols that were caused by significant changes to the way that segemnts are created. Some of these have been fixed when rendering two symbols with the same orientation. Removing redundant wires and changing segment generation had significant positives for routing and standard rending of wires but had unforseen effect to radiussed wires. However, some of these issues prevail and there was not significant enough debug time on the 26th March to fix these. 
 
