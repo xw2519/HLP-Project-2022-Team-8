@@ -167,11 +167,11 @@ This behaviour has been simplified and improved in our implementation of the Iss
 
 This leads to the change in restrictions for moving a component at the end of a partially routed wire illustrated bellow:
 
-* Old Issie implementation, the boundaries that the Symbol cannot cross to preserve partial routing are drawn in red:
+* Old Issie implementation, the boundaries that the OUT Symbol cannot cross to preserve partial routing are drawn in red:
 
 <img src="./img/old_partial_routing_restrictions.png" alt="Old partial routing restrictions" width="400"/>
 
-* New simplified implementation, the boundaries that the Symbol cannot cross to preserve partial routing are drawn in red:
+* New simplified implementation, the boundaries that the OUT Symbol cannot cross to preserve partial routing are drawn in red:
 
 <img src="./img/new_partial_routing_restrictions.png" alt="New partial routing restrictions" width="400"/>
 
@@ -179,11 +179,156 @@ This leads to the change in restrictions for moving a component at the end of a 
 
 ## Segment stickiness
 
-abc
+<img src="./img/global_stickiness.gif" alt="Stickiness example" width="400"/>
+
+Segment stickiness, both locally to parallel segments within a same Wire, and globally with all segments of wires coming out from the same port, is implemented by the function `alignToCloseParallelSegments` that is called in the `moveSegment` function after a segment is moved and redundant segments have been removed:
 
 ```fsharp
-code_block
+            // Rebuild the list of segments of the wire with the updated segments at the right indexes
+            let newSegments =
+                wire.Segments[.. index-2] @ [newPrevSeg; newSeg; newNextSeg] @ wire.Segments[index+2 ..]
+                // Remove all redundant segments that may have been created by the move
+                |> removeRedundantSegments index
+                // Align the moved segment with any parallel segments in the wire that are close to it
+                |> alignToCloseParallelSegments index wire.OutputPort allModelWires
 ```
+
+It is the last function called before the wire with its new `Segment list` is returned, and therefore performs the last adjustments on the Wire after a move.
+
+```fsharp
+            // Update the list of segments in the wire object, and return it
+            {wire with Segments = newSegments})
+```
+
+### Declaration and arguments
+
+Its signature is the following:
+
+```fsharp
+let alignToCloseParallelSegments (index: int) (currentWireOutputPort : OutputPortId) (allModelWires: Wire list) (segs: Segment list) : Segment list
+```
+
+And it takes in the following arguments :
+ - `index` (integer): The index of the segment that was moved.
+ - `currentWireOutputPort` (OutputPortId): The ID of the output port at the start of the wire.
+ - `allModelWires` (Wire list): All the `Wires` present in the current model.
+ - `segs` (Segment list): The current list of segments, after the move has been done and prior adjustements have been carried.
+
+And it returns a list of `Segments`.
+
+### Getting the neighbouring Segments that the moved segment could potentially align itself to
+
+Firstly, the `Segment` that is being moved is retrieved from the list of `Segments` of the current wire:
+
+```fsharp
+    // Get the segment that has just been moved
+    let segMoved = segs[index]
+```
+
+*Note: The function body then defines several local helper functions that will be described as they are used in the implementation.*
+
+Then, all segments that are in wires coming out from the same output port are concatenated into a list:
+
+```fsharp
+let (segmentsFromSameOutputPort: Segment list) = 
+        allModelWires
+        // Filter all the wires coming out of the same output port
+        |> List.filter (fun (wire: Wire) -> (wire.OutputPort = currentWireOutputPort))
+        // Extract all their segments into a single Segment list
+        |> List.collect (fun (wire: Wire) -> wire.Segments)
+```
+
+This is done by filtering the `Wires` in the `Model` that have the same `OutputPort` (that is of type `OutputPortId`), and then extracting and concatenating all their segment lists.
+
+Then, those segments are filtered according to multiple criterias:
+
+```fsharp
+   let (alignmentMatchSegs: Segment list) = 
+        segmentsFromSameOutputPort
+        // 1. Filter the segments that are parallel to the segment moved
+        |> List.filter (fun seg -> ((getOrientation seg) = (getOrientation segMoved)))
+        // 2. Filter the segments that are on the same "level" as the segment moved
+        |> List.filter (fun seg -> areSegsOnSameLevel segMoved seg)                                             
+        // 3. Filter the segments that have their end (or start) close to the start (or end) of the segment moved
+        |> List.filter (fun seg -> (areXYPosClose (getEndPoint seg) segMoved.Start)
+                                    || (areXYPosClose seg.Start (getEndPoint segMoved))
+                                    || (areXYPosClose seg.Start segMoved.Start)
+                                    || (areXYPosClose (getEndPoint seg) (getEndPoint segMoved)) )
+        // 4. Filter out the current segment moved from this list
+        |> List.filter (fun seg -> (seg.Id <> segMoved.Id))
+```
+
+ 1. They need to be parallel (i.e. of the same Orientation) to the segment being moved in order to be valid
+
+ 2. They need to be "on the same level" as the segment being moved. This is checked using the `areSegsOnSameLevel` function that takes in two segments and checks, according to their rotation, if they are on the same relevant axis:
+
+ ```fsharp
+     /// Check if two segments are on the same level
+    let areSegsOnSameLevel (seg1: Segment) (seg2: Segment) : bool = 
+        if ((abs ((getNormalCoord seg2) - (getNormalCoord seg1))) <= stickynessThreshold)
+        then true
+        else false
+ ```
+ Where `stickynessThreshold` is a parameter constant that will further be explained in a later section.
+ This function utilizes the helper function `getNormalCoord` that returns their coordinates over their normal axis.
+
+ ```fsharp
+     /// Returns the coordinate along the normal axis of a segment
+    let getNormalCoord (seg: Segment) : float =
+        match getOrientation seg with
+        | Horizontal -> seg.Start.Y
+        | Vertical   -> seg.Start.X
+        | _          -> 0.0
+ ```
+
+ 3. They need to be physically close to the segment being moved: i.e. either have their start or end close to the start or end of the moved segment. Two positions are determined to be close according to the following helper function:
+
+ ```fsharp
+    /// Check if the end of seg1 is close to the start of seg2
+    let areXYPosClose (pos1: XYPos) (pos2: XYPos) : bool = 
+        if (((abs (pos1.X - pos2.X)) <= stickynessThreshold)
+            && ((abs (pos1.Y - pos2.Y)) <= stickynessThreshold))
+        then true
+        else false
+ ```
+
+ Where `stickynessThreshold` is also used.
+
+ 4. Finally the current segment being moved is excluded from the list of possible alignment matches, as it can't be aligned to itself.
+
+### Algorithm configuration constants
+
+The previously described helper functions used the `stickynessThreshold` configuration constant.
+This threshold defines how close two segments need to be in order to lead to a possible alignment of the two segments.
+It is completely arbitrary but should remain relatively small to prevent unwanted alignments from happening.
+
+This configuration constant is defined, along with other ones, in the `RoutingConfig` module declared at the top of the [BusWire.fs](../src/Renderer/DrawBlock/BusWire.fs) file:
+
+```fsharp
+    module RoutingConfig =
+
+        /// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to enforce a safe distance between a segment and a port.
+        let onStickAxisThreshold : float = 2.0
+
+        /// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to determine if two opposite segments are close enough and should cancel each other.
+        let onRedundantSegmentAxisThreshold : float = 5.0
+
+        /// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
+        /// (The bigger, the more forgiving it is.)
+        /// Used to align/snap/stick two segments that are on the same level together.
+        let stickynessThreshold : float = 5.0
+```
+
+Currently the threshold is set to `5.0`, and it looks like this:
+
+<img src="./img/local_stickiness.gif" alt="Threshold example" width="400"/>
+
+### Aligning the matched segments together
+ 
 
 <br/>
 

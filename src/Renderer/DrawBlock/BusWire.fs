@@ -14,7 +14,6 @@ open Elmish
 open DrawHelpers
 
     module RoutingConfig =
-
         /// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
         /// (The bigger, the more forgiving it is.)
         /// Used to enforce a safe distance between a segment and a port.
@@ -27,7 +26,7 @@ open DrawHelpers
 
         /// Threshold to determine if a segment is aligned with another segment, i.e. on the same "level" as the other segment.
         /// (The bigger, the more forgiving it is.)
-        /// Used to snap/stick two segments that are on the same level together.
+        /// Used to align/snap/stick two segments that are on the same level together.
         let stickynessThreshold : float = 5.0
 
 open RoutingConfig
@@ -1285,6 +1284,7 @@ let alignToCloseParallelSegments (index: int) (currentWireOutputPort : OutputPor
 
     let (alignmentMatchSegs: Segment list) = 
         segmentsFromSameOutputPort
+        // Filter the segments that are parallel to the segment moved
         |> List.filter (fun seg -> ((getOrientation seg) = (getOrientation segMoved)))
         // Filter the segments that are on the same "level" as the segment moved
         |> List.filter (fun seg -> areSegsOnSameLevel segMoved seg)
