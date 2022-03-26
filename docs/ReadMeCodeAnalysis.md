@@ -49,11 +49,11 @@ let startPortRotation =
 
 The implementation for the start port is given above and works as follows: it is a match statement on a 2-tuple of booleans. The first on is if the start port is on the alternative side or not, and the second one is if the start symbol is flipped of not.
 If a symbol is on the alternative side, it will not be affected by flips as flips only occur along the axis of orientation of the component, so we can use a wild card for the second boolean and compute its rotation from the rotation of the symbol: `startSymbolRotation - 90` because it is on the next counter-clockwise side.
-If on the other hand, the port is on its regular side, then the second boolean tells us if the rotation is shifted by `180` to point backwards in case of a flipped symbol. *It is important to note here that the rotation of a Symbol and whether or not it is flipped are two parameters that are handle independantly.*
+If on the other hand, the port is on its regular side, then the second boolean tells us if the rotation is shifted by `180` to point backwards in case of a flipped symbol. *It is important to note here that the rotation of a Symbol and whether or not it is flipped are two parameters that are handled independantly.*
 
 The computation for `endPortRotation` is very similar, except an offset of `180` is always applied to the rotation of the end Symbol as input ports are always pointing opposite to the orientation of the Symbol.
 
-Both computation rely on a helper function called `makeInRangeRotation` that takes the modulo of the input value by 360 and shifts it to always be in the positive range (the F# modulo operator returns a value of the same sign as the input value, which we don't want).
+Both computation rely on a helper function called `makeInRangeRotation` that takes the modulo of the input value by 360 and shifts it to always be in the positive range (the F# modulo operator returns a value of the same sign as the input value, which is incompatible with the rotation restrictions).
 
 
 ### Normalizing the requirements for the wire to be generated
@@ -64,7 +64,7 @@ Given the rotation of the ports, the overall rotation of the wire is set to be t
     let wireRotation = startPortRotation
 ```
 
-This then used in a match statement to normalize the distances over both the X and Y axis to be covered by the wire:
+This is then used in a match statement to normalize the distances over both the X and Y axis to be covered by the wire:
 
 ```fsharp
     // Get the real/actual difference between the ports over the X and Y axis
@@ -138,7 +138,20 @@ The generated list of lengths of segments is then mapped into a list of `Rotatio
     |> convertRISegsToSegments connId startPort wireRotation
 ```
 
-Those two convertions rely respectively on the `buildRiSegFromLength` function, that maps a length into a `RotationInvariantSeg`, and the `convertRISegsToSegments` general helper function, that is explained in [this document](./appendix/helper_convertRISegsToSegments.md).
+Those two convertions rely respectively on the `buildRiSegFromLength` function, that maps a length into a `RotationInvariantSeg` as detailed bellow, and the `convertRISegsToSegments` general helper function, that is explained in [this document](./appendix/helper_convertRISegsToSegments.md).
+
+```fsharp
+    /// Build an RISeg from a given length and index
+    let buildRiSegFromLength (index:int) (length:float) : RotationInvariantSeg = {
+        Id = SegmentId(JSHelpers.uuid())
+        Length= length
+        HostId  = connId;
+        JumpCoordinateList = [];
+        Draggable = 
+            if (index = 0 || index = lastIndex) then false else true
+        Autorouted = true
+    }
+```
 
 <br/>
 
