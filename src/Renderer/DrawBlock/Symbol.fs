@@ -628,7 +628,7 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
         let mid = endBit - startBit
         let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
 
-        addBusTitle (comp.W/2 - 50) comp.W (0.7) endBit startBit @ 
+        addBusTitle (comp.W/2 - 60) comp.W (0.7) endBit startBit @ 
         addBusTitle (comp.W/2 + 25) comp.W (1.3) msb 0 @ 
         addBusTitle 0 (comp.W/2 - 20) 1.3 msb 0
     | _ ->  
