@@ -1258,6 +1258,7 @@ let removeRedundantSegments (index: int) (segs: Segment list) =
         segs
 
 
+/// Aligns the moved segment to any neighbouring segments on the same net that are close to it
 let alignToCloseParallelSegments (index: int) (currentWireOutputPort : OutputPortId) (allModelWires: Wire list) (segs: Segment list) = 
     // Get the segment that has just been moved
     let segMoved = segs[index]
@@ -1282,7 +1283,8 @@ let alignToCloseParallelSegments (index: int) (currentWireOutputPort : OutputPor
         then true
         else false
 
-    /// Takes two segments, and if they are Horizontal and in opposite direction, "adjust" them
+    /// Takes 1 reference segment + a tuple of three segments,
+    /// and translates the middle one to be on the same level as the reference
     let alignTo (segB: Segment) ((prevSegA: Segment), (segA: Segment), (nextSegA: Segment)) =
         // Find the difference in level to compensate for
         let diff = (getNormalCoord segB) - (getNormalCoord segA)
