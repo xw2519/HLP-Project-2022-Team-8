@@ -1,6 +1,6 @@
 # Group 8 - Analysis Report
 
-This document provides a description and analysis for notable algorithms used in our improvements of the ISSIE DrawBlock.
+This document provides a description and analysis for notable algorithms used in our improvements of the ISSIE DrawBlock, as well as an analysis of some bugs found in our implementation.
 
 * [Autorouting](./ReadMeCodeAnalysis.md#autorouting)
 * [Segment stickiness](./ReadMeCodeAnalysis.md#segment-stickiness)
