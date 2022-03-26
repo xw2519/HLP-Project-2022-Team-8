@@ -171,9 +171,32 @@ code_block
 
 ## Placing of ports 
 
-abc
+The X and Y coordinates for each port is relative to the top-left corner of the symbol.
+The X position is set according to the component type, the port type and whether the symbol is flipped or not.
+Additionally, custom logic has been implemented to deal with the select ports of the Mux2 and Mux4 components.
+```fsharp
+let (ports, posX) =
+        match port.PortType, symbol.SymbolCharacteristics.flip, symbol.Component.Type, port.PortNumber with
+        | PortType.Input, _, Mux2, Some 2 -> symbol.Component.InputPorts, 30.0
+        | PortType.Input, _, Mux4, Some 4 -> symbol.Component.InputPorts, 60.0
+        | PortType.Output, _, ExtractWire(w,a,b), Some 0 -> symbol.Component.OutputPorts, float(symbol.Component.W)/2.0
+        | PortType.Input, false, _, _ -> symbol.Component.InputPorts, 0.0
+        | PortType.Input, true, _, _ -> symbol.Component.InputPorts, float(symbol.Component.W)
+        | PortType.Output, false, _, _ -> symbol.Component.OutputPorts, float(symbol.Component.W)
+        | PortType.Output, true, _, _ -> symbol.Component.OutputPorts, 0.0
+code_block
+```
+The Y position is set according to the number of ports on a specific side of the component, ensuring each port is spaced out evenly. Custom logic has been implemented to deal with the select ports of the Mux2 and Mux4 components and with the output port of the ExtractWire.
 
 ```fsharp
+ let posY = 
+        match symbol.Component.Type, port.PortNumber, port.PortType with
+        | Mux2, Some 2, PortType.Input-> 80.0
+        | Mux4, Some 4, PortType.Input-> 160.0
+        | ExtractWire(w,a,b), Some 0, PortType.Input-> float(symbol.Component.H)
+        | Mux2, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
+        | Mux4, _, PortType.Input -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length - 1) + 2.0*gap - 1.0))
+        | _ -> (float(symbol.Component.H)) * ((index + gap)/(float(ports.Length) + 2.0*gap - 1.0))
 code_block
 ```
 
