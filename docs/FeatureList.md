@@ -33,7 +33,7 @@
   - `Sign_Extend`: 
   - `UnSign_Extend`:
   - `Bus_Extract`:
-  - 'Shift Register'
+  - `Shift Register`:
 
 - Defaulting from partial routing to autorouting simplified and improved.
 
