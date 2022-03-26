@@ -169,11 +169,11 @@ This leads to the change in restrictions for moving a component at the end of a 
 
 * Old Issie implementation, the boundaries that the Symbol cannot cross to preserve partial routing are drawn in red:
 
-<img src="../img/old_partial_routing_restrictions.png" alt="Old partial routing restrictions" width="500"/>
+<img src="./img/old_partial_routing_restrictions.png" alt="Old partial routing restrictions" width="500"/>
 
 * New simplified implementation, the boundaries that the Symbol cannot cross to preserve partial routing are drawn in red:
 
-<img src="../img/new_partial_routing_restrictions.png" alt="New partial routing restrictions" width="500"/>
+<img src="./img/new_partial_routing_restrictions.png" alt="New partial routing restrictions" width="500"/>
 
 <br/>
 
