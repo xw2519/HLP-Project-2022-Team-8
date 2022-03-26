@@ -530,7 +530,7 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
             match msb = lsb, msb >= lsb with
             | _, false -> ""
             | true, _ -> $"({msb})"
-            | false, _ -> $"({msb}:{lsb})"
+            | false, _ -> $"({msb}..{lsb})"
         
         addText (float(posX1 + posX2)/2.0) (posY*float(comp.H) - 25.0) text "middle" "bold" "12px"  
     
@@ -600,9 +600,21 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
         | _ -> 
             addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"   
     | Input(x) -> 
-        addText ((compWidth/2.0)-5.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
+        match rotation with 
+        | 90.0 | 270.0 ->
+            addText ((compWidth/2.0)+33.0) ((compHeight/3.0)+15.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px" 
+        | 180.0 ->
+            addText ((compWidth/2.0)+5.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px" 
+        | _ -> 
+            addText ((compWidth/2.0)-5.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px" 
     | Output(x) -> 
-        addText (compWidth/2.0) ((compHeight/3.0)-9.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
+        match rotation with 
+        | 90.0 | 270.0 ->
+            addText ((compWidth/2.0)+33.0) ((compHeight/3.0)+15.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
+        | 180.0 ->
+            addText ((compWidth/2.0)-4.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
+        | _ -> 
+            addText ((compWidth/2.0)+4.0) ((compHeight/3.0)-2.0) (addTitleWithBusWidth "" x 0) "middle" "bold" "12px"  
     | MergeWires -> 
         let lo, hi = 
             match inWidth0, inWidth1  with 
@@ -612,25 +624,68 @@ let addSymbolText (comp: Component) inWidth0 inWidth1 rotation : ReactElement li
         let midb = lo
         let midt = lo - 1
 
-        addBusTitle 0 (comp.W/2) (1.0/6.0) midt 0 @ 
-        addBusTitle 0 (comp.W/2) (5.0/6.0) msb midb @ 
-        addBusTitle (comp.W/2) comp.W 0.5 msb 0
+        match rotation with 
+        | 90.0 ->
+            addBusTitle 115 (comp.W/2) (0.6) midt 0 @ 
+            addBusTitle -55 (comp.W/2) (0.6) msb midb @ 
+            addBusTitle ((comp.W/2) + 15) comp.W 1.1 msb 0   
+        | 180.0 ->
+            addBusTitle +55 (comp.W/2) (1.4) midt 0 @ 
+            addBusTitle +55 (comp.W/2) (0.2) msb midb @ 
+            addBusTitle (comp.W/2 - 70) comp.W 1.0 msb 0  
+        | 270.0 -> 
+            addBusTitle -50 (comp.W/2) (0.9) midt 0 @ 
+            addBusTitle 110 (comp.W/2) (0.9) msb midb @ 
+            addBusTitle (comp.W/2 + 15) comp.W 0.5 msb 0 
+        | _ -> 
+            addBusTitle 0 (comp.W/2) (1.0/6.0) midt 0 @ 
+            addBusTitle 0 (comp.W/2) (5.0/6.0) msb midb @ 
+            addBusTitle (comp.W/2) comp.W 0.5 msb 0 
+        
     | SplitWire mid -> 
         let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
         let midb = mid'
         let midt = mid'-1
 
-        addBusTitle (comp.W/2) comp.W (1.0/6.0) midt 0 @ 
-        addBusTitle (comp.W/2) comp.W (5.0/6.0) msb midb @ 
-        addBusTitle 0 (comp.W/2) 0.5 msb 0
+        match rotation with 
+        | 90.0 ->
+            addBusTitle ((comp.W/2) + 55) comp.W (1.1) midt 0 @ 
+            addBusTitle ((comp.W/2) - 120) comp.W (1.1) msb midb @ 
+            addBusTitle -25 (comp.W/2) 0.5 msb 0
+        | 180.0 ->
+            addBusTitle ((comp.W/2) - 60) comp.W (1.4) midt 0 @ 
+            addBusTitle ((comp.W/2) - 60) comp.W (0.26) msb midb @ 
+            addBusTitle 70 (comp.W/2) 1.0 msb 0
+        | 270.0 -> 
+            addBusTitle ((comp.W/2) - 120) comp.W (0.5) midt 0 @ 
+            addBusTitle ((comp.W/2) + 60) comp.W (0.5) msb midb @ 
+            addBusTitle 0 ((comp.W/2) - 20) 1.0 msb 0
+        | _ -> 
+            addBusTitle (comp.W/2) comp.W (1.0/6.0) midt 0 @ 
+            addBusTitle (comp.W/2) comp.W (5.0/6.0) msb midb @ 
+            addBusTitle 0 (comp.W/2) 0.5 msb 0
 
     | ExtractWire (width, startBit, endBit) -> 
         let mid = endBit - startBit
         let msb, mid' = match inWidth0 with | Some n -> n - 1, mid | _ -> -100, -50
 
-        addBusTitle (comp.W/2 - 60) comp.W (0.7) endBit startBit @ 
-        addBusTitle (comp.W/2 + 25) comp.W (1.3) msb 0 @ 
-        addBusTitle 0 (comp.W/2 - 20) 1.3 msb 0
+        match rotation with 
+        | 90.0 ->
+            addBusTitle (comp.W/2 - 15) comp.W (0.7) endBit startBit @ 
+            addBusTitle (-comp.W - 10) comp.W (1.9) msb 0 @ 
+            addBusTitle -20 (comp.W/2 - 20) 0.5 msb 0  
+        | 180.0 ->
+            addBusTitle (comp.W/2 - 70) comp.W (1.4) endBit startBit @ 
+            addBusTitle (comp.W/2 + 5) comp.W (0.2) msb 0 @ 
+            addBusTitle 0 (comp.W/2 - 20) 0.2 msb 0  
+        | 270.0 -> 
+            addBusTitle (comp.W/2 - 60) comp.W (0.7) endBit startBit @ 
+            addBusTitle (comp.W/2 + 45) comp.W (0.5) msb 0 @ 
+            addBusTitle 0 (comp.W + 75) 1.6 msb 0  
+        | _ -> 
+            addBusTitle (comp.W/2 - 65) comp.W (0.7) endBit startBit @ 
+            addBusTitle (comp.W/2 + 25) comp.W (1.3) msb 0 @ 
+            addBusTitle 0 (comp.W/2 - 20) 1.3 msb 0  
     | _ ->  
         addText (compWidth/2.0) ((compHeight/2.0) - 8.5) (addSymbolTitle comp) "middle" "bold" "14px"  
 
