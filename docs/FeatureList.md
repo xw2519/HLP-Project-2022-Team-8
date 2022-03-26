@@ -37,7 +37,7 @@
 
 - Defaulting from partial routing to autorouting simplified and improved.
 
-- `Crtl + A` to re-autoroute a Wire, and/or all wires connected to a Symbol (depending on what is selected before the KeyPress).
+- `Alt + A` to re-autoroute a Wire, and/or all wires connected to a Symbol (depending on what is selected before the KeyPress).
 
 - Better removal of redundant segments - working along the whole wire, not just around the ports.
 
