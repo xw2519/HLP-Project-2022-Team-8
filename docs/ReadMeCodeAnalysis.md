@@ -257,7 +257,7 @@ Then, those segments are filtered according to multiple criterias:
         |> List.filter (fun seg -> (seg.Id <> segMoved.Id))
 ```
 
- 1. They need to be parallel (i.e. of the same Orientation) to the segment being moved in order to be valid
+ 1. They need to be parallel (i.e. of the same Orientation) to the segment being moved in order to be valid.
 
  2. They need to be "on the same level" as the segment being moved. This is checked using the `areSegsOnSameLevel` function that takes in two segments and checks, according to their rotation, if they are on the same relevant axis:
 
@@ -269,7 +269,7 @@ Then, those segments are filtered according to multiple criterias:
         else false
  ```
  Where `stickynessThreshold` is a parameter constant that will further be explained in a later section.
- This function utilizes the helper function `getNormalCoord` that returns their coordinates over their normal axis.
+ This function utilizes the helper function `getNormalCoord` that returns the coordinate over the normal axis of a `Segment`.
 
  ```fsharp
      /// Returns the coordinate along the normal axis of a segment
@@ -305,7 +305,6 @@ This configuration constant is defined, along with other ones, in the `RoutingCo
 
 ```fsharp
     module RoutingConfig =
-
         /// Threshold to determine if a segment is aligned with a stick, i.e. on the same "level" as a stick.
         /// (The bigger, the more forgiving it is.)
         /// Used to enforce a safe distance between a segment and a port.
@@ -322,7 +321,7 @@ This configuration constant is defined, along with other ones, in the `RoutingCo
         let stickynessThreshold : float = 5.0
 ```
 
-Currently the threshold is set to `5.0`, and it looks like this:
+Currently, the threshold is set to `5.0`, and it looks like this:
 
 <img src="./img/local_stickiness.gif" alt="Threshold example" width="400"/>
 
@@ -383,7 +382,7 @@ In the case where no alignment matches can be found, or if the moved segment was
 
 In the end, this function allows for a simple and neat organization of manually routed `Segments` in a project, and is completely transparent to the end user. 
 
-<img src="./img/global_stickiness.gif" alt="Stickiness example" width="400"/>
+<img src="./img/global_stickiness.gif" alt="Stickiness example" width="350"/>
 
 <br/>
 
