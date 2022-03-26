@@ -221,6 +221,46 @@ The Y position is set according to the number of ports on a specific side of the
 
 ## Bugs
 
+## Radiussed Wire Rendering
+
+As discussed during the oral, the radiussed wire has some graphical issues near the ports of the symbols that were caused by significant changes to the way that segemnts are created. Some of these have been fixed when rendering two symbols with the same orientation. Removing redundant wires and changing segment generation had significant positives for routing and standard rending of wires but had unforseen effect to radiussed wires. However, some of these issues prevail and there was not significant enough debug time on the 26th March to fix these. 
+
+The first major change is a variable number of segments in the rendering of the segemnt list, this number was previously always one but now varies and is sometimes 8 due to requiring one extra segment when ports are rotated. This changes my section of functionality for radiussed wires significantly as shown in the following section of code I define positions for segments based on their indexes to compare them easily in my radiussed wire function.
+
+```fsharp
+let SegPosition = match index with  | 0 -> First
+                                    | 1 -> Second
+                                    | 2 -> Third
+                                    | 4 -> Antepenultimate
+                                    | 5  -> Penultimate
+                                    | 6 -> Last
+                                    | _ -> Middle
+code_block
+```
+
+The other difficult faced with this was that now the pattern of segment generation changed significantly with the addition of multple points of size zero in the segment list which did not occur before in the places that it does now. This mean that the if statements used in the radius wire code required significant alterations and addition to remove graphical bugs, such as two horizontal wires containing a gap where the old implemention did not contain this and different conditions for rendering the curves next to the port due to new segment generation. Most of these bugs have been fixed as of the 26th March 4pm, the only major issues that remain are rotation of the symbols due to variable number of segments as mentioned earlier. 
+
+```fsharp
+
+let LineStart = if(SegPosition= First) then SegStartX else (SegStartX+prevSegCaluRadius)
+if (isNextSegDowntoUp = true) then 
+    let startingPoint,endingPoint = {X = SegEndX - nextSegCaluRadius ; Y = SegEndY},{X = SegEndX; Y = SegEndY - nextSegCaluRadius}
+    let startingControlPoint,endingControlPoint = {X = SegEndX ; Y = SegEndY },{X = SegEndX ; Y = SegEndY - nextSegCaluRadius/2.0 }
+    //check for two horizontal lines so render normal wires at start of second wire and end of first wire
+    if (NextSegDirection=Point&&(getOrientation nextSegmentSkipPoint=Horizontal)) then
+        [makeLine (LineStart) SegStartY (SegEndX) SegEndY lineParameters;]
+    elif(PrevSegDirection=Point&&(getOrientation prevSegmentSkipPoint=Horizontal)) then
+        [makeLine (SegStartX) SegStartY (SegEndX- nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+    else
+        [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+                  
+code_block
+```
+
+
+
+<br/>
+
 ### Vertical text
 
 During the implementation of symbol labels with rotation, it was discovered that vertical text results in an crash.
