@@ -169,8 +169,8 @@ let editMenu dispatch =
                makeElmItem "Undo" "CmdOrCtrl+Z" (fun () -> dispatch Sheet.KeyboardMsg.CtrlZ)
                makeElmItem "Redo" "CmdOrCtrl+Y" (fun () -> dispatch Sheet.KeyboardMsg.CtrlY)
                makeElmItem "Cancel" "ESC" (fun () -> dispatch Sheet.KeyboardMsg.ESC)
-               makeElmItem "Rotate" "CmdOrCtrl+R" (fun () -> dispatch Sheet.KeyboardMsg.CtrlR)
-               makeElmItem "Flip" "CmdOrCtrl+F" (fun () -> dispatch Sheet.KeyboardMsg.CtrlF)
+               makeElmItem "Rotate" "Alt+R" (fun () -> dispatch Sheet.KeyboardMsg.AltR)
+               makeElmItem "Flip" "Alt+F" (fun () -> dispatch Sheet.KeyboardMsg.AltF)
                makeElmItem "Re-Autoroute" "Alt+A" (fun () -> dispatch Sheet.KeyboardMsg.AltA)
             |]
             |> ResizeArray
