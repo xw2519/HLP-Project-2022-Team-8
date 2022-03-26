@@ -180,8 +180,6 @@ This leads to the change in restrictions for moving a component at the end of a 
 
 ## Segment stickiness
 
-<img src="./img/global_stickiness.gif" alt="Stickiness example" width="400"/>
-
 Segment stickiness, both locally to parallel segments within a same Wire, and globally with all segments of wires coming out from the same port, is implemented by the function `alignToCloseParallelSegments` that is called in the `moveSegment` function after a segment is moved and redundant segments have been removed:
 
 ```fsharp
