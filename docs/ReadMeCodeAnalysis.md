@@ -190,14 +190,12 @@ Segment stickiness, both locally to parallel segments within a same Wire, and gl
                 |> removeRedundantSegments index
                 // Align the moved segment with any parallel segments in the wire that are close to it
                 |> alignToCloseParallelSegments index wire.OutputPort allModelWires
-```
 
-It is the last function called before the wire with its new `Segment list` is returned, and therefore performs the last adjustments on the Wire after a move.
-
-```fsharp
             // Update the list of segments in the wire object, and return it
             {wire with Segments = newSegments})
 ```
+
+It is the last function called before the wire with its new `Segment list` is returned, and therefore performs the last adjustments on the Wire after a move.
 
 ### Declaration and arguments
 
