@@ -416,14 +416,14 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                         match symbol.Rotation with
                         | 90.0 -> x + 17.0
                         | 180.0 -> x + 7.0
-                        | 270.0 -> x - 15.0
-                        | _ -> x
+                        | 270.0 -> x - 17.0
+                        | _ -> x - 5.0
                     else
                         match symbol.Rotation with
-                        | 90.0 -> x 
-                        | 180.0 -> x - 5.0
-                        | 270.0 -> x
-                        | _ -> x + 6.0
+                        | 90.0 -> x + 15.0
+                        | 180.0 -> x + 7.0
+                        | 270.0 -> x - 16.0
+                        | _ -> x - 6.0
                 else
                     match (symbol.Rotation, symbol.SymbolCharacteristics.flip)  with
                     | (90.0, _) | (270.0, _) -> x 
@@ -448,10 +448,10 @@ let private addPortText (symbol: Symbol) (portList: Port List) (listOfNames: str
                         | _ -> y - 17.0
                     else
                         match symbol.Rotation with
-                        | 90.0 -> y + 8.0
-                        | 180.0 -> y - 5.0
-                        | 270.0 -> y - 20.0
-                        | _ -> y - 6.0 
+                        | 90.0 -> y - 6.0
+                        | 180.0 -> y + 8.0
+                        | 270.0 -> y - 6.0
+                        | _ -> y - 17.0
                 else
                     match (symbol.Rotation, symbol.SymbolCharacteristics.flip) with
                     | (90.0, false) | (270.0, true) -> y + 8.0
