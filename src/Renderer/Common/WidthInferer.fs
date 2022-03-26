@@ -231,13 +231,13 @@ let private calculateOutputPortsWidth
         assertInputsSize inputConnectionsWidth 5 comp
         match getWidthsForPorts inputConnectionsWidth [InputPortNumber 0; InputPortNumber 1; InputPortNumber 2;InputPortNumber 3; InputPortNumber 4] with
         | [Some n; Some m; Some c; Some d; Some 2] when n = m && c = d && m = c-> Ok <| Map.empty.Add (getOutputPortId comp 0, n)
-        | [Some n; Some m; Some c; Some d; _] when n <> m ->
+        | [Some n; Some m; Some c; Some d; Some p] when p <> 2 -> makeWidthInferErrorEqual 2 n [getConnectionIdForPort 4]
+        | [Some n; Some m; Some c; Some d; Some 2] when n <> m || c <> d || d <> n || d <> m ->
             // Two inputs have different widths, this is not allowed.
             Error {
-                Msg = sprintf "Wrong wire width. The two inputs to a multiplexer are expected to have the same width, but top input has %d bits and bottom input has %d bits." n m
-                ConnectionsAffected = [getConnectionIdForPort 0; getConnectionIdForPort 1;  getConnectionIdForPort 2;  getConnectionIdForPort 3]
+                Msg = sprintf "Wrong wire width. All inputs a multiplexer are expected to have the same width."
+                ConnectionsAffected = [getConnectionIdForPort 0; getConnectionIdForPort 1; getConnectionIdForPort 2; getConnectionIdForPort 3;]
             }
-        | [_; _;_; _; Some n] when n <> 2 -> makeWidthInferErrorEqual 2 n [getConnectionIdForPort 2]
         | [Some n; None; _]
         | [None; Some n; _] -> Ok <| Map.empty.Add (getOutputPortId comp 0, n)
         | [_; _; _;_;_;] -> Ok Map.empty // Keep on waiting.
