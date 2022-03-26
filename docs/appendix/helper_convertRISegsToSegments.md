@@ -57,14 +57,14 @@ Before assembling the new `Segment` it first needs to compute its parameters, so
         let index = oldState.Index + 1
 ```
 
-1. The start of the new `Segment` is the end of the previous one, i.e. the `Vector` of the previous one added onto its `Start`:
+2. The start of the new `Segment` is the end of the previous one, i.e. the `Vector` of the previous one added onto its `Start`:
 
 ```fsharp
         // Compute the new start of the segment based on the old start + old vector
         let newStart = addPositions oldState.Start oldState.Vector
 ```
 
-1. Based on the starting rotation of the wire, we can determine if the `Vector` of the next `Segment` is going to be along the X or Y axis. A wire that starts horizontally will have all segments with even indices going along the X axis, and all those with odd indeces going along the Y axis. This is the opposite for a wire that starts vertically.
+3. Based on the starting rotation of the wire, we can determine if the `Vector` of the next `Segment` is going to be along the X or Y axis. A wire that starts horizontally will have all segments with even indices going along the X axis, and all those with odd indeces going along the Y axis. This is the opposite for a wire that starts vertically.
 
 ```fsharp
         // Define the new vector based on the wire start orientation and the current index
@@ -76,7 +76,7 @@ Before assembling the new `Segment` it first needs to compute its parameters, so
                             | _ -> {X = 1 ; Y = 1}
 ```
 
-1. Then, the sign of the value of this `baseVector` needs to be refined, once again based on the starting rotation of the wire. This last adjustment step for the `Vector` basically shifts the RISegs back into the real coordinate system:
+4. Then, the sign of the value of this `baseVector` needs to be refined, once again based on the starting rotation of the wire. This last adjustment step for the `Vector` basically shifts the RISegs back into the real coordinate system:
 
 ```fsharp
         // Adjust the values of the vectors based on the wire start orientation and current index:
@@ -89,7 +89,7 @@ Before assembling the new `Segment` it first needs to compute its parameters, so
                                 | _     -> newBaseVector
 ```
 
-1. Whether or not the new `Segment` is draggable simple depends on if it is on either end of the Wire (i.e. if it is a "stick"):
+5. Whether or not the new `Segment` is draggable simple depends on if it is on either end of the Wire (i.e. if it is a "stick"):
 
 ```fsharp
         // Define if the new segment is draggable or not
@@ -98,7 +98,7 @@ Before assembling the new `Segment` it first needs to compute its parameters, so
                            else true 
 ```
 
-1. Finally, with all those parameters computed for the new `Segment`, it can finally be assembled and returned by the folder:
+6. Finally, with all those parameters computed for the new `Segment`, it can finally be assembled and returned by the folder:
 
 ```fsharp
         //Assemble the new Segment
