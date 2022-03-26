@@ -5,6 +5,7 @@ This document provides a description and analysis for notable algorithms used in
 * [Autorouting](./ReadMeCodeAnalysis.md#autorouting)
 * [Segment stickiness](./ReadMeCodeAnalysis.md#segment-stickiness)
 * [Placing of ports](./ReadMeCodeAnalysis.md#placing-of-ports)
+* [Bugs](./ReadMeCodeAnalysis.md#bugs)
 
 <br/>
 
@@ -217,3 +218,68 @@ The Y position is set according to the number of ports on a specific side of the
 ```
 
 <br/>
+
+## Bugs
+
+### Vertical text
+
+During the implementation of symbol labels with rotation, it was discovered that vertical text results in an crash.
+
+Terminal output:
+```
+    ┏ Electron -------------------
+
+    Debugger listening on ws://127.0.0.1:5858/73ee5955-5b49-433c-8637-57944772d50a
+    For help, see: https://nodejs.org/en/docs/inspector
+
+    ┗ ----------------------------
+    ┏ Electron -------------------
+
+    sendToFrame() failed: Error: Render frame was disposed before WebFrameMain could be accessed
+
+    ┗ ----------------------------
+    ┏ Electron -------------------
+
+    Attempting to call a function in a renderer window that has been closed or released.
+    Function provided here: undefined
+
+    ┗ ----------------------------
+```
+
+#### Replicating the bug 
+
+1. Modify the type `src/Renderer/Common/DrawHelpers.fs: Text` to include `TextOrientation` and `WritingMode` 
+
+	```fsharp
+	/// Record to help create SVG text
+	type Text = {
+		/// left/right/middle: horizontal algnment vs (X,Y)
+		/// left/right/middle: horizontal algnment vs (X,Y)
+		TextAnchor: string
+		TextAnchor: string
+		FontSize: string
+		FontSize: string
+		FontWeight: string
+		FontWeight: string
+		FontFamily: string
+		FontFamily: string
+		Fill: string
+		Fill: string
+		UserSelect: UserSelectOptions
+		UserSelect: UserSelectOptions
+		/// auto/middle/hanging: vertical alignment vs (X,Y)
+		/// auto/middle/hanging: vertical alignment vs (X,Y)
+		DominantBaseline: string
+		DominantBaseline: string
+		TextOrientation: string
+		WritingMode: string
+	}
+	```
+	
+2. Modify the necessary functions to access the two parameters 
+
+3. Set parameter `TextOrientation` to `vertical-rl`
+
+4. In ISSIE, trigger the rotation. Text will turn vertical and ISSIE will crash shortly after.
+
+For the repo containing the error, checkout to the `commit: 5456a56f6d116c5ba5b2bb1ddf3cc1112d0f0e22` on the `team-assess` branch.
