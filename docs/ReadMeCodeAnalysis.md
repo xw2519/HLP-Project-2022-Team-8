@@ -157,6 +157,24 @@ Those two convertions rely respectively on the `buildRiSegFromLength` function, 
     }
 ```
 
+### Note on defaulting back from Partial routing to Autorouting
+
+Partial routing allows the end of any manually routed segments to remain fixed when moving the Symbol at the end of a Wire.
+However, there are some cases where the move done by the user cannot preserve the partially routed state of the Model.
+In the old Issie, whenever the Symbol moved crossed the axis of the fixed end of the manually routed segment, or whenever it crossed the axis of the other end of the wire (i.e. where the other port is).
+
+This behaviour has been simplified and improved in our implementation of the Issie DrawBlock by removing the latter case. This is because the algorithm for partial routing as it is currently implemented only relies on the fixed end of the manually routed segment, and is therefore not influenced by where the other end of the wire is.
+
+This leads to the change in restrictions for moving a component at the end of a partially routed wire illustrated bellow:
+
+* Old Issie implementation, the boundaries that the Symbol cannot cross to preserve partial routing are drawn in red:
+
+<img src="../img/old_partial_routing_restrictions.png" alt="Old partial routing restrictions" width="500"/>
+
+* New simplified implementation, the boundaries that the Symbol cannot cross to preserve partial routing are drawn in red:
+
+<img src="../img/new_partial_routing_restrictions.png" alt="New partial routing restrictions" width="500"/>
+
 <br/>
 
 ## Segment stickiness
