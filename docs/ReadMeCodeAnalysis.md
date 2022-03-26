@@ -1,6 +1,6 @@
 # Group 8 - Analysis Report
 
-This document provides a description and analysis for notable algorithms used in our improvements of the ISSIE DrawBlock.
+This document provides a description and analysis for notable algorithms used in our improvements of the ISSIE DrawBlock, as well as an analysis of some bugs found in our implementation.
 
 * [Autorouting](./ReadMeCodeAnalysis.md#autorouting)
 * [Segment stickiness](./ReadMeCodeAnalysis.md#segment-stickiness)
@@ -393,9 +393,11 @@ if (isNextSegDowntoUp = true) then
     if (NextSegDirection=Point&&(getOrientation nextSegmentSkipPoint=Horizontal)) then
         [makeLine (LineStart) SegStartY (SegEndX) SegEndY lineParameters;]
     elif(PrevSegDirection=Point&&(getOrientation prevSegmentSkipPoint=Horizontal)) then
-        [makeLine (SegStartX) SegStartY (SegEndX- nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+        [makeLine (SegStartX) SegStartY (SegEndX- nextSegCaluRadius) SegEndY lineParameters;  
+	makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
     else
-        [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
+        [makeLine (LineStart) SegStartY (SegEndX-nextSegCaluRadius) SegEndY lineParameters;  
+	makePath startingPoint startingControlPoint endingControlPoint endingPoint pathParameters]
                   
 code_block
 ```
