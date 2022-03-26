@@ -106,16 +106,10 @@ let makeMenu (topLevel: bool) (name : string) (table : MenuItemConstructorOption
 
 let displayPerformance n m = TimeHelpers.checkPerformance n m JSHelpers.startTimer JSHelpers.stopAndLogTimer
 
-
-
-
-
-
-
 let fileMenu (dispatch) =
     makeMenu false "Sheet" [
-        makeItem "New Sheet" (Some "CmdOrCtrl+N") (fun ev -> dispatch (MenuAction(MenuNewFile,dispatch)))
-        makeItem "Save Sheet" (Some "CmdOrCtrl+S") (fun ev -> dispatch (MenuAction(MenuSaveFile,dispatch)))
+        makeItem "New Sheet" (Some "CmdOrCtrl+N") (fun ev -> dispatch (MenuAction(MenuNewFile, dispatch)))
+        makeItem "Save Sheet" (Some "CmdOrCtrl+S") (fun ev -> dispatch (MenuAction(MenuSaveFile, dispatch)))
         //makeItem "Print Sheet" (Some "CmdOrCtrl+P") (fun ev -> dispatch (MenuAction(MenuPrint,dispatch)))
         makeItem "Write design as Verilog" None (fun ev -> dispatch (MenuAction(MenuVerilogOutput,dispatch)))
         makeItem "Exit Issie" None (fun ev -> dispatch (MenuAction(MenuExit,dispatch)))
@@ -140,8 +134,8 @@ let viewMenu dispatch =
         makeRoleItem "Toggle Fullscreen" (Some "F11") MenuItemRole.Togglefullscreen
         makeItem "Toggle Grid" None (fun ev -> sheetDispatch Sheet.Msg.ToggleGrid)
         menuSeparator
-        makeRoleItem "Zoom  In" (Some "CmdOrCtrl+Shift+Plus") MenuItemRole.ZoomIn
-        makeRoleItem "Zoom  Out" (Some "CmdOrCtrl+Shift+-") MenuItemRole.ZoomOut
+        makeRoleItem "Zoom In" (Some "CmdOrCtrl+Shift+Plus") MenuItemRole.ZoomIn
+        makeRoleItem "Zoom Out" (Some "CmdOrCtrl+Shift+-") MenuItemRole.ZoomOut
         makeRoleItem "Reset Zoom" (Some "CmdOrCtrl+0") MenuItemRole.ResetZoom
         menuSeparator
         makeItem "Diagram Zoom In" (Some "Shift+Plus") (fun ev -> dispatch Sheet.KeyboardMsg.ZoomIn)
@@ -177,7 +171,7 @@ let editMenu dispatch =
                makeElmItem "Cancel" "ESC" (fun () -> dispatch Sheet.KeyboardMsg.ESC)
                makeElmItem "Rotate" "CmdOrCtrl+R" (fun () -> dispatch Sheet.KeyboardMsg.CtrlR)
                makeElmItem "Flip" "CmdOrCtrl+F" (fun () -> dispatch Sheet.KeyboardMsg.CtrlF)
-               makeElmItem "Re-Autoroute" "Alt+A" (fun () -> dispatch Sheet.KeyboardMsg.AltA)
+               makeElmItem "Re-Autoroute" "CmdOrCtrl+T" (fun () -> dispatch Sheet.KeyboardMsg.CtrlT)
             |]
             |> ResizeArray
             |> U2.Case1

@@ -109,6 +109,7 @@ let rec prepareSimulationMemoized
         (loadedDependencies : LoadedComponent list)
         : Result<SimulationData, SimulationError> * CanvasState =
     let rState = extractReducedState canvasState
+
     if diagramName <> simCache.Name then
         simCache <- simCacheInit diagramName
         // recursive call having initialised the cache state on sheet change
