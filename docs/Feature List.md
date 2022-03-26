@@ -6,13 +6,7 @@
 
     Flip and Rotate functionality includes labels and symbol titles. Functionality is binded to `Ctrl + R` and `Ctrl + F`. 
 
-- Autoroute and partial autoroute - implemented between ports oriented in all directions (rotation and flip)
-
-    `Crtl + A` to re-autoroute a Wire, and/or all wires connected to a Symbol (depending on what is selected before the KeyPress)
-
-- Defaulting from partial routing to autorouting simplified and improved
-
-- Stickiness between parallel wires in a same net
+- Autoroute and partial autoroute - implemented between ports oriented in all directions (rotation and flip).
 
 - Something fully working better than current jumps
 
@@ -40,8 +34,10 @@
   - `UnSign_Extend`:
   - `Bus_Extract`:
 
-- Single wire auto rerouting
+- Defaulting from partial routing to autorouting simplified and improved.
 
-    Ability to reroute just a single selected wire by selecting a wire and pressing `Ctrl + A`
+- `Crtl + A` to re-autoroute a Wire, and/or all wires connected to a Symbol (depending on what is selected before the KeyPress).
 
-- Better removal of redundant segments - working along the whole wire, not just around the ports
+- Better removal of redundant segments - working along the whole wire, not just around the ports.
+
+- Stickiness between parallel wires in a same net.
